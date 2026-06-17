@@ -13,6 +13,8 @@ struct HomeView: View {
     @Environment(FocusSessionController.self) private var session
     @Environment(AuthorizationService.self) private var authorization
     @Environment(AnalyticsService.self) private var analytics
+    @Environment(ChallengeService.self) private var challenges
+    @Environment(AmbientSoundService.self) private var ambient
 
     @State private var streak = 0
     @State private var todayMinutes = 0
@@ -27,6 +29,8 @@ struct HomeView: View {
                     profilePicker
                     ringSection
                     statsRow
+                    challengeCard
+                    soundRow
                 }
                 .padding()
             }
@@ -145,16 +149,68 @@ struct HomeView: View {
         .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
     }
 
+    private var challengeCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("Daily Challenge", systemImage: challenges.challenge.systemImage)
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                if challenges.isComplete {
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                }
+            }
+            Text(challenges.challenge.title)
+                .font(.headline)
+            ProgressView(value: challenges.fraction)
+                .tint(tint)
+            Text("\(challenges.progress) / \(challenges.challenge.target)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    private var soundRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Focus sound")
+                .font(.subheadline.weight(.semibold))
+            HStack(spacing: 10) {
+                ForEach(AmbientSound.allCases) { sound in
+                    let active = ambient.current == sound
+                    Button {
+                        ambient.toggle(sound)
+                    } label: {
+                        VStack(spacing: 4) {
+                            Image(systemName: sound.systemImage)
+                            Text(sound.title).font(.caption2)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .foregroundStyle(active ? .white : .primary)
+                        .background(active ? tint : Color(.secondarySystemFill),
+                                    in: RoundedRectangle(cornerRadius: 10))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
     // MARK: - Actions
 
     private func prepare() async {
         await NotificationService.shared.requestAuthorization()
+        NotificationService.shared.scheduleDailyChallengeReminder()
         refreshStats()
     }
 
     private func refreshStats() {
         streak = session.currentStreak()
         todayMinutes = session.todayFocusMinutes()
+        challenges.refresh()
         analytics.updateSnapshot()
     }
 

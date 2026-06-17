@@ -42,4 +42,9 @@
         <attribute name="title" optional="YES" attributeType="String"/>
         <attribute name="weekdaysMask" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
     </entity>
+    <entity name="EarnedBadge" representedClassName="EarnedBadge" syncable="YES" codeGenerationType="class">
+        <attribute name="earnedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="key" optional="YES" attributeType="String"/>
+    </entity>
 </model>

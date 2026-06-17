@@ -23,6 +23,12 @@ struct AnalyticsView: View {
                     focusChartCard
                     distractionChartCard
                     usageCard
+                    NavigationLink { BadgesView() } label: {
+                        navRow(title: "Badges", systemImage: "rosette", tint: .yellow)
+                    }
+                    NavigationLink { LeaderboardView() } label: {
+                        navRow(title: "Accountability", systemImage: "person.2.fill", tint: .blue)
+                    }
                 }
                 .padding()
             }
@@ -99,6 +105,20 @@ struct AnalyticsView: View {
             AppUsageReportView()
                 .frame(height: 220)
         }
+    }
+
+    private func navRow(title: String, systemImage: String, tint: Color) -> some View {
+        HStack {
+            Label(title, systemImage: systemImage)
+                .foregroundStyle(.primary)
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.tertiary)
+        }
+        .padding()
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
+        .tint(tint)
     }
 
     private func card<Content: View>(title: String, subtitle: String,

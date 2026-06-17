@@ -17,6 +17,10 @@ struct ZenlyApp: App {
     @State private var session = FocusSessionController()
     @State private var suggestions = SmartSuggestionService()
     @State private var analytics = AnalyticsService()
+    @State private var achievements = AchievementService()
+    @State private var challenges = ChallengeService()
+    @State private var ambient = AmbientSoundService()
+    @State private var accountability = AccountabilityService()
 
     @Environment(\.scenePhase) private var scenePhase
 
@@ -29,6 +33,10 @@ struct ZenlyApp: App {
                 .environment(session)
                 .environment(suggestions)
                 .environment(analytics)
+                .environment(achievements)
+                .environment(challenges)
+                .environment(ambient)
+                .environment(accountability)
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { session.refresh() }

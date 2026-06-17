@@ -10,6 +10,9 @@ import SwiftUI
 
 struct SessionSummaryView: View {
     @Environment(FocusSessionController.self) private var session
+    @Environment(AchievementService.self) private var achievements
+
+    @State private var newBadges: [BadgeDefinition] = []
 
     var body: some View {
         ZStack {
@@ -19,6 +22,11 @@ struct SessionSummaryView: View {
                     ConfettiView()
                         .ignoresSafeArea()
                 }
+            }
+        }
+        .onAppear {
+            if session.summary?.wasCompleted == true {
+                newBadges = achievements.evaluate()
             }
         }
     }
@@ -46,6 +54,17 @@ struct SessionSummaryView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
                     .background(.orange.opacity(0.12), in: Capsule())
+            }
+
+            if !newBadges.isEmpty {
+                VStack(spacing: 6) {
+                    ForEach(newBadges) { badge in
+                        Label("New badge — \(badge.title)", systemImage: badge.systemImage)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color(hex: badge.accentHex))
+                    }
+                }
+                .padding(.top, 4)
             }
 
             Spacer()

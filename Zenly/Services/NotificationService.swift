@@ -16,6 +16,8 @@ final class NotificationService {
     private let focusEndID = "zenly.focus.end"
     private let breakEndID = "zenly.break.end"
     private let breakReminderID = "zenly.break.reminder"
+    private let challengeReminderID = "zenly.challenge.reminder"
+    private let challengeDoneID = "zenly.challenge.done"
 
     func requestAuthorization() async {
         _ = try? await center.requestAuthorization(options: [.alert, .sound, .badge])
@@ -53,6 +55,28 @@ final class NotificationService {
 
     func cancelDailyBreakReminder() {
         center.removePendingNotificationRequests(withIdentifiers: [breakReminderID])
+    }
+
+    /// Morning nudge that a fresh daily challenge is waiting.
+    func scheduleDailyChallengeReminder(hour: Int = 9, minute: Int = 0) {
+        let content = UNMutableNotificationContent()
+        content.title = "New daily challenge"
+        content.body = "Open Zenly to see today's focus challenge."
+        content.sound = .default
+
+        var components = DateComponents()
+        components.hour = hour
+        components.minute = minute
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
+        center.add(UNNotificationRequest(identifier: challengeReminderID, content: content, trigger: trigger))
+    }
+
+    func notifyChallengeComplete(title: String) {
+        let content = UNMutableNotificationContent()
+        content.title = "Challenge complete 🎉"
+        content.body = title
+        content.sound = .default
+        add(challengeDoneID, content, after: 1)
     }
 
     func cancelSession() {
