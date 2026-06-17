@@ -12,6 +12,7 @@ struct SettingsView: View {
     @Environment(AuthorizationService.self) private var authorization
     @Environment(CalendarService.self) private var calendar
     @Environment(TaskService.self) private var tasks
+    @Environment(MusicController.self) private var music
 
     @AppStorage("breakReminderEnabled", store: AppGroup.defaults) private var reminderEnabled = false
     @AppStorage("breakReminderHour", store: AppGroup.defaults) private var reminderHour = 15
@@ -22,6 +23,7 @@ struct SettingsView: View {
             Form {
                 permissionSection
                 integrationsSection
+                musicSection
                 breakReminderSection
                 aboutSection
             }
@@ -69,6 +71,32 @@ struct SettingsView: View {
             Text("Integrations")
         } footer: {
             Text("Calendar suggests focus during free time. Add a Zenly Focus Filter in Settings › Focus to switch profiles automatically.")
+        }
+    }
+
+    private var musicSection: some View {
+        Section {
+            Picker("Source", selection: Binding(
+                get: { music.source },
+                set: { music.source = $0 }
+            )) {
+                ForEach(MusicSource.allCases) { source in
+                    Text(source.title).tag(source)
+                }
+            }
+            if music.source == .spotify {
+                if music.spotifyConfigured {
+                    Button("Connect Spotify") { music.connectSpotify() }
+                } else {
+                    Text("Add your Spotify Client ID in SpotifyConfig.swift to enable Spotify.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        } header: {
+            Text("Music")
+        } footer: {
+            Text("Spotify requires the Spotify app and a Premium account.")
         }
     }
 

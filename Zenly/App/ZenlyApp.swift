@@ -47,6 +47,7 @@ struct ZenlyApp: App {
                 .environment(calendar)
                 .environment(taskList)
                 .environment(music)
+                .onOpenURL { url in music.handleSpotifyCallback(url) }
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
