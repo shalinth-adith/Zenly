@@ -17,8 +17,18 @@ final class PersistenceController {
 
     let container: NSPersistentCloudKitContainer
 
+    /// Load the model exactly once so repeated container inits (e.g. tests) don't
+    /// register duplicate NSEntityDescriptions for the same model.
+    private static let model: NSManagedObjectModel = {
+        guard let url = Bundle.main.url(forResource: "Zenly", withExtension: "momd"),
+              let model = NSManagedObjectModel(contentsOf: url) else {
+            return NSManagedObjectModel()
+        }
+        return model
+    }()
+
     init(inMemory: Bool = false) {
-        container = NSPersistentCloudKitContainer(name: "Zenly")
+        container = NSPersistentCloudKitContainer(name: "Zenly", managedObjectModel: Self.model)
 
         let description = container.persistentStoreDescriptions.first ?? NSPersistentStoreDescription()
         if inMemory {
