@@ -58,5 +58,6 @@ fastlane/test_output
 # Xcode automatically generated user-specific files
 *.xcuserstate
 
-# Note: Zenly.xcodeproj is committed for now. Once we convert to XcodeGen,
-# project.yml becomes the source of truth and the generated .xcodeproj will be ignored.
+# XcodeGen: project.yml is the source of truth. The .xcodeproj is generated
+# by `xcodegen generate` and must NOT be committed or hand-edited.
+Zenly.xcodeproj/
