@@ -11,7 +11,7 @@ import Foundation
 
 enum SpotifyConfig {
     /// Paste your Spotify app Client ID here.
-    static let clientID = ""
+    static let clientID = "f61575ac4b414d5eb8b683836cf23f96"
 
     /// Must match a Redirect URI registered in the Spotify dashboard.
     static let redirectURL = URL(string: "zenly://spotify-callback")!
