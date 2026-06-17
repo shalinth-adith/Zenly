@@ -1,0 +1,20 @@
+[2026-06-17 15:48:45] ALLOWED: cd "/Users/shalinthadithyan/Desktop/master/Zenly/Zenly/Assets.xcassets/AppIcon.appiconset/" && \
+sips -z 1024 1024 Zenly.png >/dev/null 2>&1 && \
+sips -z 1024 1024 Zenlu_dark.png >/dev/null 2>&1 && \
+echo "=== resized ===" && \
+for f in Zenly.png Zenlu_dark.png; do echo -n "$f: "; sips -g pixelWidth -g pixelHeight "$f" 2>/dev/null | grep -E "pixel" | tr '\n' ' '; echo; done
+[2026-06-17 15:49:17] ALLOWED: cd "/Users/shalinthadithyan/Desktop/master/Zenly/Zenly/Assets.xcassets/AppIcon.appiconset/" && \
+echo "=== files ===" && ls -1 *.png && echo "=== dimensions ===" && \
+for f in *.png; do echo -n "$f: "; sips -g pixelWidth -g pixelHeight "$f" 2>/dev/null | grep pixel | tr '\n' ' '; echo; done
+[2026-06-17 15:50:00] ALLOWED: cd "/Users/shalinthadithyan/Desktop/master/Zenly/Zenly/Assets.xcassets/AppIcon.appiconset/" && \
+rm -f "Zenly 1.png" && echo "=== remaining ===" && ls -1 *.png
+[2026-06-17 15:50:18] ALLOWED: xcodegen generate 2>&1 | tail -1 && echo "=== building (watch for actool/AppIcon) ===" && \
+xcodebuild -project Zenly.xcodeproj -scheme Zenly \
+  -destination 'generic/platform=iOS Simulator' \
+  -configuration Debug CODE_SIGNING_ALLOWED=NO build 2>&1 \
+  | grep -iE "error:|appicon|applicable content|actool|BUILD SUCCEEDED|BUILD FAILED" | grep -v "Metadata extraction" | head -20; echo "=== done ==="
+[2026-06-17 15:50:30] ALLOWED: cd /Users/shalinthadithyan/Desktop/master/Zenly && xcodegen generate 2>&1 | tail -1 && echo "=== building ===" && \
+xcodebuild -project /Users/shalinthadithyan/Desktop/master/Zenly/Zenly.xcodeproj -scheme Zenly \
+  -destination 'generic/platform=iOS Simulator' \
+  -configuration Debug CODE_SIGNING_ALLOWED=NO build 2>&1 \
+  | grep -iE "error:|applicable content|BUILD SUCCEEDED|BUILD FAILED" | grep -v "Metadata extraction" | head -20; echo "=== done ==="
