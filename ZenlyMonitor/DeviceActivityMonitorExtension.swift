@@ -9,6 +9,7 @@
 //  no access to the app's in-memory state.
 //
 
+import Foundation
 import DeviceActivity
 import ManagedSettings
 
@@ -17,6 +18,15 @@ final class DeviceActivityMonitorExtension: DeviceActivityMonitor {
 
     override func intervalDidStart(for activity: DeviceActivityName) {
         super.intervalDidStart(for: activity)
+
+        // Weekday filtering: recurring schedules monitor daily but only apply on
+        // selected weekdays (mask 0 = every day, used by one-off sessions).
+        let mask = ActivityShieldStore.weekdaysMask(for: activity.rawValue)
+        if mask != 0 {
+            let weekday = Calendar.current.component(.weekday, from: Date())
+            guard (mask & (1 << weekday)) != 0 else { return }
+        }
+
         let block = ActivityShieldStore.block(for: activity.rawValue)
         let allow = ActivityShieldStore.allow(for: activity.rawValue)
         ShieldApplier.apply(block: block, allow: allow, to: store)

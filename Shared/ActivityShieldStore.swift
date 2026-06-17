@@ -15,9 +15,13 @@ import FamilyControls
 enum ActivityShieldStore {
     private static let blockKey = "activityBlockMap"
     private static let allowKey = "activityAllowMap"
+    private static let weekdaysKey = "activityWeekdaysMap"
 
+    /// - Parameter weekdaysMask: bitmask of Calendar weekdays (1=Sun…7=Sat) the
+    ///   activity applies to. 0 means "every day" (used for one-off sessions).
     static func set(block: FamilyActivitySelection,
                     allow: FamilyActivitySelection,
+                    weekdaysMask: Int = 0,
                     for activity: String) {
         var blockMap = map(blockKey)
         var allowMap = map(allowKey)
@@ -25,6 +29,10 @@ enum ActivityShieldStore {
         allowMap[activity] = SelectionCodec.encode(allow)
         save(blockMap, blockKey)
         save(allowMap, allowKey)
+
+        var weekdaysMap = intMap(weekdaysKey)
+        weekdaysMap[activity] = weekdaysMask
+        AppGroup.defaults.set(weekdaysMap, forKey: weekdaysKey)
     }
 
     static func block(for activity: String) -> FamilyActivitySelection {
@@ -35,9 +43,20 @@ enum ActivityShieldStore {
         SelectionCodec.decode(map(allowKey)[activity])
     }
 
+    /// Weekday bitmask for the activity (0 = every day).
+    static func weekdaysMask(for activity: String) -> Int {
+        intMap(weekdaysKey)[activity] ?? 0
+    }
+
     static func remove(for activity: String) {
         var blockMap = map(blockKey); blockMap[activity] = nil; save(blockMap, blockKey)
         var allowMap = map(allowKey); allowMap[activity] = nil; save(allowMap, allowKey)
+        var weekdaysMap = intMap(weekdaysKey); weekdaysMap[activity] = nil
+        AppGroup.defaults.set(weekdaysMap, forKey: weekdaysKey)
+    }
+
+    private static func intMap(_ key: String) -> [String: Int] {
+        AppGroup.defaults.dictionary(forKey: key) as? [String: Int] ?? [:]
     }
 
     private static func map(_ key: String) -> [String: Data] {
