@@ -13,6 +13,8 @@ struct RootView: View {
         TabView {
             HomeView()
                 .tabItem { Label("Home", systemImage: "timer") }
+            AnalyticsView()
+                .tabItem { Label("Insights", systemImage: "chart.bar.fill") }
             ProfilesView()
                 .tabItem { Label("Profiles", systemImage: "person.crop.circle") }
             SchedulesView()

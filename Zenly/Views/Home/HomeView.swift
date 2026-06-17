@@ -12,6 +12,7 @@ struct HomeView: View {
     @Environment(ProfileStore.self) private var profiles
     @Environment(FocusSessionController.self) private var session
     @Environment(AuthorizationService.self) private var authorization
+    @Environment(AnalyticsService.self) private var analytics
 
     @State private var streak = 0
     @State private var todayMinutes = 0
@@ -154,6 +155,7 @@ struct HomeView: View {
     private func refreshStats() {
         streak = session.currentStreak()
         todayMinutes = session.todayFocusMinutes()
+        analytics.updateSnapshot()
     }
 
     private func startFocus() {

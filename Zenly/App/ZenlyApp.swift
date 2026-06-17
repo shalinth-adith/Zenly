@@ -16,6 +16,7 @@ struct ZenlyApp: App {
     @State private var schedules = ScheduleStore()
     @State private var session = FocusSessionController()
     @State private var suggestions = SmartSuggestionService()
+    @State private var analytics = AnalyticsService()
 
     @Environment(\.scenePhase) private var scenePhase
 
@@ -27,6 +28,7 @@ struct ZenlyApp: App {
                 .environment(schedules)
                 .environment(session)
                 .environment(suggestions)
+                .environment(analytics)
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { session.refresh() }

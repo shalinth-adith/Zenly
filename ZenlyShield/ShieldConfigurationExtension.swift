@@ -12,20 +12,24 @@ import ManagedSettingsUI
 
 final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
     override func configuration(shielding application: Application) -> ShieldConfiguration {
-        ShieldTheme.configuration(subject: application.localizedDisplayName)
+        DistractionLog.recordAttempt()
+        return ShieldTheme.configuration(subject: application.localizedDisplayName)
     }
 
     override func configuration(shielding application: Application,
                                 in category: ActivityCategory) -> ShieldConfiguration {
-        ShieldTheme.configuration(subject: application.localizedDisplayName)
+        DistractionLog.recordAttempt()
+        return ShieldTheme.configuration(subject: application.localizedDisplayName)
     }
 
     override func configuration(shielding webDomain: WebDomain) -> ShieldConfiguration {
-        ShieldTheme.configuration(subject: webDomain.domain)
+        DistractionLog.recordAttempt()
+        return ShieldTheme.configuration(subject: webDomain.domain)
     }
 
     override func configuration(shielding webDomain: WebDomain,
                                 in category: ActivityCategory) -> ShieldConfiguration {
-        ShieldTheme.configuration(subject: webDomain.domain)
+        DistractionLog.recordAttempt()
+        return ShieldTheme.configuration(subject: webDomain.domain)
     }
 }

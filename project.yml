@@ -41,6 +41,7 @@ targets:
       - target: ZenlyMonitor
       - target: ZenlyShield
       - target: ZenlyShieldAction
+      - target: ZenlyReport
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: me.adithyan.shalinth.Zenly
@@ -88,6 +89,8 @@ targets:
     platform: iOS
     sources:
       - path: ZenlyShield
+      - path: Shared/AppGroup.swift
+      - path: Shared/DistractionLog.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: me.adithyan.shalinth.Zenly.ZenlyShield
@@ -125,6 +128,32 @@ targets:
     entitlements:
       path: ZenlyShieldAction/ZenlyShieldAction.entitlements
       properties:
+        com.apple.security.application-groups:
+          - group.me.adithyan.shalinth.Zenly
+
+  # ─────────────── DeviceActivityReport extension (app usage) ───────────────
+  ZenlyReport:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: ZenlyReport
+      - path: Shared/ReportContext.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: me.adithyan.shalinth.Zenly.ZenlyReport
+        GENERATE_INFOPLIST_FILE: NO
+    info:
+      path: ZenlyReport/Info.plist
+      properties:
+        CFBundleDisplayName: ZenlyReport
+        # No NSExtensionPrincipalClass: this extension point uses the SwiftUI
+        # @main lifecycle; adding a principal class breaks on-device install.
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.deviceactivityui.report-extension
+    entitlements:
+      path: ZenlyReport/ZenlyReport.entitlements
+      properties:
+        com.apple.developer.family-controls: true
         com.apple.security.application-groups:
           - group.me.adithyan.shalinth.Zenly
 
