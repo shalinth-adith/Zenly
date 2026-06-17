@@ -36,6 +36,7 @@ targets:
     platform: iOS
     sources:
       - path: Zenly
+      - path: Shared
     dependencies:
       - target: ZenlyMonitor
       - target: ZenlyShield
@@ -62,6 +63,7 @@ targets:
     platform: iOS
     sources:
       - path: ZenlyMonitor
+      - path: Shared
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: me.adithyan.shalinth.Zenly.ZenlyMonitor

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="23605" systemVersion="25C0" minimumToolsVersion="Automatic" sourceLanguage="Swift" usedWithCloudKit="true" userDefinedModelVersionIdentifier="">
+    <entity name="FocusProfile" representedClassName="FocusProfile" syncable="YES" codeGenerationType="class">
+        <attribute name="accentHex" optional="YES" attributeType="String"/>
+        <attribute name="allowSelectionData" optional="YES" attributeType="Binary"/>
+        <attribute name="blockSelectionData" optional="YES" attributeType="Binary"/>
+        <attribute name="breakMinutes" optional="YES" attributeType="Integer 16" defaultValueString="5" usesScalarValueType="YES"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="focusMinutes" optional="YES" attributeType="Integer 16" defaultValueString="25" usesScalarValueType="YES"/>
+        <attribute name="iconName" optional="YES" attributeType="String" defaultValueString="brain.head.profile"/>
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="isStrict" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="name" optional="YES" attributeType="String"/>
+        <attribute name="sortIndex" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <relationship name="sessions" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="FocusSession" inverseName="profile" inverseEntity="FocusSession"/>
+    </entity>
+    <entity name="FocusSession" representedClassName="FocusSession" syncable="YES" codeGenerationType="class">
+        <attribute name="completedMinutes" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="endedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="endedEarly" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="kind" optional="YES" attributeType="String" defaultValueString="focus"/>
+        <attribute name="plannedMinutes" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="profileName" optional="YES" attributeType="String"/>
+        <attribute name="startedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="wasCompleted" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <relationship name="profile" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="FocusProfile" inverseName="sessions" inverseEntity="FocusProfile"/>
+    </entity>
+    <entity name="FocusSchedule" representedClassName="FocusSchedule" syncable="YES" codeGenerationType="class">
+        <attribute name="allowSelectionData" optional="YES" attributeType="Binary"/>
+        <attribute name="blockSelectionData" optional="YES" attributeType="Binary"/>
+        <attribute name="endHour" optional="YES" attributeType="Integer 16" defaultValueString="17" usesScalarValueType="YES"/>
+        <attribute name="endMinute" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="isEnabled" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
+        <attribute name="isStrict" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
+        <attribute name="profileName" optional="YES" attributeType="String"/>
+        <attribute name="startHour" optional="YES" attributeType="Integer 16" defaultValueString="9" usesScalarValueType="YES"/>
+        <attribute name="startMinute" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="title" optional="YES" attributeType="String"/>
+        <attribute name="weekdaysMask" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+    </entity>
+</model>

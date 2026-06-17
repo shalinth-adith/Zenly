@@ -15,28 +15,16 @@ import ManagedSettings
 final class BlockingService {
     private let store = ManagedSettingsStore(named: .zenly)
 
-    /// Shield everything in `block`, honoring `allow` as exceptions.
-    ///
-    /// - Apps: shield selected apps minus any explicitly allowed.
-    /// - Categories: shield selected categories, except allowed apps (so e.g.
-    ///   "block all Social but keep Maps" is expressible).
-    /// - Websites: shield selected domains.
+    /// Shield everything in `block`, honoring `allow` as exceptions, for instant
+    /// (in-app) blocking. Schedule-driven blocking applies the same shields from
+    /// the extension via the shared ShieldApplier.
     func startBlocking(_ block: FamilyActivitySelection,
                        allowing allow: FamilyActivitySelection = FamilyActivitySelection()) {
-        let allowedApps = allow.applicationTokens
-
-        let appsToShield = block.applicationTokens.subtracting(allowedApps)
-        store.shield.applications = appsToShield.isEmpty ? nil : appsToShield
-
-        store.shield.applicationCategories = block.categoryTokens.isEmpty
-            ? nil
-            : .specific(block.categoryTokens, except: allowedApps)
-
-        store.shield.webDomains = block.webDomainTokens.isEmpty ? nil : block.webDomainTokens
+        ShieldApplier.apply(block: block, allow: allow, to: store)
     }
 
     /// Remove every shield this store applied.
     func stopBlocking() {
-        store.clearAllSettings()
+        ShieldApplier.clear(store)
     }
 }

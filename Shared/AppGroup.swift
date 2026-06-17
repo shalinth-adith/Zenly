@@ -18,6 +18,13 @@ enum AppGroup {
     /// only if the suite can't be created (misconfigured entitlement) — which
     /// would itself be a loud bug to catch during on-device testing.
     static let defaults = UserDefaults(suiteName: identifier) ?? .standard
+
+    /// On-disk container shared by the app and extensions. The Core Data store
+    /// lives here so it's reachable from both processes.
+    static var containerURL: URL {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: identifier)
+            ?? URL.documentsDirectory
+    }
 }
 
 extension ManagedSettingsStore.Name {
