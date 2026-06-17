@@ -18,6 +18,7 @@ struct HomeView: View {
 
     @State private var streak = 0
     @State private var todayMinutes = 0
+    @State private var selectedMinutes = 25
 
     var body: some View {
         NavigationStack {
@@ -39,6 +40,7 @@ struct HomeView: View {
             .onChange(of: session.phase) { _, newPhase in
                 if newPhase == .idle { refreshStats() }
             }
+            .onChange(of: profiles.activeProfileID) { _, _ in syncDuration() }
             .fullScreenCover(isPresented: presentingSession) {
                 switch session.phase {
                 case .focus, .breakTime: SessionView()
@@ -101,18 +103,21 @@ struct HomeView: View {
     }
 
     private var ringSection: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 20) {
             ZStack {
                 TimerRing(progress: 0, tint: tint)
                 VStack(spacing: 4) {
-                    Text("\(Int(activeProfile?.focusMinutes ?? 25)) min")
-                        .font(.system(size: 44, weight: .bold, design: .rounded))
-                    Text(activeProfile?.name ?? "Focus")
+                    Text("\(selectedMinutes)")
+                        .font(.system(size: 56, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                    Text("minutes")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
             }
             .frame(width: 240, height: 240)
+
+            durationStepper
 
             Button(action: startFocus) {
                 Label("Start Focus", systemImage: "play.fill")
@@ -125,6 +130,32 @@ struct HomeView: View {
             .disabled(activeProfile == nil || !authorization.isAuthorized)
             .padding(.horizontal, 24)
         }
+    }
+
+    private var durationStepper: some View {
+        HStack(spacing: 24) {
+            durationButton("minus") { adjustDuration(-5) }
+            VStack(spacing: 0) {
+                Text("\(selectedMinutes) min")
+                    .font(.headline.monospacedDigit())
+                Text(activeProfile?.name ?? "Focus")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(minWidth: 90)
+            durationButton("plus") { adjustDuration(5) }
+        }
+    }
+
+    private func durationButton(_ symbol: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.headline)
+                .frame(width: 44, height: 44)
+                .background(Color(.secondarySystemFill), in: Circle())
+                .foregroundStyle(.primary)
+        }
+        .buttonStyle(.plain)
     }
 
     private var statsRow: some View {
@@ -204,7 +235,19 @@ struct HomeView: View {
     private func prepare() async {
         await NotificationService.shared.requestAuthorization()
         NotificationService.shared.scheduleDailyChallengeReminder()
+        syncDuration()
         refreshStats()
+    }
+
+    /// Reset the editable duration to the active profile's default.
+    private func syncDuration() {
+        if let profile = activeProfile {
+            selectedMinutes = Int(profile.focusMinutes)
+        }
+    }
+
+    private func adjustDuration(_ delta: Int) {
+        selectedMinutes = max(5, min(120, selectedMinutes + delta))
     }
 
     private func refreshStats() {
@@ -219,7 +262,7 @@ struct HomeView: View {
         session.startFocus(
             profileName: profile.name ?? "Focus",
             accentHex: profile.accentHex ?? "5C6BFA",
-            focusMinutes: Int(profile.focusMinutes),
+            focusMinutes: selectedMinutes,
             breakMinutes: Int(profile.breakMinutes),
             isStrict: profile.isStrict,
             blockAll: profile.blockAllApps,
