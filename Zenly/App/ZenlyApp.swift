@@ -52,6 +52,7 @@ struct ZenlyApp: App {
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .active:
+                session.restoreIfNeeded()
                 session.refresh()
                 applyFocusFilterProfile()
                 music.reconnectSpotifyIfNeeded()

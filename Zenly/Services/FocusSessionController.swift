@@ -93,6 +93,45 @@ final class FocusSessionController {
                            startsAt: focusStartedAt,
                            endsAt: focusStartedAt.addingTimeInterval(TimeInterval(focusMinutes * 60)),
                            isBreak: false)
+
+        // Persist so the session is recorded even if iOS kills the app while
+        // it's backgrounded during the session.
+        FocusSessionStore.save(PersistedFocusSession(
+            startedAt: focusStartedAt,
+            focusMinutes: focusMinutes,
+            breakMinutes: breakMinutes,
+            isStrict: isStrict,
+            profileName: profileName,
+            accentHex: accentHex
+        ))
+    }
+
+    /// On launch/foreground: if a focus session was in flight, either record it
+    /// (its planned time already elapsed) or restore the running timer.
+    func restoreIfNeeded() {
+        guard phase == .idle, let saved = FocusSessionStore.load() else { return }
+
+        profileName = saved.profileName
+        accentHex = saved.accentHex
+        plannedFocusMinutes = saved.focusMinutes
+        breakMinutes = saved.breakMinutes
+        isStrict = saved.isStrict
+        focusStartedAt = saved.startedAt
+        totalSeconds = saved.focusMinutes * 60
+        phaseStart = saved.startedAt
+        phase = .focus
+
+        let elapsed = Int(Date().timeIntervalSince(saved.startedAt))
+        if elapsed >= totalSeconds {
+            finishFocus(completed: true) // completed while away → record it
+        } else {
+            remainingSeconds = totalSeconds - elapsed
+            liveActivity.start(profileName: profileName, accentHex: accentHex,
+                               startsAt: saved.startedAt,
+                               endsAt: saved.startedAt.addingTimeInterval(TimeInterval(totalSeconds)),
+                               isBreak: false)
+            startTicker()
+        }
     }
 
     /// User ends the focus session before the timer completes.
@@ -205,5 +244,6 @@ final class FocusSessionController {
         schedule.stop(.focusSession)
         notifications.cancelSession()
         liveActivity.end()
+        FocusSessionStore.clear()
     }
 }
