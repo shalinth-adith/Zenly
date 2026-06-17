@@ -1,0 +1,62 @@
+# Claude Code local session logs/state
+.claude/logs/
+.claude/.session-start-timestamp
+
+# macOS
+.DS_Store
+*.swp
+
+# Xcode
+## Build generated
+build/
+DerivedData/
+
+## Various settings
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata/
+
+## Other
+*.moved-aside
+*.xccheckout
+*.xcscmblueprint
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+## Obj-C/Swift specific
+*.hmap
+
+## Playgrounds
+timeline.xctimeline
+playground.xcworkspace
+
+# Swift Package Manager
+.build/
+# Keep Package.resolved for reproducible deps when an SPM manifest exists
+# .swiftpm/ user data
+.swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
+.swiftpm/configuration
+
+# CocoaPods / Carthage (not used, but ignored defensively)
+Pods/
+Carthage/Build/
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# Xcode automatically generated user-specific files
+*.xcuserstate
+
+# Note: Zenly.xcodeproj is committed for now. Once we convert to XcodeGen,
+# project.yml becomes the source of truth and the generated .xcodeproj will be ignored.
