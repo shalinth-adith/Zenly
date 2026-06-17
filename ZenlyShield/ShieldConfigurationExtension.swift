@@ -2,9 +2,9 @@
 //  ShieldConfigurationExtension.swift
 //  ZenlyShield
 //
-//  Supplies the UI shown over a blocked app/website. Phase 1 stub: returns the
-//  system default shield. Phase 1 (next pass) replaces these with Zenly's calm,
-//  redirecting shield (custom title, icon, accent, "5s override" affordance).
+//  Supplies the calm custom shield shown over a blocked app/website. iOS calls
+//  the relevant overload depending on whether the block came from an app, a
+//  website, or a category. We personalize with the subject's name when available.
 //
 
 import ManagedSettings
@@ -12,20 +12,20 @@ import ManagedSettingsUI
 
 final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
     override func configuration(shielding application: Application) -> ShieldConfiguration {
-        ShieldConfiguration()
+        ShieldTheme.configuration(subject: application.localizedDisplayName)
     }
 
     override func configuration(shielding application: Application,
                                 in category: ActivityCategory) -> ShieldConfiguration {
-        ShieldConfiguration()
+        ShieldTheme.configuration(subject: application.localizedDisplayName)
     }
 
     override func configuration(shielding webDomain: WebDomain) -> ShieldConfiguration {
-        ShieldConfiguration()
+        ShieldTheme.configuration(subject: webDomain.domain)
     }
 
     override func configuration(shielding webDomain: WebDomain,
                                 in category: ActivityCategory) -> ShieldConfiguration {
-        ShieldConfiguration()
+        ShieldTheme.configuration(subject: webDomain.domain)
     }
 }

@@ -2,8 +2,9 @@
 //  BlockingViewModel.swift
 //  Zenly
 //
-//  Phase 1 plumbing view model: owns the current selection, authorization, and
-//  the manual block toggle. Schedules / Pomodoro / profiles arrive in Phase 2.
+//  Phase 1 view model: owns the block + allow selections, authorization, strict
+//  mode, and the manual block toggle. Schedules / Pomodoro / profiles arrive in
+//  Phase 2. The view talks only to this; it never touches ManagedSettings.
 //
 
 import Foundation
@@ -13,45 +14,59 @@ import Observation
 @Observable
 @MainActor
 final class BlockingViewModel {
-    var selection: FamilyActivitySelection
+    var blockSelection: FamilyActivitySelection
+    var allowSelection: FamilyActivitySelection
+    var isStrictMode: Bool {
+        didSet { FocusSettings.isStrictMode = isStrictMode }
+    }
+
     var isBlocking: Bool = false
-    var isPickerPresented: Bool = false
+    var isBlockPickerPresented: Bool = false
+    var isAllowPickerPresented: Bool = false
 
     let authorization: AuthorizationService
     private let blocking = BlockingService()
 
     init(authorization: AuthorizationService) {
         self.authorization = authorization
-        self.selection = SelectionStore.load()
+        self.blockSelection = SelectionStore.load(.block)
+        self.allowSelection = SelectionStore.load(.allow)
+        self.isStrictMode = FocusSettings.isStrictMode
     }
 
-    /// Total number of selected apps + categories + website domains.
-    var selectionCount: Int {
-        selection.applicationTokens.count
-            + selection.categoryTokens.count
-            + selection.webDomainTokens.count
+    /// Number of apps + categories + website domains in the blocklist.
+    var blockCount: Int {
+        blockSelection.applicationTokens.count
+            + blockSelection.categoryTokens.count
+            + blockSelection.webDomainTokens.count
+    }
+
+    /// Number of always-allowed apps.
+    var allowCount: Int {
+        allowSelection.applicationTokens.count
     }
 
     var canBlock: Bool {
-        authorization.isAuthorized && selectionCount > 0
+        authorization.isAuthorized && blockCount > 0
     }
 
     func requestAuthorization() async {
         await authorization.requestAuthorization()
     }
 
-    func persistSelection() {
-        SelectionStore.save(selection)
+    func persist() {
+        SelectionStore.save(blockSelection, for: .block)
+        SelectionStore.save(allowSelection, for: .allow)
     }
 
-    func toggleBlocking() {
-        if isBlocking {
-            blocking.stopBlocking()
-            isBlocking = false
-        } else {
-            persistSelection()
-            blocking.startBlocking(selection)
-            isBlocking = true
-        }
+    func start() {
+        persist()
+        blocking.startBlocking(blockSelection, allowing: allowSelection)
+        isBlocking = true
+    }
+
+    func stop() {
+        blocking.stopBlocking()
+        isBlocking = false
     }
 }

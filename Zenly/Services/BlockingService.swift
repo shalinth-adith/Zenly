@@ -4,7 +4,7 @@
 //
 //  Applies and clears app/category/website shields via the named
 //  ManagedSettingsStore. Setting a shield is effectively instant: the next time
-//  the user launches a shielded app, iOS shows the shield instead.
+//  the user launches a shielded app, iOS shows Zenly's shield instead.
 //
 
 import Foundation
@@ -15,17 +15,24 @@ import ManagedSettings
 final class BlockingService {
     private let store = ManagedSettingsStore(named: .zenly)
 
-    /// Shield everything in the given selection. Empty facets are set to `nil`
-    /// so we never apply an empty (but non-nil) shield set.
-    func startBlocking(_ selection: FamilyActivitySelection) {
-        store.shield.applications =
-            selection.applicationTokens.isEmpty ? nil : selection.applicationTokens
+    /// Shield everything in `block`, honoring `allow` as exceptions.
+    ///
+    /// - Apps: shield selected apps minus any explicitly allowed.
+    /// - Categories: shield selected categories, except allowed apps (so e.g.
+    ///   "block all Social but keep Maps" is expressible).
+    /// - Websites: shield selected domains.
+    func startBlocking(_ block: FamilyActivitySelection,
+                       allowing allow: FamilyActivitySelection = FamilyActivitySelection()) {
+        let allowedApps = allow.applicationTokens
 
-        store.shield.applicationCategories =
-            selection.categoryTokens.isEmpty ? nil : .specific(selection.categoryTokens)
+        let appsToShield = block.applicationTokens.subtracting(allowedApps)
+        store.shield.applications = appsToShield.isEmpty ? nil : appsToShield
 
-        store.shield.webDomains =
-            selection.webDomainTokens.isEmpty ? nil : selection.webDomainTokens
+        store.shield.applicationCategories = block.categoryTokens.isEmpty
+            ? nil
+            : .specific(block.categoryTokens, except: allowedApps)
+
+        store.shield.webDomains = block.webDomainTokens.isEmpty ? nil : block.webDomainTokens
     }
 
     /// Remove every shield this store applied.
