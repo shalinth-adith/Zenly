@@ -26,6 +26,15 @@ struct TodaysChallengeIntent: AppIntent {
 struct ZenlyShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
         AppShortcut(
+            intent: StartFocusIntent(),
+            phrases: [
+                "Start a focus session in \(.applicationName)",
+                "Start \(.applicationName) focus"
+            ],
+            shortTitle: "Start Focus",
+            systemImageName: "timer"
+        )
+        AppShortcut(
             intent: TodaysChallengeIntent(),
             phrases: [
                 "Check my \(.applicationName) challenge",

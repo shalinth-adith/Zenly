@@ -14,6 +14,7 @@ struct SettingsView: View {
     @Environment(TaskService.self) private var tasks
     @Environment(MusicController.self) private var music
 
+    @AppStorage("dailyGoalMinutes", store: AppGroup.defaults) private var dailyGoalMinutes = 120
     @AppStorage("breakReminderEnabled", store: AppGroup.defaults) private var reminderEnabled = false
     @AppStorage("breakReminderHour", store: AppGroup.defaults) private var reminderHour = 15
     @AppStorage("breakReminderMinute", store: AppGroup.defaults) private var reminderMinute = 0
@@ -22,6 +23,7 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 permissionSection
+                goalSection
                 integrationsSection
                 musicSection
                 breakReminderSection
@@ -45,6 +47,18 @@ struct SettingsView: View {
                     Task { await authorization.requestAuthorization() }
                 }
             }
+        }
+    }
+
+    private var goalSection: some View {
+        Section {
+            Stepper(value: $dailyGoalMinutes, in: 30...480, step: 30) {
+                LabeledContent("Daily focus goal", value: "\(dailyGoalMinutes) min")
+            }
+        } header: {
+            Text("Goal")
+        } footer: {
+            Text("Your target focused minutes per day, shown on Home.")
         }
     }
 

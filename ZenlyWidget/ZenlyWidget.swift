@@ -133,5 +133,8 @@ struct ZenlyWidgetBundle: WidgetBundle {
     var body: some Widget {
         ZenlyWidget()
         FocusLiveActivity()
+        if #available(iOS 18.0, *) {
+            StartFocusControl()
+        }
     }
 }

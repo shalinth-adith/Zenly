@@ -18,6 +18,8 @@ struct HomeView: View {
     @Environment(CalendarService.self) private var calendar
     @Environment(MusicController.self) private var music
 
+    @AppStorage("dailyGoalMinutes", store: AppGroup.defaults) private var dailyGoalMinutes = 120
+
     @State private var streak = 0
     @State private var todayMinutes = 0
     @State private var selectedMinutes = 25
@@ -34,6 +36,7 @@ struct HomeView: View {
                     profilePicker
                     ringSection
                     statsRow
+                    goalCard
                     challengeCard
                     if freeBlock != nil { calendarCard }
                     soundRow
@@ -189,6 +192,29 @@ struct HomeView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 16)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    private var goalCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Label("Daily Goal", systemImage: "target")
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                Text("\(todayMinutes) / \(dailyGoalMinutes) min")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            ProgressView(value: min(1, Double(todayMinutes) / Double(max(1, dailyGoalMinutes))))
+                .tint(tint)
+            if todayMinutes >= dailyGoalMinutes {
+                Label("Goal reached — nice work!", systemImage: "checkmark.circle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.green)
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
     }
 

@@ -55,12 +55,31 @@ struct ZenlyApp: App {
                 session.refresh()
                 applyFocusFilterProfile()
                 music.reconnectSpotifyIfNeeded()
+                startPendingFocusIfNeeded()
             case .background:
                 BackgroundRefresh.schedule()
             default:
                 break
             }
         }
+    }
+
+    /// Start a session requested from outside the app (App Intent / Control
+    /// Center / Siri), using the active profile.
+    private func startPendingFocusIfNeeded() {
+        guard FocusLaunchRequest.consume(),
+              session.phase == .idle,
+              let profile = profiles.activeProfile else { return }
+        session.startFocus(
+            profileName: profile.name ?? "Focus",
+            accentHex: profile.accentHex ?? "5C6BFA",
+            focusMinutes: Int(profile.focusMinutes),
+            breakMinutes: Int(profile.breakMinutes),
+            isStrict: profile.isStrict,
+            blockAll: profile.blockAllApps,
+            block: profiles.block(for: profile),
+            allow: profiles.allow(for: profile)
+        )
     }
 
     /// Switch to the profile chosen by an active iOS Focus filter, if any.
