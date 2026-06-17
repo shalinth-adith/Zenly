@@ -42,6 +42,7 @@ targets:
       - target: ZenlyShield
       - target: ZenlyShieldAction
       - target: ZenlyReport
+      - target: ZenlyWidget
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: me.adithyan.shalinth.Zenly
@@ -154,6 +155,30 @@ targets:
       path: ZenlyReport/ZenlyReport.entitlements
       properties:
         com.apple.developer.family-controls: true
+        com.apple.security.application-groups:
+          - group.me.adithyan.shalinth.Zenly
+
+  # ───────────────────────── WidgetKit widget ─────────────────────────
+  ZenlyWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: ZenlyWidget
+      - path: Shared/AppGroup.swift
+      - path: Shared/StatsSnapshot.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: me.adithyan.shalinth.Zenly.ZenlyWidget
+        GENERATE_INFOPLIST_FILE: NO
+    info:
+      path: ZenlyWidget/Info.plist
+      properties:
+        CFBundleDisplayName: Zenly
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: ZenlyWidget/ZenlyWidget.entitlements
+      properties:
         com.apple.security.application-groups:
           - group.me.adithyan.shalinth.Zenly
 
