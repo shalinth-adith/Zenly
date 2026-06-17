@@ -43,6 +43,8 @@
 	<string>Zenly reads your calendar to auto-start focus sessions during free time.</string>
 	<key>NSRemindersFullAccessUsageDescription</key>
 	<string>Zenly syncs your focus tasks with Reminders.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

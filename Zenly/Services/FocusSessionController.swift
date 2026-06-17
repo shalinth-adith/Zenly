@@ -38,6 +38,7 @@ final class FocusSessionController {
     private let blocking = BlockingService()
     private let schedule = ScheduleCenter.shared
     private let notifications = NotificationService.shared
+    private let liveActivity = LiveActivityManager()
     private let history: SessionHistory
 
     init(history: SessionHistory? = nil) {
@@ -88,6 +89,10 @@ final class FocusSessionController {
                              blockAll: blockAll, durationMinutes: focusMinutes)
         notifications.scheduleFocusEnd(after: TimeInterval(focusMinutes * 60),
                                        profileName: profileName)
+        liveActivity.start(profileName: profileName, accentHex: accentHex,
+                           startsAt: focusStartedAt,
+                           endsAt: focusStartedAt.addingTimeInterval(TimeInterval(focusMinutes * 60)),
+                           isBreak: false)
     }
 
     /// User ends the focus session before the timer completes.
@@ -104,8 +109,13 @@ final class FocusSessionController {
     func startBreak() {
         guard breakMinutes > 0 else { dismissSummary(); return }
         summary = nil
+        let start = Date()
         beginPhase(.breakTime, minutes: breakMinutes)
         notifications.scheduleBreakEnd(after: TimeInterval(breakMinutes * 60))
+        liveActivity.start(profileName: profileName, accentHex: accentHex,
+                           startsAt: start,
+                           endsAt: start.addingTimeInterval(TimeInterval(breakMinutes * 60)),
+                           isBreak: true)
     }
 
     func dismissSummary() {
@@ -184,6 +194,7 @@ final class FocusSessionController {
 
     private func finishBreak() {
         notifications.cancelSession()
+        liveActivity.end()
         Haptics.light()
         summary = nil
         phase = .idle
@@ -193,5 +204,6 @@ final class FocusSessionController {
         blocking.stopBlocking()
         schedule.stop(.focusSession)
         notifications.cancelSession()
+        liveActivity.end()
     }
 }

@@ -62,6 +62,7 @@ targets:
         # so declare no non-exempt encryption — stops the per-build export
         # compliance prompt in App Store Connect.
         ITSAppUsesNonExemptEncryption: false
+        NSSupportsLiveActivities: true
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
         UIApplicationSupportsIndirectInputEvents: true
@@ -199,6 +200,8 @@ targets:
       - path: ZenlyWidget
       - path: Shared/AppGroup.swift
       - path: Shared/StatsSnapshot.swift
+      - path: Shared/FocusActivityAttributes.swift
+      - path: Shared/Color+Hex.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: me.adithyan.shalinth.Zenly.ZenlyWidget

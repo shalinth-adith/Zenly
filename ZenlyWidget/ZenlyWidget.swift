@@ -132,5 +132,6 @@ struct ZenlyWidget: Widget {
 struct ZenlyWidgetBundle: WidgetBundle {
     var body: some Widget {
         ZenlyWidget()
+        FocusLiveActivity()
     }
 }
