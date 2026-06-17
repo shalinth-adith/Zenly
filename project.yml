@@ -58,6 +58,10 @@ targets:
       path: Zenly/Info.plist
       properties:
         UILaunchScreen: {}
+        # Zenly uses only exempt encryption (HTTPS + Apple standard frameworks),
+        # so declare no non-exempt encryption — stops the per-build export
+        # compliance prompt in App Store Connect.
+        ITSAppUsesNonExemptEncryption: false
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
         UIApplicationSupportsIndirectInputEvents: true
