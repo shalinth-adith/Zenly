@@ -89,6 +89,13 @@ final class MusicController {
         spotify.handleURL(url)
     }
 
+    /// Re-establish the Spotify connection on foreground (App Remote drops it
+    /// when backgrounded).
+    func reconnectSpotifyIfNeeded() {
+        guard source == .spotify else { return }
+        spotify.reconnect()
+    }
+
     func updateState() {
         guard source == .appleMusic else { return } // Spotify state arrives via callback
         isPlaying = appleMusicPlayer.playbackState == .playing

@@ -54,6 +54,7 @@ struct ZenlyApp: App {
             case .active:
                 session.refresh()
                 applyFocusFilterProfile()
+                music.reconnectSpotifyIfNeeded()
             case .background:
                 BackgroundRefresh.schedule()
             default:

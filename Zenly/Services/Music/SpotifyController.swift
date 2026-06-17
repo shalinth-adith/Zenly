@@ -25,6 +25,8 @@ final class SpotifyController: NSObject {
         return remote
     }()
 
+    private var accessToken: String?
+
     /// Opens Spotify to authorize, then connects (callback arrives via handleURL).
     func authorizeAndConnect() {
         guard SpotifyConfig.isConfigured else { return }
@@ -35,13 +37,29 @@ final class SpotifyController: NSObject {
     func handleURL(_ url: URL) {
         guard let params = appRemote.authorizationParameters(from: url) else { return }
         if let token = params[SPTAppRemoteAccessTokenKey] {
+            accessToken = token
             appRemote.connectionParameters.accessToken = token
             appRemote.connect()
+        } else if let error = params[SPTAppRemoteErrorDescriptionKey] {
+            print("[Zenly] Spotify auth error: \(error)")
         }
     }
 
+    /// Re-establish the connection on foreground without re-authorizing. The
+    /// App Remote disconnects whenever Zenly is backgrounded (e.g. during the
+    /// auth round-trip), so we must reconnect when we come back.
+    func reconnect() {
+        guard accessToken != nil, !appRemote.isConnected else { return }
+        appRemote.connect()
+    }
+
     func playPause(isPlaying: Bool) {
-        guard appRemote.isConnected else { authorizeAndConnect(); return }
+        guard appRemote.isConnected else {
+            // Reconnect with the existing token if we have one; only re-authorize
+            // as a last resort (re-authorizing re-opens the Spotify app).
+            if accessToken != nil { appRemote.connect() } else { authorizeAndConnect() }
+            return
+        }
         if isPlaying {
             appRemote.playerAPI?.pause(nil)
         } else {
@@ -61,6 +79,12 @@ extension SpotifyController: SPTAppRemoteDelegate {
     func appRemoteDidEstablishConnection(_ appRemote: SPTAppRemote) {
         appRemote.playerAPI?.delegate = self
         appRemote.playerAPI?.subscribe(toPlayerState: nil)
+        // Pull the current state immediately so the UI isn't blank until the
+        // first change event.
+        appRemote.playerAPI?.getPlayerState { [weak self] result, _ in
+            guard let state = result as? SPTAppRemotePlayerState else { return }
+            self?.emit { self?.onState?(!state.isPaused, state.track.name) }
+        }
     }
 
     func appRemote(_ appRemote: SPTAppRemote, didFailConnectionAttemptWithError error: Error?) {
