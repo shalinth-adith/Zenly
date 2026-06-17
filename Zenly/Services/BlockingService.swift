@@ -19,8 +19,9 @@ final class BlockingService {
     /// (in-app) blocking. Schedule-driven blocking applies the same shields from
     /// the extension via the shared ShieldApplier.
     func startBlocking(_ block: FamilyActivitySelection,
-                       allowing allow: FamilyActivitySelection = FamilyActivitySelection()) {
-        ShieldApplier.apply(block: block, allow: allow, to: store)
+                       allowing allow: FamilyActivitySelection = FamilyActivitySelection(),
+                       blockAll: Bool = false) {
+        ShieldApplier.apply(block: block, allow: allow, blockAll: blockAll, to: store)
     }
 
     /// Remove every shield this store applied.

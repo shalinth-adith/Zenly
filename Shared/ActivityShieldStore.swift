@@ -16,11 +16,15 @@ enum ActivityShieldStore {
     private static let blockKey = "activityBlockMap"
     private static let allowKey = "activityAllowMap"
     private static let weekdaysKey = "activityWeekdaysMap"
+    private static let blockAllKey = "activityBlockAllMap"
 
-    /// - Parameter weekdaysMask: bitmask of Calendar weekdays (1=Sun…7=Sat) the
-    ///   activity applies to. 0 means "every day" (used for one-off sessions).
+    /// - Parameters:
+    ///   - weekdaysMask: bitmask of Calendar weekdays (1=Sun…7=Sat) the activity
+    ///     applies to. 0 means "every day" (used for one-off sessions).
+    ///   - blockAll: when true, shield everything except the allowlist.
     static func set(block: FamilyActivitySelection,
                     allow: FamilyActivitySelection,
+                    blockAll: Bool,
                     weekdaysMask: Int = 0,
                     for activity: String) {
         var blockMap = map(blockKey)
@@ -33,6 +37,14 @@ enum ActivityShieldStore {
         var weekdaysMap = intMap(weekdaysKey)
         weekdaysMap[activity] = weekdaysMask
         AppGroup.defaults.set(weekdaysMap, forKey: weekdaysKey)
+
+        var blockAllMap = boolMap(blockAllKey)
+        blockAllMap[activity] = blockAll
+        AppGroup.defaults.set(blockAllMap, forKey: blockAllKey)
+    }
+
+    static func blockAll(for activity: String) -> Bool {
+        boolMap(blockAllKey)[activity] ?? false
     }
 
     static func block(for activity: String) -> FamilyActivitySelection {
@@ -53,10 +65,16 @@ enum ActivityShieldStore {
         var allowMap = map(allowKey); allowMap[activity] = nil; save(allowMap, allowKey)
         var weekdaysMap = intMap(weekdaysKey); weekdaysMap[activity] = nil
         AppGroup.defaults.set(weekdaysMap, forKey: weekdaysKey)
+        var blockAllMap = boolMap(blockAllKey); blockAllMap[activity] = nil
+        AppGroup.defaults.set(blockAllMap, forKey: blockAllKey)
     }
 
     private static func intMap(_ key: String) -> [String: Int] {
         AppGroup.defaults.dictionary(forKey: key) as? [String: Int] ?? [:]
+    }
+
+    private static func boolMap(_ key: String) -> [String: Bool] {
+        AppGroup.defaults.dictionary(forKey: key) as? [String: Bool] ?? [:]
     }
 
     private static func map(_ key: String) -> [String: Data] {

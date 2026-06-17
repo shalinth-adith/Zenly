@@ -21,6 +21,7 @@ struct ScheduleDraft {
     var endMinute = 0
     var weekdays: Set<Int> = [2, 3, 4, 5, 6] // Mon–Fri (1=Sun…7=Sat)
     var isStrict = false
+    var blockAllApps = true
     var block = FamilyActivitySelection()
     var allow = FamilyActivitySelection()
 }
@@ -54,6 +55,7 @@ final class ScheduleStore {
             endMinute: Int(schedule.endMinute),
             weekdays: Self.weekdays(from: schedule.weekdaysMask),
             isStrict: schedule.isStrict,
+            blockAllApps: schedule.blockAllApps,
             block: SelectionCodec.decode(schedule.blockSelectionData),
             allow: SelectionCodec.decode(schedule.allowSelectionData)
         )
@@ -124,6 +126,7 @@ final class ScheduleStore {
         schedule.endMinute = Int16(draft.endMinute)
         schedule.weekdaysMask = Self.mask(from: draft.weekdays)
         schedule.isStrict = draft.isStrict
+        schedule.blockAllApps = draft.blockAllApps
         schedule.blockSelectionData = SelectionCodec.encode(draft.block)
         schedule.allowSelectionData = SelectionCodec.encode(draft.allow)
     }
@@ -144,6 +147,7 @@ final class ScheduleStore {
             activity: activityName(schedule),
             block: SelectionCodec.decode(schedule.blockSelectionData),
             allow: SelectionCodec.decode(schedule.allowSelectionData),
+            blockAll: schedule.blockAllApps,
             start: start,
             end: end,
             weekdaysMask: Int(schedule.weekdaysMask)

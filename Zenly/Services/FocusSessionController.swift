@@ -71,6 +71,7 @@ final class FocusSessionController {
                     focusMinutes: Int,
                     breakMinutes: Int,
                     isStrict: Bool,
+                    blockAll: Bool,
                     block: FamilyActivitySelection,
                     allow: FamilyActivitySelection) {
         self.profileName = profileName
@@ -82,9 +83,9 @@ final class FocusSessionController {
 
         beginPhase(.focus, minutes: focusMinutes)
 
-        blocking.startBlocking(block, allowing: allow)
+        blocking.startBlocking(block, allowing: allow, blockAll: blockAll)
         schedule.startOneOff(activity: .focusSession, block: block, allow: allow,
-                             durationMinutes: focusMinutes)
+                             blockAll: blockAll, durationMinutes: focusMinutes)
         notifications.scheduleFocusEnd(after: TimeInterval(focusMinutes * 60),
                                        profileName: profileName)
     }

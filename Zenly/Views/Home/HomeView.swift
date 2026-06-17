@@ -166,6 +166,7 @@ struct HomeView: View {
             focusMinutes: Int(profile.focusMinutes),
             breakMinutes: Int(profile.breakMinutes),
             isStrict: profile.isStrict,
+            blockAll: profile.blockAllApps,
             block: profiles.block(for: profile),
             allow: profiles.allow(for: profile)
         )

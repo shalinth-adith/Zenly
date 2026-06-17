@@ -12,10 +12,22 @@ import FamilyControls
 import ManagedSettings
 
 enum ShieldApplier {
+    /// - Parameter blockAll: when true, shield *every* (non-system) app and all
+    ///   websites except the allowlist — "block everything" focus mode. The
+    ///   controlling app (Zenly) and system apps are auto-exempt by the OS.
     static func apply(block: FamilyActivitySelection,
                       allow: FamilyActivitySelection,
+                      blockAll: Bool,
                       to store: ManagedSettingsStore) {
         let allowed = allow.applicationTokens
+
+        if blockAll {
+            store.shield.applications = nil
+            store.shield.applicationCategories = .all(except: allowed)
+            store.shield.webDomains = nil
+            store.shield.webDomainCategories = .all()
+            return
+        }
 
         let apps = block.applicationTokens.subtracting(allowed)
         store.shield.applications = apps.isEmpty ? nil : apps
@@ -25,6 +37,7 @@ enum ShieldApplier {
             : .specific(block.categoryTokens, except: allowed)
 
         store.shield.webDomains = block.webDomainTokens.isEmpty ? nil : block.webDomainTokens
+        store.shield.webDomainCategories = nil
     }
 
     static func clear(_ store: ManagedSettingsStore) {

@@ -29,9 +29,10 @@ final class ScheduleCenter {
     func startOneOff(activity: DeviceActivityName,
                      block: FamilyActivitySelection,
                      allow: FamilyActivitySelection,
+                     blockAll: Bool,
                      durationMinutes: Int) {
         guard durationMinutes >= 15 else { return }
-        ActivityShieldStore.set(block: block, allow: allow, for: activity.rawValue)
+        ActivityShieldStore.set(block: block, allow: allow, blockAll: blockAll, for: activity.rawValue)
 
         let calendar = Calendar.current
         let now = Date()
@@ -49,10 +50,11 @@ final class ScheduleCenter {
     func startRecurring(activity: DeviceActivityName,
                         block: FamilyActivitySelection,
                         allow: FamilyActivitySelection,
+                        blockAll: Bool,
                         start: DateComponents,
                         end: DateComponents,
                         weekdaysMask: Int) {
-        ActivityShieldStore.set(block: block, allow: allow,
+        ActivityShieldStore.set(block: block, allow: allow, blockAll: blockAll,
                                 weekdaysMask: weekdaysMask, for: activity.rawValue)
         let schedule = DeviceActivitySchedule(intervalStart: start, intervalEnd: end, repeats: true)
         try? center.startMonitoring(activity, during: schedule)

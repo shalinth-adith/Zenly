@@ -29,6 +29,9 @@ final class PersistenceController {
 
         // CloudKit-ready but local: no cloudKitContainerOptions => no sync yet.
         description.cloudKitContainerOptions = nil
+        // Lightweight migration for additive model changes (e.g. blockAllApps).
+        description.shouldMigrateStoreAutomatically = true
+        description.shouldInferMappingModelAutomatically = true
         // Keep history so a future CloudKit mirror (Phase 4) can replay changes.
         description.setOption(true as NSNumber, forKey: NSPersistentHistoryTrackingKey)
         description.setOption(true as NSNumber,

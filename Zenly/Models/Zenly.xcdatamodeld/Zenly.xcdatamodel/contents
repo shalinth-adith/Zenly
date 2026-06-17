@@ -3,6 +3,7 @@
     <entity name="FocusProfile" representedClassName="FocusProfile" syncable="YES" codeGenerationType="class">
         <attribute name="accentHex" optional="YES" attributeType="String"/>
         <attribute name="allowSelectionData" optional="YES" attributeType="Binary"/>
+        <attribute name="blockAllApps" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
         <attribute name="blockSelectionData" optional="YES" attributeType="Binary"/>
         <attribute name="breakMinutes" optional="YES" attributeType="Integer 16" defaultValueString="5" usesScalarValueType="YES"/>
         <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
@@ -28,6 +29,7 @@
     </entity>
     <entity name="FocusSchedule" representedClassName="FocusSchedule" syncable="YES" codeGenerationType="class">
         <attribute name="allowSelectionData" optional="YES" attributeType="Binary"/>
+        <attribute name="blockAllApps" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
         <attribute name="blockSelectionData" optional="YES" attributeType="Binary"/>
         <attribute name="endHour" optional="YES" attributeType="Integer 16" defaultValueString="17" usesScalarValueType="YES"/>
         <attribute name="endMinute" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>

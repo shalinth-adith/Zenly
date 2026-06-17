@@ -58,15 +58,26 @@ struct ScheduleEditView: View {
                     .padding(.vertical, 4)
                 }
 
-                Section("Blocking") {
-                    Button { showBlockPicker = true } label: {
-                        LabeledContent("Blocked apps & sites") { Text(countText(blockCount)) }
+                Section {
+                    Toggle(isOn: $draft.blockAllApps) {
+                        Label("Block all apps", systemImage: "nosign")
+                    }
+                    if !draft.blockAllApps {
+                        Button { showBlockPicker = true } label: {
+                            LabeledContent("Blocked apps & sites") { Text(countText(blockCount)) }
+                        }
                     }
                     Button { showAllowPicker = true } label: {
-                        LabeledContent("Always allowed") {
+                        LabeledContent(draft.blockAllApps ? "Allowed apps" : "Always allowed") {
                             Text(countText(draft.allow.applicationTokens.count))
                         }
                     }
+                } header: {
+                    Text("Blocking")
+                } footer: {
+                    Text(draft.blockAllApps
+                         ? "Blocks every app and website during this schedule, except the allowed apps."
+                         : "Blocks only the apps, categories, and sites you choose.")
                 }
 
                 Section {

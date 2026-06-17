@@ -21,6 +21,7 @@ struct ProfileDraft {
     var focusMinutes: Int = 25
     var breakMinutes: Int = 5
     var isStrict: Bool = false
+    var blockAllApps: Bool = true
     var block = FamilyActivitySelection()
     var allow = FamilyActivitySelection()
 }
@@ -77,6 +78,7 @@ final class ProfileStore {
             focusMinutes: Int(profile.focusMinutes),
             breakMinutes: Int(profile.breakMinutes),
             isStrict: profile.isStrict,
+            blockAllApps: profile.blockAllApps,
             block: SelectionCodec.decode(profile.blockSelectionData),
             allow: SelectionCodec.decode(profile.allowSelectionData)
         )
@@ -117,6 +119,7 @@ final class ProfileStore {
         profile.focusMinutes = Int16(draft.focusMinutes)
         profile.breakMinutes = Int16(draft.breakMinutes)
         profile.isStrict = draft.isStrict
+        profile.blockAllApps = draft.blockAllApps
         profile.blockSelectionData = SelectionCodec.encode(draft.block)
         profile.allowSelectionData = SelectionCodec.encode(draft.allow)
     }

@@ -100,21 +100,32 @@ struct ProfileEditView: View {
     }
 
     private var blockingSection: some View {
-        Section("Blocking") {
-            Button {
-                showBlockPicker = true
-            } label: {
-                LabeledContent("Blocked apps & sites") {
-                    Text(countText(blockCount))
+        Section {
+            Toggle(isOn: $draft.blockAllApps) {
+                Label("Block all apps", systemImage: "nosign")
+            }
+            if !draft.blockAllApps {
+                Button {
+                    showBlockPicker = true
+                } label: {
+                    LabeledContent("Blocked apps & sites") {
+                        Text(countText(blockCount))
+                    }
                 }
             }
             Button {
                 showAllowPicker = true
             } label: {
-                LabeledContent("Always allowed") {
+                LabeledContent(draft.blockAllApps ? "Allowed apps" : "Always allowed") {
                     Text(countText(draft.allow.applicationTokens.count))
                 }
             }
+        } header: {
+            Text("Blocking")
+        } footer: {
+            Text(draft.blockAllApps
+                 ? "Blocks every app and website during focus, except the allowed apps. Phone and system apps stay available."
+                 : "Blocks only the apps, categories, and sites you choose.")
         }
     }
 
