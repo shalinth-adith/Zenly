@@ -33,7 +33,7 @@ struct ZenlyApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView()
+            RootContainerView()
                 .environment(authorization)
                 .environment(profiles)
                 .environment(schedules)
