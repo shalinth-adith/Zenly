@@ -153,7 +153,7 @@ targets:
       properties:
         CFBundleDisplayName: ZenlyShieldAction
         NSExtension:
-          NSExtensionPointIdentifier: com.apple.ManagedSettingsUI.shield-action-service
+          NSExtensionPointIdentifier: com.apple.ManagedSettings.shield-action-service
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShieldActionExtension
     entitlements:
       path: ZenlyShieldAction/ZenlyShieldAction.entitlements
@@ -163,7 +163,7 @@ targets:
 
   # ─────────────── DeviceActivityReport extension (app usage) ───────────────
   ZenlyReport:
-    type: app-extension
+    type: extensionkit-extension
     platform: iOS
     sources:
       - path: ZenlyReport
@@ -176,10 +176,10 @@ targets:
       path: ZenlyReport/Info.plist
       properties:
         CFBundleDisplayName: ZenlyReport
-        # No NSExtensionPrincipalClass: this extension point uses the SwiftUI
-        # @main lifecycle; adding a principal class breaks on-device install.
-        NSExtension:
-          NSExtensionPointIdentifier: com.apple.deviceactivityui.report-extension
+        # DeviceActivityReport is an ExtensionKit extension (must live in
+        # Extensions/, not PlugIns/, with EXAppExtensionAttributes).
+        EXAppExtensionAttributes:
+          EXExtensionPointIdentifier: com.apple.deviceactivityui.report-extension
     entitlements:
       path: ZenlyReport/ZenlyReport.entitlements
       properties:
