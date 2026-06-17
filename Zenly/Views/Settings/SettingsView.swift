@@ -10,6 +10,8 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(AuthorizationService.self) private var authorization
+    @Environment(CalendarService.self) private var calendar
+    @Environment(TaskService.self) private var tasks
 
     @AppStorage("breakReminderEnabled", store: AppGroup.defaults) private var reminderEnabled = false
     @AppStorage("breakReminderHour", store: AppGroup.defaults) private var reminderHour = 15
@@ -19,6 +21,7 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 permissionSection
+                integrationsSection
                 breakReminderSection
                 aboutSection
             }
@@ -40,6 +43,32 @@ struct SettingsView: View {
                     Task { await authorization.requestAuthorization() }
                 }
             }
+        }
+    }
+
+    private var integrationsSection: some View {
+        Section {
+            if calendar.isAuthorized {
+                Label("Calendar connected", systemImage: "checkmark.seal.fill")
+                    .foregroundStyle(.green)
+            } else {
+                Button("Connect Calendar") {
+                    Task { await calendar.requestAccess() }
+                }
+            }
+
+            if tasks.remindersAuthorized {
+                Label("Reminders connected", systemImage: "checkmark.seal.fill")
+                    .foregroundStyle(.green)
+            } else {
+                Button("Connect Reminders") {
+                    Task { await tasks.requestRemindersAccess() }
+                }
+            }
+        } header: {
+            Text("Integrations")
+        } footer: {
+            Text("Calendar suggests focus during free time. Add a Zenly Focus Filter in Settings › Focus to switch profiles automatically.")
         }
     }
 

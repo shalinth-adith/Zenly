@@ -15,10 +15,14 @@ struct HomeView: View {
     @Environment(AnalyticsService.self) private var analytics
     @Environment(ChallengeService.self) private var challenges
     @Environment(AmbientSoundService.self) private var ambient
+    @Environment(CalendarService.self) private var calendar
+    @Environment(MusicController.self) private var music
 
     @State private var streak = 0
     @State private var todayMinutes = 0
     @State private var selectedMinutes = 25
+    @State private var showTasks = false
+    @State private var freeBlock: FreeBlock?
 
     var body: some View {
         NavigationStack {
@@ -31,11 +35,19 @@ struct HomeView: View {
                     ringSection
                     statsRow
                     challengeCard
+                    if freeBlock != nil { calendarCard }
                     soundRow
+                    musicRow
                 }
                 .padding()
             }
             .navigationTitle("Zenly")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showTasks = true } label: { Image(systemName: "checklist") }
+                }
+            }
+            .sheet(isPresented: $showTasks) { TasksView() }
             .task { await prepare() }
             .onChange(of: session.phase) { _, newPhase in
                 if newPhase == .idle { refreshStats() }
@@ -230,6 +242,49 @@ struct HomeView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    private var calendarCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Free time", systemImage: "calendar")
+                .font(.subheadline.weight(.semibold))
+            if let block = freeBlock {
+                Text("You're free until \(block.end.formatted(date: .omitted, time: .shortened)) — \(block.minutes) min.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Button {
+                    selectedMinutes = max(5, min(120, (block.minutes / 5) * 5))
+                    startFocus()
+                } label: {
+                    Label("Start focus now", systemImage: "play.fill")
+                        .font(.subheadline.weight(.semibold))
+                }
+                .buttonStyle(.bordered)
+                .disabled(activeProfile == nil || !authorization.isAuthorized)
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
+    }
+
+    private var musicRow: some View {
+        HStack(spacing: 22) {
+            Button { music.previous() } label: { Image(systemName: "backward.fill") }
+            Button { music.playPause() } label: {
+                Image(systemName: music.isPlaying ? "pause.fill" : "play.fill").font(.title3)
+            }
+            Button { music.next() } label: { Image(systemName: "forward.fill") }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(music.nowPlaying.isEmpty ? "Apple Music" : music.nowPlaying)
+                    .font(.subheadline).lineLimit(1)
+                Text("Focus music").font(.caption2).foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .buttonStyle(.plain)
+        .padding()
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
+    }
+
     // MARK: - Actions
 
     private func prepare() async {
@@ -237,6 +292,8 @@ struct HomeView: View {
         NotificationService.shared.scheduleDailyChallengeReminder()
         syncDuration()
         refreshStats()
+        music.updateState()
+        freeBlock = calendar.isAuthorized ? calendar.nextFreeBlock : nil
     }
 
     /// Reset the editable duration to the active profile's default.
