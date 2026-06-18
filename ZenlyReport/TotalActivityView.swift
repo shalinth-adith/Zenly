@@ -7,6 +7,8 @@
 //
 
 import SwiftUI
+import FamilyControls
+import ManagedSettings
 
 struct TotalActivityView: View {
     let activity: TotalActivity
@@ -28,9 +30,14 @@ struct TotalActivityView: View {
             } else {
                 ForEach(activity.apps) { app in
                     HStack {
-                        Text(app.name)
-                            .font(.subheadline)
-                            .lineLimit(1)
+                        if let token = app.token {
+                            Label(token)
+                                .labelStyle(.titleAndIcon)
+                                .font(.subheadline)
+                                .lineLimit(1)
+                        } else {
+                            Text("Other").font(.subheadline)
+                        }
                         Spacer()
                         Text(format(app.duration))
                             .font(.subheadline.monospacedDigit())

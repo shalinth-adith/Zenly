@@ -3,15 +3,17 @@
 //  ZenlyReport
 //
 //  Reduces the privacy-preserving DeviceActivityResults stream into a total
-//  duration + top apps, inside the extension's sandbox.
+//  duration + top apps (kept as ApplicationTokens so the view can render real
+//  names/icons via Label — localizedDisplayName is nil by design).
 //
 
 import DeviceActivity
+import ManagedSettings
 import SwiftUI
 
 struct AppDuration: Identifiable {
     let id = UUID()
-    let name: String
+    let token: ApplicationToken?
     let duration: TimeInterval
 }
 
@@ -28,24 +30,24 @@ struct TotalActivityReport: DeviceActivityReportScene {
 
     func makeConfiguration(representing data: DeviceActivityResults<DeviceActivityData>) async -> TotalActivity {
         var totalDuration: TimeInterval = 0
-        var durationsByApp: [String: TimeInterval] = [:]
+        var byToken: [ApplicationToken: TimeInterval] = [:]
 
         for await result in data {
             for await segment in result.activitySegments {
                 totalDuration += segment.totalActivityDuration
                 for await category in segment.categories {
                     for await app in category.applications {
-                        let name = app.application.localizedDisplayName ?? "Other"
-                        durationsByApp[name, default: 0] += app.totalActivityDuration
+                        guard let token = app.application.token else { continue }
+                        byToken[token, default: 0] += app.totalActivityDuration
                     }
                 }
             }
         }
 
-        let topApps = durationsByApp
+        let topApps = byToken
             .sorted { $0.value > $1.value }
-            .prefix(5)
-            .map { AppDuration(name: $0.key, duration: $0.value) }
+            .prefix(6)
+            .map { AppDuration(token: $0.key, duration: $0.value) }
 
         return TotalActivity(totalDuration: totalDuration, apps: topApps)
     }
