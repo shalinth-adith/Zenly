@@ -21,7 +21,7 @@ struct OnboardingView: View {
 
     var body: some View {
         TabView(selection: $step) {
-            infoPage(icon: "moon.stars.fill",
+            infoPage(icon: "scope",
                      title: "Welcome to Zenly",
                      message: "Block distractions and reclaim your focus, one session at a time.",
                      button: "Get Started", advancesTo: 1)

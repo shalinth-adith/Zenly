@@ -49,8 +49,8 @@ struct SplashView: View {
                         }
                     }
 
-                    Image(systemName: "moon.stars.fill")
-                        .font(.system(size: 66))
+                    Image(systemName: "scope")
+                        .font(.system(size: 66, weight: .light))
                         .foregroundStyle(accent)
                         .shadow(color: accent.opacity(0.5), radius: 24)
                         .scaleEffect(iconIn ? 1 : 0.6)
