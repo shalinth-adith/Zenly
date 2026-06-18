@@ -314,6 +314,7 @@ struct HomeView: View {
     // MARK: - Actions
 
     private func prepare() async {
+        authorization.refresh() // pick up persisted Screen Time approval
         await NotificationService.shared.requestAuthorization()
         NotificationService.shared.scheduleDailyChallengeReminder()
         syncDuration()
