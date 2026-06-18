@@ -31,13 +31,14 @@ enum ShieldTheme {
     /// or website domain, when iOS provides one).
     static func configuration(subject: String?) -> ShieldConfiguration {
         let name = subject ?? "This app"
+        let custom = AppGroup.defaults.string(forKey: ShieldMessage.storageKey) ?? ""
         return ShieldConfiguration(
             backgroundBlurStyle: .systemUltraThinMaterialDark,
             backgroundColor: background,
             icon: icon,
             title: ShieldConfiguration.Label(text: "Stay in your focus", color: primaryText),
             subtitle: ShieldConfiguration.Label(
-                text: "\(name) is paused while Zenly keeps you focused.\nYou've got this.",
+                text: ShieldMessage.subtitle(subject: name, custom: custom),
                 color: secondaryText
             ),
             primaryButtonLabel: ShieldConfiguration.Label(text: "Back to focus", color: .white),

@@ -15,6 +15,7 @@ struct SettingsView: View {
     @Environment(MusicController.self) private var music
 
     @AppStorage("dailyGoalMinutes", store: AppGroup.defaults) private var dailyGoalMinutes = 120
+    @AppStorage(ShieldMessage.storageKey, store: AppGroup.defaults) private var shieldMessage = ""
     @AppStorage("breakReminderEnabled", store: AppGroup.defaults) private var reminderEnabled = false
     @AppStorage("breakReminderHour", store: AppGroup.defaults) private var reminderHour = 15
     @AppStorage("breakReminderMinute", store: AppGroup.defaults) private var reminderMinute = 0
@@ -24,6 +25,7 @@ struct SettingsView: View {
             Form {
                 permissionSection
                 goalSection
+                shieldSection
                 integrationsSection
                 musicSection
                 breakReminderSection
@@ -47,6 +49,18 @@ struct SettingsView: View {
                     Task { await authorization.requestAuthorization() }
                 }
             }
+        }
+    }
+
+    private var shieldSection: some View {
+        Section {
+            TextField("e.g. Future you will thank you.",
+                      text: $shieldMessage, axis: .vertical)
+                .lineLimit(1...3)
+        } header: {
+            Text("Shield message")
+        } footer: {
+            Text("Shown on the block screen when you open a distracting app during focus. Leave empty for the default.")
         }
     }
 

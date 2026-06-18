@@ -271,7 +271,7 @@ struct HomeView: View {
             Text("Focus sound")
                 .font(.subheadline.weight(.semibold))
             HStack(spacing: 10) {
-                ForEach(AmbientSound.allCases) { sound in
+                ForEach(AmbientSound.available) { sound in
                     let active = ambient.current == sound
                     Button {
                         ambient.toggle(sound)
