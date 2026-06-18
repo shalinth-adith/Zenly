@@ -11,6 +11,7 @@ import SwiftUI
 struct ProfilesView: View {
     @Environment(ProfileStore.self) private var store
     @State private var editing: EditTarget?
+    @State private var pendingDelete: FocusProfile?
 
     enum EditTarget: Identifiable {
         case new
@@ -33,7 +34,7 @@ struct ProfilesView: View {
                         .onTapGesture { store.setActive(profile) }
                         .swipeActions(edge: .trailing) {
                             Button(role: .destructive) {
-                                store.delete(profile)
+                                pendingDelete = profile
                             } label: {
                                 Label("Delete", systemImage: "trash")
                             }
@@ -47,6 +48,18 @@ struct ProfilesView: View {
                 }
             }
             .navigationTitle("Profiles")
+            .confirmationDialog(
+                "Delete \u{201C}\(pendingDelete?.name ?? "this profile")\u{201D}?",
+                isPresented: Binding(get: { pendingDelete != nil },
+                                     set: { if !$0 { pendingDelete = nil } }),
+                titleVisibility: .visible
+            ) {
+                Button("Delete", role: .destructive) {
+                    if let pendingDelete { store.delete(pendingDelete) }
+                    pendingDelete = nil
+                }
+                Button("Cancel", role: .cancel) { pendingDelete = nil }
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {

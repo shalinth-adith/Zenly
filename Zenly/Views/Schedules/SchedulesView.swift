@@ -12,6 +12,7 @@ struct SchedulesView: View {
     @Environment(ScheduleStore.self) private var store
     @Environment(SmartSuggestionService.self) private var suggestions
     @State private var editing: EditTarget?
+    @State private var pendingDelete: FocusSchedule?
 
     enum EditTarget: Identifiable {
         case new
@@ -48,6 +49,18 @@ struct SchedulesView: View {
                 case .suggestion(let draft):
                     ScheduleEditView(schedule: nil, draft: draft)
                 }
+            }
+            .confirmationDialog(
+                "Delete \u{201C}\(pendingDelete?.title ?? "this schedule")\u{201D}?",
+                isPresented: Binding(get: { pendingDelete != nil },
+                                     set: { if !$0 { pendingDelete = nil } }),
+                titleVisibility: .visible
+            ) {
+                Button("Delete", role: .destructive) {
+                    if let pendingDelete { store.delete(pendingDelete) }
+                    pendingDelete = nil
+                }
+                Button("Cancel", role: .cancel) { pendingDelete = nil }
             }
         }
     }
@@ -98,7 +111,7 @@ struct SchedulesView: View {
                     ScheduleRow(schedule: schedule)
                         .swipeActions(edge: .trailing) {
                             Button(role: .destructive) {
-                                store.delete(schedule)
+                                pendingDelete = schedule
                             } label: {
                                 Label("Delete", systemImage: "trash")
                             }

@@ -31,6 +31,9 @@ final class ShieldActionExtension: ShieldActionDelegate {
 
     private func respond(to action: ShieldAction,
                          _ completionHandler: @escaping (ShieldActionResponse) -> Void) {
+        // Interacting with the shield counts as a distraction attempt (second
+        // capture point alongside the shield-configuration extension).
+        DistractionLog.recordAttempt()
         switch action {
         case .primaryButtonPressed:
             completionHandler(.close)

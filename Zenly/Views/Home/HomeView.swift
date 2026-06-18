@@ -37,8 +37,12 @@ struct HomeView: View {
                     if !authorization.isAuthorized {
                         permissionCard
                     }
-                    profilePicker
-                    ringSection
+                    if profiles.profiles.isEmpty {
+                        emptyProfilesCard
+                    } else {
+                        profilePicker
+                        ringSection
+                    }
                     statsRow
                     goalCard
                     challengeCard
@@ -99,6 +103,23 @@ struct HomeView: View {
     private var tint: Color { Color(hex: activeProfile?.accentHex ?? "5C6BFA") }
 
     // MARK: - Sections
+
+    private var emptyProfilesCard: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "person.crop.circle.badge.plus")
+                .font(.largeTitle)
+                .foregroundStyle(.tint)
+            Text("No focus profiles")
+                .font(.headline)
+            Text("Create a profile in the Profiles tab to start a focus session.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding()
+        .frame(maxWidth: .infinity)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
+    }
 
     private var permissionCard: some View {
         VStack(spacing: 12) {

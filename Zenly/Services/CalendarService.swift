@@ -27,6 +27,10 @@ final class CalendarService {
         isAuthorized = EKEventStore.authorizationStatus(for: .event) == .fullAccess
     }
 
+    var isDenied: Bool {
+        EKEventStore.authorizationStatus(for: .event) == .denied
+    }
+
     func requestAccess() async {
         do {
             isAuthorized = try await store.requestFullAccessToEvents()

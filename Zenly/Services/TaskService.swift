@@ -26,6 +26,10 @@ final class TaskService {
         fetch()
     }
 
+    var remindersDenied: Bool {
+        EKEventStore.authorizationStatus(for: .reminder) == .denied
+    }
+
     func fetch() {
         let request = FocusTask.fetchRequest()
         request.sortDescriptors = [

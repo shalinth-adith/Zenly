@@ -81,6 +81,10 @@ struct SettingsView: View {
             if calendar.isAuthorized {
                 Label("Calendar connected", systemImage: "checkmark.seal.fill")
                     .foregroundStyle(.green)
+            } else if calendar.isDenied {
+                Label("Calendar access denied — enable it in the Settings app.", systemImage: "exclamationmark.triangle.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             } else {
                 Button("Connect Calendar") {
                     Task { await calendar.requestAccess() }
@@ -90,6 +94,10 @@ struct SettingsView: View {
             if tasks.remindersAuthorized {
                 Label("Reminders connected", systemImage: "checkmark.seal.fill")
                     .foregroundStyle(.green)
+            } else if tasks.remindersDenied {
+                Label("Reminders access denied — enable it in the Settings app.", systemImage: "exclamationmark.triangle.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             } else {
                 Button("Connect Reminders") {
                     Task { await tasks.requestRemindersAccess() }
