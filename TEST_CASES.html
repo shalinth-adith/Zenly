@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Zenly — Manual Test Plan</title>
+<style>
+:root{--accent:#5C6BFA;--ink:#1c1c1e;--muted:#6b7280;--line:#e5e7eb;}
+*{box-sizing:border-box;}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);line-height:1.55;margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+main{max-width:820px;margin:0 auto;padding:44px 40px;}
+.meta{color:var(--muted);font-size:12.5px;margin:0 0 20px;}
+h1{font-size:30px;color:var(--accent);border-bottom:3px solid var(--accent);padding-bottom:10px;margin:0 0 4px;}
+h2{font-size:20px;margin:30px 0 10px;padding-top:10px;border-top:1px solid var(--line);}
+h3{font-size:15.5px;margin:18px 0 5px;color:#111;}
+h4{font-size:14px;margin:14px 0 4px;}
+p{margin:7px 0;}
+ul{margin:5px 0 12px;padding-left:22px;}
+li{margin:3px 0;}
+li.task{list-style:none;margin-left:-22px;}
+code{background:#f3f4f6;border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:0.86em;}
+strong{color:#111;}
+em{color:#374151;}
+hr{border:0;border-top:1px solid var(--line);margin:22px 0;}
+a{color:var(--accent);text-decoration:none;}
+@page{size:A4;margin:15mm 13mm;}
+@media print{h2,h3,h4{break-after:avoid;}li,p{break-inside:avoid;}main{padding:0;max-width:none;}}
+</style></head>
+<body><main>
+<p class="meta">Zenly · github.com/shalinth-adith/Zenly · generated 2026-06-18</p>
+<h1>Zenly — Manual Test Plan</h1>
+<p>Most of Zenly depends on Apple&#x27;s Screen Time stack, which **does not run on the</p>
+<p>iOS Simulator<strong>. This plan is written for </strong>on-device** testing, with each case</p>
+<p>tagged:</p>
+<ul>
+<li><strong>[Device]</strong> — requires a physical iPhone (FamilyControls / ManagedSettings / DeviceActivity).</li>
+<li><strong>[Sim OK]</strong> — works in the Simulator too (pure SwiftUI / Core Data logic).</li>
+</ul>
+<h2>Prerequisites</h2>
+<ul>
+<li>Physical iPhone, paid Apple Developer account.</li>
+<li>Family Controls capability enabled on App IDs: <code>…Zenly</code>, <code>…ZenlyMonitor</code>, <code>…ZenlyReport</code>.</li>
+<li>App Groups enabled on <strong>all</strong> App IDs (<code>group.me.adithyan.shalinth.Zenly</code>).</li>
+<li>For Spotify cases: Spotify app installed, <strong>Premium</strong> account, redirect URI</li>
+</ul>
+<p><code>zenly://spotify-callback</code> registered in the Spotify dashboard.</p>
+<ul>
+<li>A clean install (delete the app first) to test onboarding / first-run.</li>
+</ul>
+<p>Legend: <strong>Pre</strong> = preconditions, <strong>Steps</strong>, <strong>Expected</strong>.</p>
+<hr/>
+<h2>1. Onboarding &amp; Permissions</h2>
+<h3>TC-1.1 First-run onboarding [Sim OK]</h3>
+<ul>
+<li><strong>Pre:</strong> Fresh install.</li>
+<li><strong>Steps:</strong> Launch the app.</li>
+<li><strong>Expected:</strong> Onboarding appears (Welcome → Focus → Habit → Screen Time → Done).</li>
+</ul>
+<p>Swiping and the buttons advance through pages; page dots update.</p>
+<h3>TC-1.2 Screen Time permission primed [Device]</h3>
+<ul>
+<li><strong>Steps:</strong> On the &quot;Screen Time Access&quot; page, tap <strong>Grant Screen Time Access</strong>.</li>
+<li><strong>Expected:</strong> The iOS system Screen Time prompt appears; approving it shows</li>
+</ul>
+<p>&quot;Access Granted&quot; and advances to the final page. &quot;Maybe later&quot; skips it.</p>
+<h3>TC-1.3 Onboarding shows once [Sim OK]</h3>
+<ul>
+<li><strong>Steps:</strong> Complete onboarding, then force-quit and relaunch.</li>
+<li><strong>Expected:</strong> App launches straight into the Home tab (no onboarding).</li>
+</ul>
+<p>(Reinstall to see onboarding again.)</p>
+<h3>TC-1.4 Permission denied recovery [Device]</h3>
+<ul>
+<li><strong>Pre:</strong> Screen Time previously denied.</li>
+<li><strong>Steps:</strong> Open Home / Settings.</li>
+<li><strong>Expected:</strong> A &quot;Grant Screen Time Access&quot; prompt is shown; tapping it re-requests</li>
+</ul>
+<p>or routes appropriately. Start Focus is disabled until authorized.</p>
+<hr/>
+<h2>2. Core Blocking (Phase 1)</h2>
+<h3>TC-2.1 Block selected apps [Device]</h3>
+<ul>
+<li><strong>Pre:</strong> Authorized. Profile with &quot;Block all apps&quot; OFF and a specific app chosen.</li>
+<li><strong>Steps:</strong> Start Focus → press Home → open the blocked app.</li>
+<li><strong>Expected:</strong> Zenly&#x27;s custom shield (calm, &quot;Stay in your focus&quot;) appears instead</li>
+</ul>
+<p>of the app.</p>
+<h3>TC-2.2 Block all apps [Device]</h3>
+<ul>
+<li><strong>Pre:</strong> Profile with &quot;Block all apps&quot; ON (default).</li>
+<li><strong>Steps:</strong> Start Focus → try to open several apps + Safari.</li>
+<li><strong>Expected:</strong> All non-system apps are shielded. **Phone, Messages, Settings, and</li>
+</ul>
+<p>Zenly itself remain usable.**</p>
+<h3>TC-2.3 Allowlist exception [Device]</h3>
+<ul>
+<li><strong>Pre:</strong> Block-all ON, with one app added to &quot;Always allow&quot;.</li>
+<li><strong>Steps:</strong> Start Focus → open the allowed app.</li>
+<li><strong>Expected:</strong> The allowed app opens normally; others are blocked.</li>
+</ul>
+<h3>TC-2.4 Website blocking [Device]</h3>
+<ul>
+<li><strong>Pre:</strong> A website domain in the blocklist (block-all OFF) or block-all ON.</li>
+<li><strong>Steps:</strong> Start Focus → open that site in Safari.</li>
+<li><strong>Expected:</strong> The site is shielded.</li>
+</ul>
+<h3>TC-2.5 Stop blocking [Device]</h3>
+<ul>
+<li><strong>Steps:</strong> End the session.</li>
+<li><strong>Expected:</strong> Previously-blocked apps open normally again.</li>
+</ul>
+<h3>TC-2.6 Strict mode override [Device]</h3>
+<ul>
+<li><strong>Pre:</strong> Profile with Strict mode ON, session running.</li>
+<li><strong>Steps:</strong> Tap &quot;Stop Blocking&quot; / &quot;End early&quot;.</li>
+<li><strong>Expected:</strong> A confirmation sheet with a <strong>5-second countdown</strong> + streak-loss</li>
+</ul>
+<p>warning; the confirm button is disabled until the countdown ends.</p>
+<hr/>
+<h2>3. Sessions &amp; Timer (Phase 2)</h2>
+<h3>TC-3.1 Start a focus session [Device]</h3>
+<ul>
+<li><strong>Steps:</strong> Home → adjust duration with −/+ → Start Focus.</li>
+<li><strong>Expected:</strong> Full-screen Session view with a countdown ring; blocking engages.</li>
+</ul>
+<h3>TC-3.2 Editable duration [Sim OK]</h3>
+<ul>
+<li><strong>Steps:</strong> On Home, tap −/+.</li>
+<li><strong>Expected:</strong> The ring&#x27;s minutes update (5–120, 5-min steps); the profile name</li>
+</ul>
+<p>shows below. Switching profiles resets to that profile&#x27;s default.</p>
+<h3>TC-3.3 Session completes naturally [Device]</h3>
+<ul>
+<li><strong>Steps:</strong> Start a short session (e.g. 5 min), wait for it to finish.</li>
+<li><strong>Expected:</strong> Celebration summary (confetti + haptic); &quot;Focus complete&quot;</li>
+</ul>
+<p>notification fires; shields lift.</p>
+<h3>TC-3.4 Session recorded after app is killed [Device] ⚠️ regression-critical</h3>
+<ul>
+<li><strong>Steps:</strong> Start a session, leave Zenly (use other apps / lock the phone) for</li>
+</ul>
+<p>the full duration so iOS suspends/terminates Zenly, then reopen Zenly.</p>
+<ul>
+<li><strong>Expected:</strong> The session is <strong>recorded</strong> — Home shows updated focus minutes /</li>
+</ul>
+<p>streak (or the summary appears). It is NOT silently lost.</p>
+<h3>TC-3.5 End early does not count [Sim OK logic / Device flow]</h3>
+<ul>
+<li><strong>Steps:</strong> Start a session, end it early.</li>
+<li><strong>Expected:</strong> Logged as &quot;ended early&quot;; <strong>does not</strong> add to streak or today&#x27;s minutes.</li>
+</ul>
+<h3>TC-3.6 Pomodoro break [Device]</h3>
+<ul>
+<li><strong>Pre:</strong> Profile with a non-zero break.</li>
+<li><strong>Steps:</strong> Complete focus → from the summary tap &quot;Take a break&quot;.</li>
+<li><strong>Expected:</strong> Break timer runs (no blocking during break); &quot;Break over&quot;</li>
+</ul>
+<p>notification at the end.</p>
+<hr/>
+<h2>4. Profiles</h2>
+<h3>TC-4.1 Default profiles seeded [Sim OK]</h3>
+<ul>
+<li><strong>Pre:</strong> Fresh install.</li>
+<li><strong>Expected:</strong> Work / Study / Gym profiles exist with sensible lengths.</li>
+</ul>
+<h3>TC-4.2 Create / edit / delete profile [Sim OK]</h3>
+<ul>
+<li><strong>Steps:</strong> Profiles tab → +; set name/icon/accent/pickers/lengths/strict/block-all;</li>
+</ul>
+<p>Save. Swipe to edit and delete.</p>
+<ul>
+<li><strong>Expected:</strong> Changes persist; deleting removes it; active profile falls back.</li>
+</ul>
+<h3>TC-4.3 Active profile drives session [Device]</h3>
+<ul>
+<li><strong>Steps:</strong> Set a profile active → Home → Start Focus.</li>
+<li><strong>Expected:</strong> The session uses that profile&#x27;s selection, strict, and block-all.</li>
+</ul>
+<hr/>
+<h2>5. Schedules</h2>
+<h3>TC-5.1 Create recurring schedule [Device]</h3>
+<ul>
+<li><strong>Steps:</strong> Schedules tab → +; set title, time window, weekdays, blocking; Save.</li>
+<li><strong>Expected:</strong> Listed with the time range + weekday summary; toggle enables/disables.</li>
+</ul>
+<h3>TC-5.2 Schedule blocks at the right time [Device] (long-running)</h3>
+<ul>
+<li><strong>Pre:</strong> A schedule whose window includes &quot;now&quot; on today&#x27;s weekday (≥15 min).</li>
+<li><strong>Expected:</strong> Apps are shielded during the window without manually starting a session.</li>
+</ul>
+<h3>TC-5.3 Weekday filtering [Device]</h3>
+<ul>
+<li><strong>Pre:</strong> Schedule excluding today&#x27;s weekday.</li>
+<li><strong>Expected:</strong> No blocking today; blocking on included weekdays.</li>
+</ul>
+<h3>TC-5.4 Smart suggestions [Sim OK]</h3>
+<ul>
+<li><strong>Steps:</strong> Schedules tab → &quot;Suggested&quot; strip → tap a card.</li>
+<li><strong>Expected:</strong> The schedule editor opens prefilled; can be saved.</li>
+</ul>
+<hr/>
+<h2>6. Analytics &amp; Insights (Phase 3)</h2>
+<h3>TC-6.1 Weekly focus chart [Device for data]</h3>
+<ul>
+<li><strong>Pre:</strong> Some completed sessions exist.</li>
+<li><strong>Steps:</strong> Insights tab.</li>
+<li><strong>Expected:</strong> Bar chart of focus minutes over 7 days; total this week matches.</li>
+</ul>
+<h3>TC-6.2 Productivity score [Sim OK logic]</h3>
+<ul>
+<li><strong>Expected:</strong> 0–100, rises with completed focus + consistency, falls with</li>
+</ul>
+<p>distraction attempts. 0 with no data.</p>
+<h3>TC-6.3 Distraction attempts [Device]</h3>
+<ul>
+<li><strong>Pre:</strong> App Groups enabled on ZenlyShield App ID.</li>
+<li><strong>Steps:</strong> During a session, open a blocked app a few times (triggering the shield).</li>
+<li><strong>Expected:</strong> The distraction chart / count increases (deduped to ~1 per open).</li>
+</ul>
+<h3>TC-6.4 App usage report [Device]</h3>
+<ul>
+<li><strong>Steps:</strong> Insights → &quot;App usage&quot; card.</li>
+<li><strong>Expected:</strong> Total screen time + top apps render (DeviceActivityReport). Blank on Simulator.</li>
+</ul>
+<hr/>
+<h2>7. Widget &amp; Live Activity</h2>
+<h3>TC-7.1 Home-screen widget [Device]</h3>
+<ul>
+<li><strong>Steps:</strong> Add the Zenly widget; configure its metric (streak / minutes / attempts).</li>
+<li><strong>Expected:</strong> Shows the chosen stat from the latest snapshot; updates after sessions.</li>
+</ul>
+<h3>TC-7.2 Live Activity — Lock Screen [Device]</h3>
+<ul>
+<li><strong>Steps:</strong> Start a session → lock the phone.</li>
+<li><strong>Expected:</strong> Lock Screen banner with profile name + live countdown, accent-tinted.</li>
+</ul>
+<h3>TC-7.3 Dynamic Island [Device, iPhone 14 Pro+]</h3>
+<ul>
+<li><strong>Steps:</strong> Start a session → observe the Dynamic Island.</li>
+<li><strong>Expected:</strong> Compact pill shows a live countdown; long-press expands to show</li>
+</ul>
+<p>profile + progress bar. Ends when the session ends.</p>
+<hr/>
+<h2>8. Gamification (Phase 4)</h2>
+<h3>TC-8.1 Badges [Device for data]</h3>
+<ul>
+<li><strong>Steps:</strong> Complete your first session → check the summary and Insights → Badges.</li>
+<li><strong>Expected:</strong> &quot;First Focus&quot; badge awarded; grid highlights earned badges.</li>
+</ul>
+<h3>TC-8.2 Daily challenge [Sim OK]</h3>
+<ul>
+<li><strong>Steps:</strong> Home challenge card.</li>
+<li><strong>Expected:</strong> One challenge/day; progress updates from completed sessions;</li>
+</ul>
+<p>completion fires a notification.</p>
+<h3>TC-8.3 Ambient sounds [Sim OK]</h3>
+<ul>
+<li><strong>Steps:</strong> Home → Focus sound → White / Pink / Brown.</li>
+<li><strong>Expected:</strong> The corresponding noise plays; tapping again stops it.</li>
+</ul>
+<h3>TC-8.4 Accountability leaderboard [Sim OK]</h3>
+<ul>
+<li><strong>Steps:</strong> Insights → Accountability.</li>
+<li><strong>Expected:</strong> Shows &quot;You&quot; ranked by weekly minutes + an &quot;iCloud coming&quot; note.</li>
+</ul>
+<h3>TC-8.5 Daily goal [Sim OK]</h3>
+<ul>
+<li><strong>Steps:</strong> Settings → set Daily focus goal; Home goal card.</li>
+<li><strong>Expected:</strong> Progress reflects today&#x27;s minutes vs goal; &quot;goal reached&quot; at/over target.</li>
+</ul>
+<hr/>
+<h2>9. Integrations (Phase 5)</h2>
+<h3>TC-9.1 Calendar free-time [Device]</h3>
+<ul>
+<li><strong>Pre:</strong> Calendar access granted; a free gap today.</li>
+<li><strong>Steps:</strong> Home.</li>
+<li><strong>Expected:</strong> &quot;Free until X — start focus now&quot; card; tapping starts a session sized to the gap.</li>
+</ul>
+<h3>TC-9.2 Tasks + Reminders [Sim OK]</h3>
+<ul>
+<li><strong>Steps:</strong> Home toolbar → Tasks; add/complete/delete; &quot;Import from Reminders&quot;.</li>
+<li><strong>Expected:</strong> Tasks persist; import pulls incomplete reminders; export creates a reminder.</li>
+</ul>
+<h3>TC-9.3 Apple Music [Device]</h3>
+<ul>
+<li><strong>Steps:</strong> Settings → Music → Apple Music; Home music row play/pause/next.</li>
+<li><strong>Expected:</strong> Controls the system Music player; now-playing title shows.</li>
+</ul>
+<h3>TC-9.4 Spotify connect [Device, Premium]</h3>
+<ul>
+<li><strong>Pre:</strong> Spotify app installed + <strong>Premium</strong>; redirect URI registered.</li>
+<li><strong>Steps:</strong> Settings → Music → Spotify → Connect Spotify → authorize → return.</li>
+<li><strong>Expected:</strong> Returns to Zenly; play/pause/next control Spotify playback; track title shows.</li>
+</ul>
+<p><em>(Non-Premium: connects but controls do nothing — expected limitation.)</em></p>
+<h3>TC-9.5 Focus filter [Device]</h3>
+<ul>
+<li><strong>Steps:</strong> iOS Settings → Focus → a Focus → add the Zenly filter, pick a profile.</li>
+<li><strong>Expected:</strong> When that Focus turns on, Zenly switches to the chosen profile on next open.</li>
+</ul>
+<hr/>
+<h2>10. Start Focus Everywhere</h2>
+<h3>TC-10.1 Siri / Shortcuts [Device]</h3>
+<ul>
+<li><strong>Steps:</strong> &quot;Hey Siri, start a focus session in Zenly&quot; (or run from Shortcuts).</li>
+<li><strong>Expected:</strong> Zenly opens and a session starts with the active profile.</li>
+</ul>
+<h3>TC-10.2 Control Center [Device, iOS 18+]</h3>
+<ul>
+<li><strong>Steps:</strong> Add the &quot;Start Focus&quot; control to Control Center; tap it.</li>
+<li><strong>Expected:</strong> Zenly opens and starts a session.</li>
+</ul>
+<hr/>
+<h2>11. App Store / Signing checklist</h2>
+<ul>
+<li class="task"><input type="checkbox" disabled /> Archive uploads without entitlement errors (Family Controls Distribution granted).</li>
+<li class="task"><input type="checkbox" disabled /> No <code>91179</code> (ZenlyReport must be ExtensionKit) — it embeds in <code>Extensions/</code>.</li>
+<li class="task"><input type="checkbox" disabled /> No <code>90349</code> (shield-action id <code>com.apple.ManagedSettings.shield-action-service</code>).</li>
+<li class="task"><input type="checkbox" disabled /> Export compliance not prompted (<code>ITSAppUsesNonExemptEncryption=false</code>).</li>
+<li class="task"><input type="checkbox" disabled /> App icon renders (1024² light + dark).</li>
+<li class="task"><input type="checkbox" disabled /> TestFlight build installs and the blocking engine works end-to-end.</li>
+</ul>
+<hr/>
+<h2>Known limitations (not bugs)</h2>
+<ul>
+<li>Streak counts <strong>completed</strong> focus sessions only, by <strong>day</strong> (not per session).</li>
+<li>Spotify playback control requires <strong>Premium</strong>.</li>
+<li>Friend leaderboards are local until CloudKit + GameKit are enabled.</li>
+<li>Rain / lo-fi ambient sounds need bundled audio assets (only synthesized noise ships now).</li>
+<li>Live Activity / Dynamic Island and all blocking are <strong>device-only</strong>.</li>
+</ul>
+</main></body></html>
