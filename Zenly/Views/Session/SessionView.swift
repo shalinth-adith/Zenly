@@ -12,12 +12,27 @@ struct SessionView: View {
     @Environment(FocusSessionController.self) private var session
     @State private var showStopConfirmation = false
 
+    /// Dismiss the full-screen timer without ending the session.
+    var onMinimize: () -> Void = {}
+
     private var tint: Color { Color(hex: session.accentHex) }
     private var isBreak: Bool { session.phase == .breakTime }
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .top) {
             tint.opacity(0.08).ignoresSafeArea()
+
+            HStack {
+                Button(action: onMinimize) {
+                    Image(systemName: "chevron.down")
+                        .font(.headline)
+                        .padding(10)
+                        .background(.thinMaterial, in: Circle())
+                }
+                .tint(.primary)
+                Spacer()
+            }
+            .padding()
 
             VStack(spacing: 40) {
                 Text(isBreak ? "Break" : session.profileName)

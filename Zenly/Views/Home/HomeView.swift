@@ -24,12 +24,16 @@ struct HomeView: View {
     @State private var todayMinutes = 0
     @State private var selectedMinutes = 25
     @State private var showTasks = false
+    @State private var showSession = false
     @State private var freeBlock: FreeBlock?
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 28) {
+                    if session.isActive && !showSession {
+                        resumeBanner
+                    }
                     if !authorization.isAuthorized {
                         permissionCard
                     }
@@ -52,13 +56,21 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showTasks) { TasksView() }
             .task { await prepare() }
-            .onChange(of: session.phase) { _, newPhase in
-                if newPhase == .idle { refreshStats() }
+            .onChange(of: session.phase) { oldPhase, newPhase in
+                switch newPhase {
+                case .idle:
+                    showSession = false
+                    refreshStats()
+                case .summary:
+                    showSession = true // always surface the celebration
+                default:
+                    if oldPhase == .idle { showSession = true } // session just started
+                }
             }
             .onChange(of: profiles.activeProfileID) { _, _ in syncDuration() }
-            .fullScreenCover(isPresented: presentingSession) {
+            .fullScreenCover(isPresented: $showSession) {
                 switch session.phase {
-                case .focus, .breakTime: SessionView()
+                case .focus, .breakTime: SessionView(onMinimize: { showSession = false })
                 case .summary: SessionSummaryView()
                 case .idle: Color.clear
                 }
@@ -66,8 +78,21 @@ struct HomeView: View {
         }
     }
 
-    private var presentingSession: Binding<Bool> {
-        Binding(get: { session.phase != .idle }, set: { _ in })
+    private var resumeBanner: some View {
+        Button { showSession = true } label: {
+            HStack(spacing: 10) {
+                Image(systemName: session.phase == .breakTime ? "cup.and.saucer.fill" : "timer")
+                Text(session.phase == .breakTime ? "Break" : session.profileName)
+                    .fontWeight(.semibold)
+                Spacer()
+                Text(session.timeString).monospacedDigit()
+                Image(systemName: "chevron.up").font(.caption.weight(.bold))
+            }
+            .foregroundStyle(.white)
+            .padding()
+            .background(Color(hex: session.accentHex), in: RoundedRectangle(cornerRadius: 14))
+        }
+        .buttonStyle(.plain)
     }
 
     private var activeProfile: FocusProfile? { profiles.activeProfile }
@@ -142,7 +167,7 @@ struct HomeView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .tint(tint)
-            .disabled(activeProfile == nil || !authorization.isAuthorized)
+            .disabled(activeProfile == nil || !authorization.isAuthorized || session.isActive)
             .padding(.horizontal, 24)
         }
     }
