@@ -63,15 +63,19 @@ struct ProfileEditView: View {
             TextField("Name", text: $draft.name)
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 12) {
                 ForEach(iconOptions, id: \.self) { icon in
-                    Image(systemName: icon)
-                        .font(.title3)
-                        .frame(maxWidth: .infinity, minHeight: 40)
-                        .foregroundStyle(draft.iconName == icon ? .white : .primary)
-                        .background(
-                            draft.iconName == icon ? Color(hex: draft.accentHex) : Color(.secondarySystemFill),
-                            in: RoundedRectangle(cornerRadius: 10)
-                        )
-                        .onTapGesture { draft.iconName = icon }
+                    Button { draft.iconName = icon } label: {
+                        Image(systemName: icon)
+                            .font(.title3)
+                            .frame(maxWidth: .infinity, minHeight: 40)
+                            .foregroundStyle(draft.iconName == icon ? .white : .primary)
+                            .background(
+                                draft.iconName == icon ? Color(hex: draft.accentHex) : Color(.secondarySystemFill),
+                                in: RoundedRectangle(cornerRadius: 10)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(icon.replacingOccurrences(of: ".", with: " ")) icon")
+                    .accessibilityAddTraits(draft.iconName == icon ? [.isButton, .isSelected] : .isButton)
                 }
             }
             .padding(.vertical, 4)
@@ -82,17 +86,21 @@ struct ProfileEditView: View {
         Section("Accent") {
             HStack(spacing: 14) {
                 ForEach(accentOptions, id: \.self) { hex in
-                    Circle()
-                        .fill(Color(hex: hex))
-                        .frame(width: 30, height: 30)
-                        .overlay {
-                            if draft.accentHex == hex {
-                                Image(systemName: "checkmark")
-                                    .font(.caption.bold())
-                                    .foregroundStyle(.white)
+                    Button { draft.accentHex = hex } label: {
+                        Circle()
+                            .fill(Color(hex: hex))
+                            .frame(width: 30, height: 30)
+                            .overlay {
+                                if draft.accentHex == hex {
+                                    Image(systemName: "checkmark")
+                                        .font(.caption.bold())
+                                        .foregroundStyle(.white)
+                                }
                             }
-                        }
-                        .onTapGesture { draft.accentHex = hex }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Accent color")
+                    .accessibilityAddTraits(draft.accentHex == hex ? [.isButton, .isSelected] : .isButton)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

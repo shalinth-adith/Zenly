@@ -30,6 +30,7 @@ struct SessionView: View {
                         .background(.thinMaterial, in: Circle())
                 }
                 .tint(.primary)
+                .accessibilityLabel("Minimize timer")
                 Spacer()
             }
             .padding()
@@ -51,6 +52,9 @@ struct SessionView: View {
                     }
                 }
                 .frame(width: 260, height: 260)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(isBreak ? "Break time remaining" : "Focus time remaining")
+                .accessibilityValue(session.timeString)
 
                 Button(role: .destructive, action: endTapped) {
                     Text(isBreak ? "End break" : "End early")

@@ -114,10 +114,14 @@ struct SessionSummaryView: View {
                 .foregroundStyle(.secondary)
             HStack(spacing: 10) {
                 ForEach(1...5, id: \.self) { i in
-                    Image(systemName: i <= rating ? "star.fill" : "star")
-                        .font(.title2)
-                        .foregroundStyle(.yellow)
-                        .onTapGesture { rating = i }
+                    Button { rating = i } label: {
+                        Image(systemName: i <= rating ? "star.fill" : "star")
+                            .font(.title2)
+                            .foregroundStyle(.yellow)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(i == 1 ? "1 star" : "\(i) stars")
+                    .accessibilityAddTraits(i == rating ? [.isButton, .isSelected] : .isButton)
                 }
             }
             TextField("What did you work on? (optional)", text: $note, axis: .vertical)

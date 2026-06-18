@@ -69,6 +69,8 @@ struct SplashView: View {
                 .offset(y: textIn ? 0 : 14)
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Zenly. Find your focus.")
         .onAppear(perform: animate)
     }
 

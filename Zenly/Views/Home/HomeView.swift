@@ -56,6 +56,7 @@ struct HomeView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showTasks = true } label: { Image(systemName: "checklist") }
+                        .accessibilityLabel("Tasks")
                 }
             }
             .sheet(isPresented: $showTasks) { TasksView() }
@@ -97,6 +98,9 @@ struct HomeView: View {
             .background(Color(hex: session.accentHex), in: RoundedRectangle(cornerRadius: 14))
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(session.phase == .breakTime ? "Resume break timer" : "Resume focus timer")
+        .accessibilityValue(session.timeString)
     }
 
     private var activeProfile: FocusProfile? { profiles.activeProfile }
@@ -217,6 +221,8 @@ struct HomeView: View {
                 .foregroundStyle(.primary)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(symbol == "plus" ? "Increase focus duration" : "Decrease focus duration")
+        .accessibilityValue("\(selectedMinutes) minutes")
     }
 
     private var statsRow: some View {
@@ -308,6 +314,8 @@ struct HomeView: View {
                                     in: RoundedRectangle(cornerRadius: 10))
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(sound.title)
+                    .accessibilityAddTraits(active ? [.isButton, .isSelected] : .isButton)
                 }
             }
         }
@@ -341,10 +349,13 @@ struct HomeView: View {
     private var musicRow: some View {
         HStack(spacing: 22) {
             Button { music.previous() } label: { Image(systemName: "backward.fill") }
+                .accessibilityLabel("Previous track")
             Button { music.playPause() } label: {
                 Image(systemName: music.isPlaying ? "pause.fill" : "play.fill").font(.title3)
             }
+            .accessibilityLabel(music.isPlaying ? "Pause" : "Play")
             Button { music.next() } label: { Image(systemName: "forward.fill") }
+                .accessibilityLabel("Next track")
             VStack(alignment: .leading, spacing: 2) {
                 Text(music.nowPlaying.isEmpty ? "Apple Music" : music.nowPlaying)
                     .font(.subheadline).lineLimit(1)
