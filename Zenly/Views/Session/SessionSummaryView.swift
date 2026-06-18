@@ -13,6 +13,8 @@ struct SessionSummaryView: View {
     @Environment(AchievementService.self) private var achievements
 
     @State private var newBadges: [BadgeDefinition] = []
+    @State private var rating = 0
+    @State private var note = ""
 
     var body: some View {
         ZStack {
@@ -67,11 +69,14 @@ struct SessionSummaryView: View {
                 .padding(.top, 4)
             }
 
+            reviewSection
+
             Spacer()
 
             VStack(spacing: 12) {
                 if session.canTakeBreak {
                     Button {
+                        session.saveReview(rating: rating, note: note)
                         session.startBreak()
                     } label: {
                         Label("Take a break", systemImage: "cup.and.saucer.fill")
@@ -80,22 +85,46 @@ struct SessionSummaryView: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
-                }
 
-                if session.canTakeBreak {
-                    Button("Done") { session.dismissSummary() }
-                        .buttonStyle(.bordered)
-                        .controlSize(.large)
+                    Button("Done") {
+                        session.saveReview(rating: rating, note: note)
+                        session.dismissSummary()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
                 } else {
-                    Button("Done") { session.dismissSummary() }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.large)
+                    Button("Done") {
+                        session.saveReview(rating: rating, note: note)
+                        session.dismissSummary()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
                 }
             }
             .padding(.horizontal, 40)
             .padding(.bottom, 24)
         }
         .padding()
+    }
+
+    private var reviewSection: some View {
+        VStack(spacing: 10) {
+            Text("How focused were you?")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            HStack(spacing: 10) {
+                ForEach(1...5, id: \.self) { i in
+                    Image(systemName: i <= rating ? "star.fill" : "star")
+                        .font(.title2)
+                        .foregroundStyle(.yellow)
+                        .onTapGesture { rating = i }
+                }
+            }
+            TextField("What did you work on? (optional)", text: $note, axis: .vertical)
+                .textFieldStyle(.roundedBorder)
+                .lineLimit(1...3)
+        }
+        .padding(.horizontal, 32)
     }
 
     private func detail(_ summary: SessionSummary) -> String {

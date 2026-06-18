@@ -17,6 +17,7 @@ final class SessionHistory {
         self.context = context
     }
 
+    @discardableResult
     func record(profileName: String,
                 plannedMinutes: Int,
                 completedMinutes: Int,
@@ -24,7 +25,7 @@ final class SessionHistory {
                 wasCompleted: Bool,
                 endedEarly: Bool,
                 startedAt: Date,
-                endedAt: Date) {
+                endedAt: Date) -> FocusSession {
         let session = FocusSession(context: context)
         session.id = UUID()
         session.profileName = profileName
@@ -36,6 +37,20 @@ final class SessionHistory {
         session.startedAt = startedAt
         session.endedAt = endedAt
         try? context.save()
+        return session
+    }
+
+    func save() {
+        try? context.save()
+    }
+
+    /// Recent focus sessions (completed + ended-early), newest first.
+    func recentFocusSessions(limit: Int = 100) -> [FocusSession] {
+        let request = FocusSession.fetchRequest()
+        request.predicate = NSPredicate(format: "kind == %@", "focus")
+        request.sortDescriptors = [NSSortDescriptor(keyPath: \FocusSession.startedAt, ascending: false)]
+        request.fetchLimit = limit
+        return (try? context.fetch(request)) ?? []
     }
 
     func completedFocusSessions() -> [FocusSession] {

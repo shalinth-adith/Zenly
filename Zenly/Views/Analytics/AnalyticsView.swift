@@ -23,6 +23,9 @@ struct AnalyticsView: View {
                     focusChartCard
                     distractionChartCard
                     usageCard
+                    NavigationLink { HistoryView() } label: {
+                        navRow(title: "History", systemImage: "clock.arrow.circlepath", tint: .indigo)
+                    }
                     NavigationLink { BadgesView() } label: {
                         navRow(title: "Badges", systemImage: "rosette", tint: .yellow)
                     }

@@ -34,6 +34,7 @@ final class FocusSessionController {
     private var plannedFocusMinutes = 0
     private var breakMinutes = 0
     private var ticker: Task<Void, Never>?
+    private var lastSession: FocusSession?
 
     private let blocking = BlockingService()
     private let schedule = ScheduleCenter.shared
@@ -165,6 +166,15 @@ final class FocusSessionController {
         phase = .idle
     }
 
+    /// Attach the post-session review to the session just recorded.
+    func saveReview(rating: Int, note: String) {
+        guard let lastSession else { return }
+        lastSession.rating = Int16(rating)
+        let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        lastSession.note = trimmed.isEmpty ? nil : trimmed
+        history.save()
+    }
+
     /// Re-sync the countdown after returning from the background.
     func refresh() {
         guard isActive else { return }
@@ -214,14 +224,14 @@ final class FocusSessionController {
             ? plannedFocusMinutes
             : max(0, Int(Date().timeIntervalSince(focusStartedAt) / 60))
 
-        history.record(profileName: profileName,
-                       plannedMinutes: plannedFocusMinutes,
-                       completedMinutes: completedMinutes,
-                       kind: "focus",
-                       wasCompleted: completed,
-                       endedEarly: !completed,
-                       startedAt: focusStartedAt,
-                       endedAt: Date())
+        lastSession = history.record(profileName: profileName,
+                                     plannedMinutes: plannedFocusMinutes,
+                                     completedMinutes: completedMinutes,
+                                     kind: "focus",
+                                     wasCompleted: completed,
+                                     endedEarly: !completed,
+                                     startedAt: focusStartedAt,
+                                     endedAt: Date())
 
         Haptics.success()
         summary = SessionSummary(profileName: profileName,
