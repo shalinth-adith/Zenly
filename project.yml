@@ -57,7 +57,8 @@ targets:
     info:
       path: Zenly/Info.plist
       properties:
-        UILaunchScreen: {}
+        UILaunchScreen:
+          UIColorName: LaunchBackground
         # Zenly uses only exempt encryption (HTTPS + Apple standard frameworks),
         # so declare no non-exempt encryption — stops the per-build export
         # compliance prompt in App Store Connect.
