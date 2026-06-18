@@ -79,6 +79,7 @@ struct ZenlyApp: App {
             breakMinutes: Int(profile.breakMinutes),
             isStrict: profile.isStrict,
             blockAll: profile.blockAllApps,
+            allowedWebDomains: WebDomainList.parse(profile.allowedWebDomains ?? ""),
             block: profiles.block(for: profile),
             allow: profiles.allow(for: profile)
         )

@@ -73,6 +73,7 @@ final class FocusSessionController {
                     breakMinutes: Int,
                     isStrict: Bool,
                     blockAll: Bool,
+                    allowedWebDomains: [String] = [],
                     block: FamilyActivitySelection,
                     allow: FamilyActivitySelection) {
         self.profileName = profileName
@@ -84,9 +85,11 @@ final class FocusSessionController {
 
         beginPhase(.focus, minutes: focusMinutes)
 
-        blocking.startBlocking(block, allowing: allow, blockAll: blockAll)
+        blocking.startBlocking(block, allowing: allow, blockAll: blockAll,
+                               allowedWebDomains: allowedWebDomains)
         schedule.startOneOff(activity: .focusSession, block: block, allow: allow,
-                             blockAll: blockAll, durationMinutes: focusMinutes)
+                             blockAll: blockAll, allowedWebDomains: allowedWebDomains,
+                             durationMinutes: focusMinutes)
         notifications.scheduleFocusEnd(after: TimeInterval(focusMinutes * 60),
                                        profileName: profileName)
         liveActivity.start(profileName: profileName, accentHex: accentHex,

@@ -3,6 +3,7 @@
     <entity name="FocusProfile" representedClassName="FocusProfile" syncable="YES" codeGenerationType="class">
         <attribute name="accentHex" optional="YES" attributeType="String"/>
         <attribute name="allowSelectionData" optional="YES" attributeType="Binary"/>
+        <attribute name="allowedWebDomains" optional="YES" attributeType="String"/>
         <attribute name="blockAllApps" optional="YES" attributeType="Boolean" defaultValueString="YES" usesScalarValueType="YES"/>
         <attribute name="blockSelectionData" optional="YES" attributeType="Binary"/>
         <attribute name="breakMinutes" optional="YES" attributeType="Integer 16" defaultValueString="5" usesScalarValueType="YES"/>
@@ -21,8 +22,10 @@
         <attribute name="endedEarly" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
         <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="kind" optional="YES" attributeType="String" defaultValueString="focus"/>
+        <attribute name="note" optional="YES" attributeType="String"/>
         <attribute name="plannedMinutes" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
         <attribute name="profileName" optional="YES" attributeType="String"/>
+        <attribute name="rating" optional="YES" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
         <attribute name="startedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="wasCompleted" optional="YES" attributeType="Boolean" defaultValueString="NO" usesScalarValueType="YES"/>
         <relationship name="profile" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="FocusProfile" inverseName="sessions" inverseEntity="FocusProfile"/>

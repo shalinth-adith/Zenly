@@ -30,7 +30,9 @@ final class DeviceActivityMonitorExtension: DeviceActivityMonitor {
         let block = ActivityShieldStore.block(for: activity.rawValue)
         let allow = ActivityShieldStore.allow(for: activity.rawValue)
         let blockAll = ActivityShieldStore.blockAll(for: activity.rawValue)
-        ShieldApplier.apply(block: block, allow: allow, blockAll: blockAll, to: store)
+        let webAllow = ActivityShieldStore.allowedWebDomains(for: activity.rawValue)
+        ShieldApplier.apply(block: block, allow: allow, blockAll: blockAll,
+                            allowedWebDomains: webAllow, to: store)
     }
 
     override func intervalDidEnd(for activity: DeviceActivityName) {

@@ -36,6 +36,7 @@ struct ProfileEditView: View {
                 identitySection
                 accentSection
                 blockingSection
+                researchSection
                 lengthsSection
                 strictSection
             }
@@ -126,6 +127,21 @@ struct ProfileEditView: View {
             Text(draft.blockAllApps
                  ? "Blocks every app and website during focus, except the allowed apps. Phone and system apps stay available."
                  : "Blocks only the apps, categories, and sites you choose.")
+        }
+    }
+
+    private var researchSection: some View {
+        Section {
+            TextField("claude.ai, chatgpt.com, docs.google.com",
+                      text: $draft.allowedWebDomains, axis: .vertical)
+                .lineLimit(2...5)
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+                .keyboardType(.URL)
+        } header: {
+            Text("Research mode — allowed websites")
+        } footer: {
+            Text("When set, Safari is limited to ONLY these sites during focus (everything else on the web is blocked). Great for researching without entertainment sites. Leave empty to allow all websites.")
         }
     }
 

@@ -22,6 +22,7 @@ struct ProfileDraft {
     var breakMinutes: Int = 5
     var isStrict: Bool = false
     var blockAllApps: Bool = true
+    var allowedWebDomains: String = ""
     var block = FamilyActivitySelection()
     var allow = FamilyActivitySelection()
 }
@@ -79,6 +80,7 @@ final class ProfileStore {
             breakMinutes: Int(profile.breakMinutes),
             isStrict: profile.isStrict,
             blockAllApps: profile.blockAllApps,
+            allowedWebDomains: profile.allowedWebDomains ?? "",
             block: SelectionCodec.decode(profile.blockSelectionData),
             allow: SelectionCodec.decode(profile.allowSelectionData)
         )
@@ -120,6 +122,7 @@ final class ProfileStore {
         profile.breakMinutes = Int16(draft.breakMinutes)
         profile.isStrict = draft.isStrict
         profile.blockAllApps = draft.blockAllApps
+        profile.allowedWebDomains = draft.allowedWebDomains
         profile.blockSelectionData = SelectionCodec.encode(draft.block)
         profile.allowSelectionData = SelectionCodec.encode(draft.allow)
     }

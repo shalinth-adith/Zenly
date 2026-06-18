@@ -30,9 +30,11 @@ final class ScheduleCenter {
                      block: FamilyActivitySelection,
                      allow: FamilyActivitySelection,
                      blockAll: Bool,
+                     allowedWebDomains: [String] = [],
                      durationMinutes: Int) {
         guard durationMinutes >= 15 else { return }
-        ActivityShieldStore.set(block: block, allow: allow, blockAll: blockAll, for: activity.rawValue)
+        ActivityShieldStore.set(block: block, allow: allow, blockAll: blockAll,
+                                allowedWebDomains: allowedWebDomains, for: activity.rawValue)
 
         let calendar = Calendar.current
         let now = Date()

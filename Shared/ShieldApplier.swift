@@ -18,14 +18,22 @@ enum ShieldApplier {
     static func apply(block: FamilyActivitySelection,
                       allow: FamilyActivitySelection,
                       blockAll: Bool,
+                      allowedWebDomains: [String] = [],
                       to store: ManagedSettingsStore) {
         let allowed = allow.applicationTokens
+        let webAllow = Set(allowedWebDomains.map { WebDomain(domain: $0) })
+        let researchMode = !webAllow.isEmpty
+
+        // Research mode: allow ONLY these sites in Safari, block the rest of the
+        // web. Safari itself stays usable (system app, never shielded by .all()).
+        store.webContent.blockedByFilter = researchMode ? .all(except: webAllow) : nil
 
         if blockAll {
             store.shield.applications = nil
             store.shield.applicationCategories = .all(except: allowed)
             store.shield.webDomains = nil
-            store.shield.webDomainCategories = .all()
+            // Don't shield-all web when the filter already restricts it.
+            store.shield.webDomainCategories = researchMode ? nil : .all()
             return
         }
 

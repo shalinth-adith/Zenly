@@ -20,8 +20,10 @@ final class BlockingService {
     /// the extension via the shared ShieldApplier.
     func startBlocking(_ block: FamilyActivitySelection,
                        allowing allow: FamilyActivitySelection = FamilyActivitySelection(),
-                       blockAll: Bool = false) {
-        ShieldApplier.apply(block: block, allow: allow, blockAll: blockAll, to: store)
+                       blockAll: Bool = false,
+                       allowedWebDomains: [String] = []) {
+        ShieldApplier.apply(block: block, allow: allow, blockAll: blockAll,
+                            allowedWebDomains: allowedWebDomains, to: store)
     }
 
     /// Remove every shield this store applied.
