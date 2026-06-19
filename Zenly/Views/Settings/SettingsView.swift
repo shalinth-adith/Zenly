@@ -16,6 +16,7 @@ struct SettingsView: View {
 
     @AppStorage("dailyGoalMinutes", store: AppGroup.defaults) private var dailyGoalMinutes = 120
     @AppStorage(ShieldMessage.storageKey, store: AppGroup.defaults) private var shieldMessage = ""
+    @AppStorage(AIConfig.storageKey, store: AppGroup.defaults) private var anthropicKey = ""
     @AppStorage("breakReminderEnabled", store: AppGroup.defaults) private var reminderEnabled = false
     @AppStorage("breakReminderHour", store: AppGroup.defaults) private var reminderHour = 15
     @AppStorage("breakReminderMinute", store: AppGroup.defaults) private var reminderMinute = 0
@@ -26,6 +27,7 @@ struct SettingsView: View {
                 permissionSection
                 goalSection
                 shieldSection
+                researchSection
                 integrationsSection
                 musicSection
                 breakReminderSection
@@ -61,6 +63,27 @@ struct SettingsView: View {
             Text("Shield message")
         } footer: {
             Text("Shown on the block screen when you open a distracting app during focus. Leave empty for the default.")
+        }
+    }
+
+    private var researchSection: some View {
+        Section {
+            SecureField("sk-ant-…", text: $anthropicKey)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+            if anthropicKey.isEmpty {
+                Label("Using the on-device classifier (no key).", systemImage: "iphone")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            } else {
+                Label("Claude classifier active", systemImage: "checkmark.seal.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.green)
+            }
+        } header: {
+            Text("Research browser AI")
+        } footer: {
+            Text("Optional Anthropic API key. With a key, the in-app Research browser uses Claude to judge unknown sites as knowledge or entertainment; without one it uses a built-in list. Only a site's domain is ever sent.")
         }
     }
 

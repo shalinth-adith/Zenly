@@ -24,6 +24,7 @@ struct HomeView: View {
     @State private var todayMinutes = 0
     @State private var selectedMinutes = 25
     @State private var showTasks = false
+    @State private var showResearch = false
     @State private var showSession = false
     @State private var freeBlock: FreeBlock?
 
@@ -55,11 +56,18 @@ struct HomeView: View {
             .navigationTitle("Zenly")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
+                    Button { showResearch = true } label: { Image(systemName: "magnifyingglass") }
+                        .accessibilityLabel("Research browser")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
                     Button { showTasks = true } label: { Image(systemName: "checklist") }
                         .accessibilityLabel("Tasks")
                 }
             }
             .sheet(isPresented: $showTasks) { TasksView() }
+            .fullScreenCover(isPresented: $showResearch) {
+                ResearchBrowserView(profileName: activeProfile?.name ?? "Focus")
+            }
             .task { await prepare() }
             .onChange(of: session.phase) { oldPhase, newPhase in
                 switch newPhase {
