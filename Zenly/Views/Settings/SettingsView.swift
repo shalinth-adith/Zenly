@@ -5,6 +5,11 @@
 //  Screen Time permission status and daily break reminders (scheduled with a
 //  UNCalendarNotificationTrigger). Preferences persist in the App Group.
 //
+//  Redesign: grouped glass settings over the aurora with the glowing toggle and
+//  brand tint (Claude Design spec, Zenly.dc.html). Controls and logic unchanged.
+//  (The mockup's account / "Zenly Plus" / sign-out card is intentionally omitted
+//  — Zenly has no user accounts.)
+//
 
 import SwiftUI
 
@@ -16,24 +21,37 @@ struct SettingsView: View {
 
     @AppStorage("dailyGoalMinutes", store: AppGroup.defaults) private var dailyGoalMinutes = 120
     @AppStorage(ShieldMessage.storageKey, store: AppGroup.defaults) private var shieldMessage = ""
-    @AppStorage(AIConfig.storageKey, store: AppGroup.defaults) private var anthropicKey = ""
     @AppStorage("breakReminderEnabled", store: AppGroup.defaults) private var reminderEnabled = false
     @AppStorage("breakReminderHour", store: AppGroup.defaults) private var reminderHour = 15
     @AppStorage("breakReminderMinute", store: AppGroup.defaults) private var reminderMinute = 0
 
+    /// Frosted row background that lets the section's rounded corners clip it.
+    private var glassRow: some View {
+        Rectangle()
+            .fill(.ultraThinMaterial)
+            .overlay(ZTheme.Palette.glassFill)
+            .environment(\.colorScheme, .dark)
+    }
+
     var body: some View {
         NavigationStack {
-            Form {
-                permissionSection
-                goalSection
-                shieldSection
-                researchSection
-                integrationsSection
-                musicSection
-                breakReminderSection
-                aboutSection
+            ZStack {
+                ZenlyBackground()
+
+                Form {
+                    permissionSection
+                    goalSection
+                    shieldSection
+                    integrationsSection
+                    musicSection
+                    breakReminderSection
+                    aboutSection
+                }
+                .scrollContentBackground(.hidden)
+                .tint(ZTheme.Palette.brandBright)
             }
             .navigationTitle("Settings")
+            .toolbarBackground(.hidden, for: .navigationBar)
             .onChange(of: reminderEnabled) { _, _ in updateReminder() }
             .onChange(of: reminderHour) { _, _ in updateReminder() }
             .onChange(of: reminderMinute) { _, _ in updateReminder() }
@@ -45,13 +63,14 @@ struct SettingsView: View {
             switch authorization.status {
             case .approved:
                 Label("Access granted", systemImage: "checkmark.seal.fill")
-                    .foregroundStyle(.green)
+                    .foregroundStyle(ZTheme.Palette.teal)
             default:
                 Button("Grant Screen Time Access") {
                     Task { await authorization.requestAuthorization() }
                 }
             }
         }
+        .listRowBackground(glassRow)
     }
 
     private var shieldSection: some View {
@@ -64,27 +83,7 @@ struct SettingsView: View {
         } footer: {
             Text("Shown on the block screen when you open a distracting app during focus. Leave empty for the default.")
         }
-    }
-
-    private var researchSection: some View {
-        Section {
-            SecureField("sk-ant-…", text: $anthropicKey)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-            if anthropicKey.isEmpty {
-                Label("Using the on-device classifier (no key).", systemImage: "iphone")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            } else {
-                Label("Claude classifier active", systemImage: "checkmark.seal.fill")
-                    .font(.footnote)
-                    .foregroundStyle(.green)
-            }
-        } header: {
-            Text("Research browser AI")
-        } footer: {
-            Text("Optional Anthropic API key. With a key, the in-app Research browser uses Claude to judge unknown sites as knowledge or entertainment; without one it uses a built-in list. Only a site's domain is ever sent.")
-        }
+        .listRowBackground(glassRow)
     }
 
     private var goalSection: some View {
@@ -97,13 +96,14 @@ struct SettingsView: View {
         } footer: {
             Text("Your target focused minutes per day, shown on Home.")
         }
+        .listRowBackground(glassRow)
     }
 
     private var integrationsSection: some View {
         Section {
             if calendar.isAuthorized {
                 Label("Calendar connected", systemImage: "checkmark.seal.fill")
-                    .foregroundStyle(.green)
+                    .foregroundStyle(ZTheme.Palette.teal)
             } else if calendar.isDenied {
                 Label("Calendar access denied — enable it in the Settings app.", systemImage: "exclamationmark.triangle.fill")
                     .font(.footnote)
@@ -116,7 +116,7 @@ struct SettingsView: View {
 
             if tasks.remindersAuthorized {
                 Label("Reminders connected", systemImage: "checkmark.seal.fill")
-                    .foregroundStyle(.green)
+                    .foregroundStyle(ZTheme.Palette.teal)
             } else if tasks.remindersDenied {
                 Label("Reminders access denied — enable it in the Settings app.", systemImage: "exclamationmark.triangle.fill")
                     .font(.footnote)
@@ -131,6 +131,7 @@ struct SettingsView: View {
         } footer: {
             Text("Calendar suggests focus during free time. Add a Zenly Focus Filter in Settings › Focus to switch profiles automatically.")
         }
+        .listRowBackground(glassRow)
     }
 
     private var musicSection: some View {
@@ -157,11 +158,13 @@ struct SettingsView: View {
         } footer: {
             Text("Spotify requires the Spotify app and a Premium account.")
         }
+        .listRowBackground(glassRow)
     }
 
     private var breakReminderSection: some View {
         Section {
             Toggle("Daily break reminder", isOn: $reminderEnabled)
+                .toggleStyle(.zenly)
             if reminderEnabled {
                 DatePicker("Remind me at", selection: reminderTime, displayedComponents: .hourAndMinute)
             }
@@ -170,6 +173,7 @@ struct SettingsView: View {
         } footer: {
             Text("A gentle daily nudge to step away and recharge.")
         }
+        .listRowBackground(glassRow)
     }
 
     private var aboutSection: some View {
@@ -177,6 +181,7 @@ struct SettingsView: View {
             LabeledContent("Version", value: appVersion)
             LabeledContent("Phase", value: "2 — Sessions & Scheduling")
         }
+        .listRowBackground(glassRow)
     }
 
     private var reminderTime: Binding<Date> {

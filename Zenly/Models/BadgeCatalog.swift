@@ -30,7 +30,7 @@ enum BadgeCatalog {
     static let all: [BadgeDefinition] = [
         BadgeDefinition(id: "first_focus", title: "First Focus",
                         detail: "Complete your first session", systemImage: "sparkles",
-                        accentHex: "5C6BFA", requirement: .firstSession),
+                        accentHex: "1A3FA8", requirement: .firstSession),
         BadgeDefinition(id: "streak_3", title: "Getting Going",
                         detail: "3-day focus streak", systemImage: "flame.fill",
                         accentHex: "FF9F0A", requirement: .streak(3)),
@@ -51,6 +51,6 @@ enum BadgeCatalog {
                         accentHex: "AF52DE", requirement: .totalMinutes(300)),
         BadgeDefinition(id: "power_hour", title: "Power Hour",
                         detail: "Focus 60 minutes in one day", systemImage: "bolt.fill",
-                        accentHex: "5C6BFA", requirement: .minutesInDay(60))
+                        accentHex: "1A3FA8", requirement: .minutesInDay(60))
     ]
 }

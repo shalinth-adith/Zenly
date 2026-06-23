@@ -17,7 +17,7 @@ import Observation
 struct ProfileDraft {
     var name: String = ""
     var iconName: String = "brain.head.profile"
-    var accentHex: String = "5C6BFA"
+    var accentHex: String = "1A3FA8"
     var focusMinutes: Int = 25
     var breakMinutes: Int = 5
     var isStrict: Bool = false
@@ -75,7 +75,7 @@ final class ProfileStore {
         ProfileDraft(
             name: profile.name ?? "",
             iconName: profile.iconName ?? "brain.head.profile",
-            accentHex: profile.accentHex ?? "5C6BFA",
+            accentHex: profile.accentHex ?? "1A3FA8",
             focusMinutes: Int(profile.focusMinutes),
             breakMinutes: Int(profile.breakMinutes),
             isStrict: profile.isStrict,
@@ -139,7 +139,7 @@ final class ProfileStore {
         guard count == 0 else { return }
 
         let defaults: [ProfileDraft] = [
-            ProfileDraft(name: "Work", iconName: "briefcase.fill", accentHex: "5C6BFA",
+            ProfileDraft(name: "Work", iconName: "briefcase.fill", accentHex: "1A3FA8",
                          focusMinutes: 25, breakMinutes: 5),
             ProfileDraft(name: "Study", iconName: "book.fill", accentHex: "34C759",
                          focusMinutes: 50, breakMinutes: 10),

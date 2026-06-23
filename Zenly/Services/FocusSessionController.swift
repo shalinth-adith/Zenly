@@ -23,7 +23,7 @@ final class FocusSessionController {
 
     private(set) var phase: Phase = .idle
     private(set) var profileName = ""
-    private(set) var accentHex = "5C6BFA"
+    private(set) var accentHex = "1A3FA8"
     private(set) var totalSeconds = 0
     private(set) var remainingSeconds = 0
     private(set) var summary: SessionSummary?

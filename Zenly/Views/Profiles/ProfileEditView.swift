@@ -28,7 +28,7 @@ struct ProfileEditView: View {
         "briefcase.fill", "book.fill", "dumbbell.fill", "brain.head.profile",
         "laptopcomputer", "pencil.and.ruler.fill", "leaf.fill", "moon.stars.fill"
     ]
-    private let accentOptions = ["5C6BFA", "34C759", "FF9F0A", "FF375F", "AF52DE", "00C7BE"]
+    private let accentOptions = ["1A3FA8", "34C759", "FF9F0A", "FF375F", "AF52DE", "00C7BE"]
 
     var body: some View {
         NavigationStack {

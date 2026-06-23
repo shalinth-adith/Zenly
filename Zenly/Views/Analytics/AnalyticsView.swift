@@ -5,6 +5,9 @@
 //  Weekly insights: productivity score, focus-minutes chart, distraction-attempt
 //  chart (Swift Charts), and an embedded DeviceActivityReport for app usage.
 //
+//  Redesign: aurora backdrop + frosted glass cards with a glowing score ring
+//  (Claude Design spec, Zenly.dc.html). Data and navigation unchanged.
+//
 
 import SwiftUI
 import Charts
@@ -17,25 +20,37 @@ struct AnalyticsView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
-                    scoreCard
-                    focusChartCard
-                    distractionChartCard
-                    usageCard
-                    NavigationLink { HistoryView() } label: {
-                        navRow(title: "History", systemImage: "clock.arrow.circlepath", tint: .indigo)
+            ZStack {
+                ZenlyBackground()
+
+                ScrollView {
+                    VStack(spacing: ZTheme.Spacing.md) {
+                        Text("Insights")
+                            .font(ZTheme.Font.display(32, weight: .bold))
+                            .foregroundStyle(ZTheme.Palette.textPrimary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.top, 8)
+
+                        scoreCard
+                        focusChartCard
+                        distractionChartCard
+                        usageCard
+                        NavigationLink { HistoryView() } label: {
+                            navRow(title: "History", systemImage: "clock.arrow.circlepath", tint: ZTheme.Palette.brand)
+                        }
+                        NavigationLink { BadgesView() } label: {
+                            navRow(title: "Badges", systemImage: "rosette", tint: ZTheme.Palette.streakWarm)
+                        }
+                        NavigationLink { LeaderboardView() } label: {
+                            navRow(title: "Accountability", systemImage: "person.2.fill", tint: ZTheme.Palette.teal)
+                        }
                     }
-                    NavigationLink { BadgesView() } label: {
-                        navRow(title: "Badges", systemImage: "rosette", tint: .yellow)
-                    }
-                    NavigationLink { LeaderboardView() } label: {
-                        navRow(title: "Accountability", systemImage: "person.2.fill", tint: .blue)
-                    }
+                    .padding(.horizontal, ZTheme.Spacing.lg)
+                    .padding(.bottom, 24)
                 }
-                .padding()
+                .scrollIndicators(.hidden)
             }
-            .navigationTitle("Insights")
+            .toolbar(.hidden, for: .navigationBar)
             .onAppear(perform: refresh)
         }
     }
@@ -52,27 +67,32 @@ struct AnalyticsView: View {
     // MARK: - Cards
 
     private var scoreCard: some View {
-        VStack(spacing: 10) {
-            Text("Productivity Score")
-                .font(.headline)
+        HStack(spacing: ZTheme.Spacing.lg) {
             ZStack {
                 Circle()
-                    .stroke(.tint.opacity(0.15), lineWidth: 12)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 8)
                 Circle()
                     .trim(from: 0, to: Double(score) / 100)
-                    .stroke(.tint, style: StrokeStyle(lineWidth: 12, lineCap: .round))
+                    .stroke(ZTheme.Palette.brandBright, style: StrokeStyle(lineWidth: 8, lineCap: .round))
                     .rotationEffect(.degrees(-90))
+                    .shadow(color: ZTheme.Palette.brandGlow.opacity(0.8), radius: 6)
                 Text("\(score)")
-                    .font(.system(size: 44, weight: .bold, design: .rounded))
+                    .font(ZTheme.Font.numeral(30, weight: .bold))
+                    .foregroundStyle(.white)
             }
-            .frame(width: 140, height: 140)
-            Text("Last 7 days")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            .frame(width: 96, height: 96)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Productivity Score")
+                    .font(ZTheme.Font.display(18, weight: .semibold))
+                    .foregroundStyle(ZTheme.Palette.textPrimary)
+                Text("Last 7 days")
+                    .font(ZTheme.Font.body(14))
+                    .foregroundStyle(ZTheme.Palette.text(0.55))
+            }
+            Spacer()
         }
-        .frame(maxWidth: .infinity)
-        .padding()
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
+        .glassCard(radius: ZTheme.Radius.sheet, padding: 20)
     }
 
     private var focusChartCard: some View {
@@ -82,23 +102,30 @@ struct AnalyticsView: View {
                     x: .value("Day", stat.label),
                     y: .value("Minutes", stat.focusMinutes)
                 )
-                .foregroundStyle(.tint)
-                .cornerRadius(4)
+                .foregroundStyle(
+                    LinearGradient(colors: [ZTheme.Palette.violet, ZTheme.Palette.brand],
+                                   startPoint: .top, endPoint: .bottom)
+                )
+                .cornerRadius(6)
             }
+            .chartXAxis { AxisMarks { _ in AxisValueLabel().foregroundStyle(ZTheme.Palette.text(0.4)) } }
+            .chartYAxis { AxisMarks { _ in AxisValueLabel().foregroundStyle(ZTheme.Palette.text(0.4)) } }
             .frame(height: 160)
         }
     }
 
     private var distractionChartCard: some View {
-        card(title: "Distraction attempts", subtitle: "\(totalAttempts) this week") {
+        card(title: "Distractions blocked", subtitle: "\(totalAttempts) this week") {
             Chart(stats) { stat in
                 BarMark(
                     x: .value("Day", stat.label),
                     y: .value("Attempts", stat.attempts)
                 )
-                .foregroundStyle(.orange)
+                .foregroundStyle(ZTheme.Palette.teal.opacity(0.6))
                 .cornerRadius(4)
             }
+            .chartXAxis { AxisMarks { _ in AxisValueLabel().foregroundStyle(ZTheme.Palette.text(0.4)) } }
+            .chartYAxis { AxisMarks { _ in AxisValueLabel().foregroundStyle(ZTheme.Palette.text(0.4)) } }
             .frame(height: 140)
         }
     }
@@ -113,26 +140,32 @@ struct AnalyticsView: View {
     private func navRow(title: String, systemImage: String, tint: Color) -> some View {
         HStack {
             Label(title, systemImage: systemImage)
-                .foregroundStyle(.primary)
+                .font(ZTheme.Font.display(16, weight: .semibold))
+                .foregroundStyle(ZTheme.Palette.textPrimary)
+                .tint(tint)
             Spacer()
             Image(systemName: "chevron.right")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(ZTheme.Palette.text(0.4))
         }
-        .padding()
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
-        .tint(tint)
+        .glassCard(padding: ZTheme.Spacing.lg)
     }
 
     private func card<Content: View>(title: String, subtitle: String,
                                      @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title).font(.headline)
-            Text(subtitle).font(.caption).foregroundStyle(.secondary)
+            HStack(alignment: .firstTextBaseline) {
+                Text(title)
+                    .font(ZTheme.Font.display(16, weight: .semibold))
+                    .foregroundStyle(ZTheme.Palette.textPrimary)
+                Spacer()
+                Text(subtitle)
+                    .font(ZTheme.Font.body(13))
+                    .foregroundStyle(ZTheme.Palette.text(0.5))
+            }
             content()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16))
+        .glassCard(radius: ZTheme.Radius.sheet, padding: 20)
     }
 }

@@ -15,9 +15,10 @@ import UIKit
 import ManagedSettingsUI
 
 enum ShieldTheme {
-    // Calm deep-indigo backdrop with a soft periwinkle accent — not alarming red.
+    // Calm deep-night backdrop with a soft blue accent — not alarming red.
+    // Kept in sync with the app's ZTheme brand (#1A3FA8 / glow #4A72E0).
     static let background = UIColor(red: 0.07, green: 0.09, blue: 0.16, alpha: 1.0)
-    static let accent = UIColor(red: 0.51, green: 0.58, blue: 0.98, alpha: 1.0)
+    static let accent = UIColor(red: 0.290, green: 0.447, blue: 0.878, alpha: 1.0)
     static let primaryText = UIColor.white
     static let secondaryText = UIColor(white: 1.0, alpha: 0.72)
 

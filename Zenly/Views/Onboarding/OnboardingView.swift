@@ -6,6 +6,9 @@
 //  on a screen we control, then triggers the real system prompt — so users
 //  arrive at the prompt primed to allow it.
 //
+//  Redesign: the aurora + breathing Focus Orb with glass cards and the primary
+//  glow button (Claude Design spec, Zenly.dc.html). Logic unchanged.
+//
 
 import SwiftUI
 
@@ -17,35 +20,37 @@ struct OnboardingView: View {
     @State private var step = 0
     @State private var requesting = false
 
-    private let tint = Color(hex: "5C6BFA")
-
     var body: some View {
-        TabView(selection: $step) {
-            infoPage(icon: "scope",
-                     title: "Welcome to Zenly",
-                     message: "Block distractions and reclaim your focus, one session at a time.",
-                     button: "Get Started", advancesTo: 1)
-                .tag(0)
+        ZStack {
+            ZenlyBackground()
 
-            infoPage(icon: "timer",
-                     title: "Focus, your way",
-                     message: "Start a focus session and Zenly blocks distracting apps and websites until your timer ends.",
-                     button: "Next", advancesTo: 2)
-                .tag(1)
+            TabView(selection: $step) {
+                infoPage(icon: "scope",
+                         title: "Welcome to Zenly",
+                         message: "Block distractions and reclaim your focus, one session at a time.",
+                         button: "Get Started", advancesTo: 1)
+                    .tag(0)
 
-            infoPage(icon: "flame.fill",
-                     title: "Build the habit",
-                     message: "Earn streaks, unlock badges, and watch your focused time add up.",
-                     button: "Next", advancesTo: 3)
-                .tag(2)
+                infoPage(icon: "timer",
+                         title: "Focus, your way",
+                         message: "Start a focus session and Zenly blocks distracting apps and websites until your timer ends.",
+                         button: "Next", advancesTo: 2)
+                    .tag(1)
 
-            permissionPage.tag(3)
-            donePage.tag(4)
+                infoPage(icon: "flame.fill",
+                         title: "Build the habit",
+                         message: "Earn streaks, unlock badges, and watch your focused time add up.",
+                         button: "Next", advancesTo: 3)
+                    .tag(2)
+
+                permissionPage.tag(3)
+                donePage.tag(4)
+            }
+            .tabViewStyle(.page(indexDisplayMode: .always))
+            .indexViewStyle(.page(backgroundDisplayMode: .always))
+            .animation(.easeInOut, value: step)
         }
-        .tabViewStyle(.page(indexDisplayMode: .always))
-        .indexViewStyle(.page(backgroundDisplayMode: .always))
-        .background(tint.opacity(0.06).ignoresSafeArea())
-        .animation(.easeInOut, value: step)
+        .preferredColorScheme(.dark)
     }
 
     // MARK: - Pages
@@ -54,9 +59,7 @@ struct OnboardingView: View {
                           button: String, advancesTo next: Int) -> some View {
         scaffold(icon: icon, title: title, message: message) {
             Button(button) { withAnimation { step = next } }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .tint(tint)
+                .buttonStyle(.zenlyPrimary)
         }
     }
 
@@ -68,18 +71,18 @@ struct OnboardingView: View {
                 Button(action: requestAccess) {
                     HStack {
                         Text(authorization.isAuthorized ? "Access Granted" : "Grant Screen Time Access")
-                        if requesting { ProgressView().padding(.leading, 4) }
+                        if requesting { ProgressView().tint(.white).padding(.leading, 4) }
                     }
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .tint(tint)
+                .buttonStyle(.zenlyPrimary)
                 .disabled(requesting || authorization.isAuthorized)
+                .opacity(requesting || authorization.isAuthorized ? 0.6 : 1)
 
                 Button(authorization.isAuthorized ? "Continue" : "Maybe later") {
                     withAnimation { step = 4 }
                 }
-                .font(.subheadline)
+                .font(ZTheme.Font.display(16, weight: .semibold))
+                .foregroundStyle(ZTheme.Palette.text(0.55))
             }
         }
     }
@@ -89,9 +92,7 @@ struct OnboardingView: View {
                  title: "You're all set",
                  message: "Pick a profile, set your timer, and start your first focus session.") {
             Button("Start Focusing", action: onComplete)
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .tint(tint)
+                .buttonStyle(.zenlyPrimary)
         }
     }
 
@@ -108,24 +109,27 @@ struct OnboardingView: View {
 
     private func scaffold<Buttons: View>(icon: String, title: String, message: String,
                                          @ViewBuilder buttons: () -> Buttons) -> some View {
-        VStack(spacing: 24) {
+        VStack(spacing: ZTheme.Spacing.xl) {
             Spacer()
-            Image(systemName: icon)
-                .font(.system(size: 72))
-                .foregroundStyle(tint)
+            FocusOrb(state: .idle, diameter: 160) {
+                Image(systemName: icon)
+                    .font(.system(size: 56, weight: .light))
+                    .foregroundStyle(.white)
+            }
             Text(title)
-                .font(.largeTitle.bold())
+                .font(ZTheme.Font.display(34, weight: .bold))
+                .foregroundStyle(ZTheme.Palette.textPrimary)
                 .multilineTextAlignment(.center)
             Text(message)
-                .font(.body)
-                .foregroundStyle(.secondary)
+                .font(ZTheme.Font.body(16))
+                .foregroundStyle(ZTheme.Palette.text(0.6))
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
             Spacer()
             buttons()
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, 40)
-            Spacer().frame(height: 48)
+            Spacer().frame(height: 60)
         }
         .padding()
     }

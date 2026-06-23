@@ -74,7 +74,7 @@ struct ZenlyApp: App {
               let profile = profiles.activeProfile else { return }
         session.startFocus(
             profileName: profile.name ?? "Focus",
-            accentHex: profile.accentHex ?? "5C6BFA",
+            accentHex: profile.accentHex ?? "1A3FA8",
             focusMinutes: Int(profile.focusMinutes),
             breakMinutes: Int(profile.breakMinutes),
             isStrict: profile.isStrict,
