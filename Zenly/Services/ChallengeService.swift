@@ -107,14 +107,33 @@ final class ChallengeService {
         return made
     }
 
+    /// Pool of 25 daily goals. Picked one-per-day from a per-year shuffle, so the
+    /// order varies year to year but is stable across launches within a day, and
+    /// every goal appears before any repeats.
+    static let catalog: [(kind: DailyChallenge.Kind, target: Int)] = [
+        (.minutes, 30),  (.minutes, 45),  (.minutes, 60),  (.minutes, 75),
+        (.minutes, 90),  (.minutes, 100), (.minutes, 120), (.minutes, 135),
+        (.minutes, 150), (.minutes, 180),
+        (.sessions, 2),  (.sessions, 3),  (.sessions, 4),  (.sessions, 5),
+        (.sessions, 6),  (.sessions, 7),
+        (.longSession, 20), (.longSession, 25), (.longSession, 30), (.longSession, 35),
+        (.longSession, 40), (.longSession, 45), (.longSession, 50), (.longSession, 60),
+        (.longSession, 90)
+    ]
+
     private static func make(for dateKey: String) -> DailyChallenge {
-        // Rotate deterministically by day-of-year so the challenge is stable.
-        let dayOfYear = Calendar.current.ordinality(of: .day, in: .year, for: Date()) ?? 0
-        switch dayOfYear % 3 {
-        case 0: return DailyChallenge(dateKey: dateKey, kind: .minutes, target: 60)
-        case 1: return DailyChallenge(dateKey: dateKey, kind: .sessions, target: 3)
-        default: return DailyChallenge(dateKey: dateKey, kind: .longSession, target: 25)
-        }
+        // Deterministic selection: a per-year seeded shuffle of the catalog gives a
+        // varied (non-sequential) order that's stable across launches, and indexing
+        // by day-of-year cycles through all 25 goals before any repeat.
+        let calendar = Calendar.current
+        let now = Date()
+        let dayOfYear = calendar.ordinality(of: .day, in: .year, for: now) ?? 1
+        let year = calendar.component(.year, from: now)
+
+        var generator = SeededGenerator(seed: UInt64(year))
+        let order = Array(catalog.indices).shuffled(using: &generator)
+        let template = catalog[order[(dayOfYear - 1) % order.count]]
+        return DailyChallenge(dateKey: dateKey, kind: template.kind, target: template.target)
     }
 
     private static func todayKey() -> String {
@@ -122,5 +141,23 @@ final class ChallengeService {
         formatter.dateFormat = "yyyy-MM-dd"
         formatter.locale = Locale(identifier: "en_US_POSIX")
         return formatter.string(from: Date())
+    }
+}
+
+/// Reproducible RNG (SplitMix64) so `shuffled(using:)` yields the same order for a
+/// given seed on every launch — unlike the system RNG, which is unseedable.
+struct SeededGenerator: RandomNumberGenerator {
+    private var state: UInt64
+
+    init(seed: UInt64) {
+        state = seed == 0 ? 0x9E37_79B9_7F4A_7C15 : seed
+    }
+
+    mutating func next() -> UInt64 {
+        state &+= 0x9E37_79B9_7F4A_7C15
+        var z = state
+        z = (z ^ (z >> 30)) &* 0xBF58_476D_1CE4_E5B9
+        z = (z ^ (z >> 27)) &* 0x94D0_49BB_1331_11EB
+        return z ^ (z >> 31)
     }
 }
