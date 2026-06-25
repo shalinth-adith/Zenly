@@ -11,8 +11,10 @@ import Foundation
 
 enum DistractionLog {
     private static let countsKey = "distractionCounts"   // [yyyy-MM-dd: Int]
+    private static let eventsKey = "distractionEvents"   // [epoch seconds], newest last
     private static let lastAttemptKey = "distractionLastAttempt"
     private static let dedupeWindow: TimeInterval = 1.5
+    private static let maxEvents = 2000                  // ~weeks of history; bounds storage
 
     private static let dayFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -32,6 +34,13 @@ enum DistractionLog {
         var map = counts()
         map[dayKey(date), default: 0] += 1
         AppGroup.defaults.set(map, forKey: countsKey)
+
+        // Also keep a timestamped log so attempts can be attributed to the
+        // session window they fell inside (see `attempts(from:to:)`).
+        var events = eventTimestamps()
+        events.append(now)
+        if events.count > maxEvents { events.removeFirst(events.count - maxEvents) }
+        AppGroup.defaults.set(events, forKey: eventsKey)
     }
 
     static func counts() -> [String: Int] {
@@ -44,6 +53,26 @@ enum DistractionLog {
 
     static func today() -> Int {
         count(on: Date())
+    }
+
+    // MARK: - Per-session attribution
+
+    private static func eventTimestamps() -> [Double] {
+        AppGroup.defaults.array(forKey: eventsKey) as? [Double] ?? []
+    }
+
+    /// Times a blocked app was reached for within `[start, end]`, oldest first.
+    static func attempts(from start: Date, to end: Date) -> [Date] {
+        let lower = start.timeIntervalSince1970
+        let upper = end.timeIntervalSince1970
+        return eventTimestamps()
+            .filter { $0 >= lower && $0 <= upper }
+            .map { Date(timeIntervalSince1970: $0) }
+    }
+
+    /// Number of distraction attempts within `[start, end]`.
+    static func count(from start: Date, to end: Date) -> Int {
+        attempts(from: start, to: end).count
     }
 
     static func dayKey(_ date: Date) -> String {

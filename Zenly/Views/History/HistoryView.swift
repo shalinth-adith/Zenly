@@ -161,7 +161,12 @@ struct HistoryView: View {
             .padding(.horizontal, 2)
 
             ForEach(group.value, id: \.objectID) { session in
-                sessionRow(session)
+                NavigationLink {
+                    SessionDetailView(session: session)
+                } label: {
+                    sessionRow(session)
+                }
+                .buttonStyle(.plain)
             }
         }
     }
@@ -183,6 +188,9 @@ struct HistoryView: View {
             }
             Spacer()
             ratingDots(Int(session.rating))
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(ZTheme.Palette.text(0.3))
         }
         .glassCard(radius: 18, padding: 13)
     }
