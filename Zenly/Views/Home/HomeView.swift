@@ -16,28 +16,23 @@ struct HomeView: View {
     @Environment(ProfileStore.self) private var profiles
     @Environment(FocusSessionController.self) private var session
     @Environment(AuthorizationService.self) private var authorization
-    @Environment(AnalyticsService.self) private var analytics
-    @Environment(ChallengeService.self) private var challenges
     @Environment(AmbientSoundService.self) private var ambient
-    @Environment(CalendarService.self) private var calendar
     @Environment(MusicController.self) private var music
 
-    @AppStorage("dailyGoalMinutes", store: AppGroup.defaults) private var dailyGoalMinutes = 120
-
-    @State private var streak = 0
-    @State private var todayMinutes = 0
     @State private var selectedMinutes = 25
     @State private var showTasks = false
     @State private var showSession = false
-    @State private var freeBlock: FreeBlock?
 
     var body: some View {
         NavigationStack {
             ZStack {
                 ZenlyBackground()
 
-                ScrollView {
-                    VStack(spacing: ZTheme.Spacing.xl) {
+                // A single, non-scrolling focus screen: the breathing orb is the
+                // hero, balanced by spacers, with a compact ambient-sound row near
+                // the bottom and the music bar pinned via safeAreaInset.
+                GeometryReader { proxy in
+                    VStack(spacing: ZTheme.Spacing.lg) {
                         header
 
                         if session.isActive && !showSession {
@@ -46,24 +41,30 @@ struct HomeView: View {
                         if !authorization.isAuthorized {
                             permissionCard
                         }
+
                         if profiles.profiles.isEmpty {
+                            Spacer(minLength: 0)
                             emptyProfilesCard
+                            Spacer(minLength: 0)
                         } else {
+                            Spacer(minLength: 0)
                             profilePicker
-                            orbSection
+                            orbSection(diameter: orbDiameter(for: proxy.size.height))
+                            Spacer(minLength: 0)
+                            soundSection
                         }
-                        statsRow
-                        goalCard
-                        challengeCard
-                        if freeBlock != nil { calendarCard }
-                        soundSection
-                        musicBar
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     .padding(.horizontal, ZTheme.Spacing.lg)
                     .padding(.top, 8)
-                    .padding(.bottom, 24)
                 }
-                .scrollIndicators(.hidden)
+            }
+            .safeAreaInset(edge: .bottom) {
+                if !profiles.profiles.isEmpty {
+                    musicBar
+                        .padding(.horizontal, ZTheme.Spacing.lg)
+                        .padding(.bottom, 8)
+                }
             }
             .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $showTasks) { TasksView() }
@@ -72,7 +73,6 @@ struct HomeView: View {
                 switch newPhase {
                 case .idle:
                     showSession = false
-                    refreshStats()
                 case .summary:
                     showSession = true // always surface the celebration
                 default:
@@ -207,15 +207,31 @@ struct HomeView: View {
                     }
                     .frame(width: 132)
                     .accessibilityAddTraits(isActive ? [.isButton, .isSelected] : .isButton)
+                    // Long-press to drag a pill onto another to reorder; the new
+                    // order persists via FocusProfile.sortIndex (ProfileStore.move).
+                    .draggable(profile.id?.uuidString ?? "")
+                    .dropDestination(for: String.self) { items, _ in
+                        guard let raw = items.first,
+                              let draggedID = UUID(uuidString: raw),
+                              let targetID = profile.id else { return false }
+                        profiles.move(id: draggedID, before: targetID)
+                        return true
+                    }
                 }
             }
             .padding(.horizontal, 2)
         }
     }
 
-    private var orbSection: some View {
+    /// Shrink the hero orb on shorter screens so the non-scrolling layout fits
+    /// (e.g. iPhone SE) without changing its look on larger devices.
+    private func orbDiameter(for availableHeight: CGFloat) -> CGFloat {
+        max(150, min(212, availableHeight * 0.28))
+    }
+
+    private func orbSection(diameter: CGFloat) -> some View {
         VStack(spacing: ZTheme.Spacing.lg) {
-            FocusOrb(state: .idle, diameter: 212) {
+            FocusOrb(state: .idle, diameter: diameter, living: false, breathes: false) {
                 VStack(spacing: 4) {
                     Text("\(selectedMinutes)")
                         .font(ZTheme.Font.numeral(48, weight: .semibold))
@@ -257,92 +273,6 @@ struct HomeView: View {
         }
     }
 
-    private var statsRow: some View {
-        HStack(spacing: ZTheme.Spacing.md) {
-            StatTile(value: "\(streak)", label: "day streak",
-                     systemImage: "flame.fill", color: ZTheme.Palette.streak)
-            StatTile(value: "\(todayMinutes)", label: "min today",
-                     systemImage: "clock.fill", color: ZTheme.Palette.teal)
-        }
-    }
-
-    private var goalCard: some View {
-        VStack(alignment: .leading, spacing: 11) {
-            HStack {
-                Text("Daily Goal")
-                    .font(ZTheme.Font.display(16, weight: .semibold))
-                    .foregroundStyle(ZTheme.Palette.textPrimary)
-                Spacer()
-                Text("\(todayMinutes) / \(dailyGoalMinutes) min")
-                    .font(ZTheme.Font.body(14))
-                    .foregroundStyle(ZTheme.Palette.text(0.55))
-            }
-            ZenlyProgressBar(value: min(1, Double(todayMinutes) / Double(max(1, dailyGoalMinutes))))
-            if todayMinutes >= dailyGoalMinutes {
-                Label("Goal reached — nice work!", systemImage: "checkmark.circle.fill")
-                    .font(ZTheme.Font.body(13))
-                    .foregroundStyle(ZTheme.Palette.teal)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard()
-    }
-
-    private var challengeCard: some View {
-        HStack(spacing: ZTheme.Spacing.md) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(ZTheme.Palette.violet.opacity(0.18))
-                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(ZTheme.Palette.violet.opacity(0.4), lineWidth: 1))
-                    .frame(width: 44, height: 44)
-                Image(systemName: challenges.challenge.systemImage)
-                    .foregroundStyle(ZTheme.Palette.lavenderSoft)
-            }
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Daily Challenge")
-                    .font(ZTheme.Font.display(15, weight: .semibold))
-                    .foregroundStyle(ZTheme.Palette.textPrimary)
-                Text(challenges.challenge.title)
-                    .font(ZTheme.Font.body(13))
-                    .foregroundStyle(ZTheme.Palette.text(0.55))
-            }
-            Spacer()
-            if challenges.isComplete {
-                Image(systemName: "checkmark.circle.fill").foregroundStyle(ZTheme.Palette.teal)
-            } else {
-                Text("\(challenges.progress)/\(challenges.challenge.target)")
-                    .font(ZTheme.Font.display(13, weight: .bold))
-                    .foregroundStyle(ZTheme.Palette.lavenderSoft)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard()
-    }
-
-    private var calendarCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Free time", systemImage: "calendar")
-                .font(ZTheme.Font.display(15, weight: .semibold))
-                .foregroundStyle(ZTheme.Palette.textPrimary)
-            if let block = freeBlock {
-                Text("You're free until \(block.end.formatted(date: .omitted, time: .shortened)) — \(block.minutes) min.")
-                    .font(ZTheme.Font.body(13))
-                    .foregroundStyle(ZTheme.Palette.text(0.6))
-                Button {
-                    selectedMinutes = max(5, min(120, (block.minutes / 5) * 5))
-                    startFocus()
-                } label: {
-                    Label("Start focus now", systemImage: "play.fill")
-                }
-                .buttonStyle(.zenlySecondary)
-                .disabled(activeProfile == nil || !authorization.isAuthorized)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard()
-    }
-
     private var soundSection: some View {
         VStack(alignment: .leading, spacing: ZTheme.Spacing.sm) {
             ZenlySectionHeader(title: "Ambient sound")
@@ -365,28 +295,52 @@ struct HomeView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    /// Branding that follows the active music source so the bar reads "Spotify"
+    /// once Spotify is connected (chosen in Settings), and "Apple Music" otherwise.
+    private var isSpotify: Bool { music.source == .spotify }
+
+    private var musicTileColors: [Color] {
+        isSpotify
+            ? [Color(hex: "1DB954"), Color(hex: "1ED760")]   // Spotify green
+            : [ZTheme.Palette.brand, ZTheme.Palette.violet]
+    }
+
     private var musicBar: some View {
         HStack(spacing: ZTheme.Spacing.md) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(LinearGradient(colors: [ZTheme.Palette.brand, ZTheme.Palette.violet],
-                                         startPoint: .topLeading, endPoint: .bottomTrailing))
-                    .frame(width: 44, height: 44)
-                    .shadow(color: ZTheme.Palette.brand.opacity(0.5), radius: 10, y: 4)
-                Image(systemName: "music.note")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(.white)
+            // Tapping the artwork/title area jumps to the source's app.
+            Button {
+                music.openSourceApp()
+            } label: {
+                HStack(spacing: ZTheme.Spacing.md) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(LinearGradient(colors: musicTileColors,
+                                                 startPoint: .topLeading, endPoint: .bottomTrailing))
+                            .frame(width: 44, height: 44)
+                            .shadow(color: musicTileColors[0].opacity(0.5), radius: 10, y: 4)
+                        Image(systemName: "music.note")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(.white)
+                    }
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(music.nowPlaying.isEmpty ? music.source.title : music.nowPlaying)
+                            .font(ZTheme.Font.display(15, weight: .semibold))
+                            .foregroundStyle(ZTheme.Palette.textPrimary)
+                            .lineLimit(1)
+                        Text(music.nowPlaying.isEmpty ? "Tap to open \(music.source.title)" : music.source.title)
+                            .font(ZTheme.Font.body(12))
+                            .foregroundStyle(ZTheme.Palette.text(0.5))
+                            .lineLimit(1)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
             }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(music.nowPlaying.isEmpty ? "Apple Music" : music.nowPlaying)
-                    .font(ZTheme.Font.display(15, weight: .semibold))
-                    .foregroundStyle(ZTheme.Palette.textPrimary)
-                    .lineLimit(1)
-                Text("Focus music")
-                    .font(ZTheme.Font.body(12))
-                    .foregroundStyle(ZTheme.Palette.text(0.5))
-            }
-            Spacer()
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Open \(music.source.title)")
+            .accessibilityAddTraits(.isButton)
+
             Button { music.previous() } label: {
                 Image(systemName: "backward.fill").foregroundStyle(ZTheme.Palette.text(0.7))
             }
@@ -397,10 +351,8 @@ struct HomeView: View {
                     .foregroundStyle(.white)
                     .frame(width: 44, height: 44)
                     .background(
-                        Circle().fill(.ultraThinMaterial)
-                            .overlay(Circle().fill(ZTheme.Palette.glassFillRaised))
-                            .overlay(Circle().strokeBorder(ZTheme.Palette.glassStrokeStrong, lineWidth: 1))
-                            .environment(\.colorScheme, .dark)
+                        Circle().fill(ZTheme.Palette.matteRaised)
+                            .overlay(Circle().strokeBorder(ZTheme.Palette.matteBorder, lineWidth: 1))
                     )
             }
             .accessibilityLabel(music.isPlaying ? "Pause" : "Play")
@@ -419,9 +371,7 @@ struct HomeView: View {
         await NotificationService.shared.requestAuthorization()
         NotificationService.shared.scheduleDailyChallengeReminder()
         syncDuration()
-        refreshStats()
         music.updateState()
-        freeBlock = calendar.isAuthorized ? calendar.nextFreeBlock : nil
     }
 
     /// Reset the editable duration to the active profile's default.
@@ -433,13 +383,6 @@ struct HomeView: View {
 
     private func adjustDuration(_ delta: Int) {
         selectedMinutes = max(5, min(120, selectedMinutes + delta))
-    }
-
-    private func refreshStats() {
-        streak = session.currentStreak()
-        todayMinutes = session.todayFocusMinutes()
-        challenges.refresh()
-        analytics.updateSnapshot()
     }
 
     private func startFocus() {

@@ -20,6 +20,8 @@ struct SettingsView: View {
     @Environment(MusicController.self) private var music
 
     @AppStorage("dailyGoalMinutes", store: AppGroup.defaults) private var dailyGoalMinutes = 120
+    @AppStorage("dailySessionsGoal", store: AppGroup.defaults) private var dailySessionsGoal = 3
+    @AppStorage("streakGoal", store: AppGroup.defaults) private var streakGoal = 7
     @AppStorage(ShieldMessage.storageKey, store: AppGroup.defaults) private var shieldMessage = ""
     @AppStorage("breakReminderEnabled", store: AppGroup.defaults) private var reminderEnabled = false
     @AppStorage("breakReminderHour", store: AppGroup.defaults) private var reminderHour = 15
@@ -28,9 +30,7 @@ struct SettingsView: View {
     /// Frosted row background that lets the section's rounded corners clip it.
     private var glassRow: some View {
         Rectangle()
-            .fill(.ultraThinMaterial)
-            .overlay(ZTheme.Palette.glassFill)
-            .environment(\.colorScheme, .dark)
+            .fill(ZTheme.Palette.matte)
     }
 
     var body: some View {
@@ -91,10 +91,16 @@ struct SettingsView: View {
             Stepper(value: $dailyGoalMinutes, in: 30...480, step: 30) {
                 LabeledContent("Daily focus goal", value: "\(dailyGoalMinutes) min")
             }
+            Stepper(value: $dailySessionsGoal, in: 1...12, step: 1) {
+                LabeledContent("Daily sessions goal", value: "\(dailySessionsGoal)")
+            }
+            Stepper(value: $streakGoal, in: 3...60, step: 1) {
+                LabeledContent("Streak goal", value: "\(streakGoal) days")
+            }
         } header: {
-            Text("Goal")
+            Text("Daily Goals")
         } footer: {
-            Text("Your target focused minutes per day, shown on Home.")
+            Text("Your daily targets, shown as progress orbs on Insights.")
         }
         .listRowBackground(glassRow)
     }

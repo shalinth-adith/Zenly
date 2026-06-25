@@ -9,6 +9,7 @@
 
 import MediaPlayer
 import Observation
+import UIKit
 
 enum MusicSource: String, CaseIterable, Identifiable {
     case appleMusic
@@ -100,5 +101,25 @@ final class MusicController {
         guard source == .appleMusic else { return } // Spotify state arrives via callback
         isPlaying = appleMusicPlayer.playbackState == .playing
         nowPlaying = appleMusicPlayer.nowPlayingItem?.title ?? ""
+    }
+
+    /// Jump to the active source's app (tapping the music bar opens Spotify or
+    /// Apple Music). Tries the app's URL scheme, then falls back to the web.
+    func openSourceApp() {
+        let appURL: URL?
+        let webURL: URL
+        switch source {
+        case .spotify:
+            appURL = URL(string: "spotify://")
+            webURL = URL(string: "https://open.spotify.com")!
+        case .appleMusic:
+            appURL = URL(string: "music://")
+            webURL = URL(string: "https://music.apple.com")!
+        }
+        guard let appURL else { UIApplication.shared.open(webURL); return }
+        UIApplication.shared.open(appURL, options: [:]) { success in
+            guard !success else { return }
+            Task { @MainActor in UIApplication.shared.open(webURL) }
+        }
     }
 }

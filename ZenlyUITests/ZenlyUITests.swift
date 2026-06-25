@@ -34,6 +34,73 @@ final class ZenlyUITests: XCTestCase {
     }
 
     @MainActor
+    func testCreateProfileSaveWorks() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        // Wait out the splash overlay, then go to Profiles.
+        let profilesTab = app.tabBars.buttons["Profiles"]
+        XCTAssertTrue(profilesTab.waitForExistence(timeout: 10), "Profiles tab missing")
+        Thread.sleep(forTimeInterval: 3)
+
+        let newProfile = app.buttons["new-profile"]
+        profilesTab.tap()
+        if !newProfile.waitForExistence(timeout: 4) {
+            profilesTab.tap() // retry once if the first tap was swallowed by splash
+        }
+        XCTAssertTrue(newProfile.waitForExistence(timeout: 6), "New Profile button missing")
+        newProfile.tap()
+
+        let nameField = app.textFields["profile-name"]
+        XCTAssertTrue(nameField.waitForExistence(timeout: 5), "Name field missing")
+        nameField.tap()
+        nameField.typeText("UITestWork")
+
+        let save = app.buttons["profile-save"]
+        XCTAssertTrue(save.waitForExistence(timeout: 2), "Save button missing")
+        // Directly tests the 'stale disabled' hypothesis:
+        XCTAssertTrue(save.isEnabled, "Save button is DISABLED after typing a name")
+        save.tap()
+
+        // The sheet must dismiss AND the new profile must appear.
+        XCTAssertTrue(nameField.waitForNonExistence(timeout: 4),
+                      "Editor sheet did NOT dismiss after Save")
+        XCTAssertTrue(app.staticTexts["UITestWork"].waitForExistence(timeout: 5),
+                      "New profile did not appear after Save")
+    }
+
+    @MainActor
+    func testCreateScheduleSaveWorks() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        let schedulesTab = app.tabBars.buttons["Schedules"]
+        XCTAssertTrue(schedulesTab.waitForExistence(timeout: 10), "Schedules tab missing")
+        Thread.sleep(forTimeInterval: 3)
+
+        let addSchedule = app.buttons["add-schedule"]
+        schedulesTab.tap()
+        if !addSchedule.waitForExistence(timeout: 4) { schedulesTab.tap() }
+        XCTAssertTrue(addSchedule.waitForExistence(timeout: 6), "Add Schedule button missing")
+        addSchedule.tap()
+
+        let titleField = app.textFields["schedule-title"]
+        XCTAssertTrue(titleField.waitForExistence(timeout: 5), "Title field missing")
+        titleField.tap()
+        titleField.typeText("UITestFocus")
+
+        let save = app.buttons["schedule-save"]
+        XCTAssertTrue(save.waitForExistence(timeout: 2), "Save button missing")
+        XCTAssertTrue(save.isEnabled, "Schedule Save is DISABLED after entering a title")
+        save.tap()
+
+        XCTAssertTrue(titleField.waitForNonExistence(timeout: 4),
+                      "Schedule editor did NOT dismiss after Save")
+        XCTAssertTrue(app.staticTexts["UITestFocus"].waitForExistence(timeout: 5),
+                      "New schedule did not appear after Save")
+    }
+
+    @MainActor
     func testLaunchPerformance() throws {
         // This measures how long it takes to launch your application.
         measure(metrics: [XCTApplicationLaunchMetric()]) {

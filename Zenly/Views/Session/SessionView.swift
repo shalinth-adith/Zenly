@@ -25,7 +25,7 @@ struct SessionView: View {
 
     var body: some View {
         ZStack {
-            ZenlyBackground(variant: .session)
+            ZenlyBackground(variant: .session, calm: true)
 
             VStack(spacing: 0) {
                 HStack {
@@ -50,7 +50,7 @@ struct SessionView: View {
                     }
 
                     FocusOrb(state: .active(progress: session.progress),
-                             diameter: 300, ringTint: ringTint) {
+                             diameter: 300, ringTint: ringTint, living: false) {
                         VStack(spacing: 8) {
                             Text(session.timeString)
                                 .font(ZTheme.Font.numeral(64, weight: .semibold))

@@ -33,9 +33,13 @@ struct ScheduleEditView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            ZStack {
+                ZenlyBackground()
+
+                Form {
                 Section("Schedule") {
                     TextField("Title", text: $draft.title)
+                        .accessibilityIdentifier("schedule-title")
                     DatePicker("Start", selection: $startDate, displayedComponents: .hourAndMinute)
                     DatePicker("End", selection: $endDate, displayedComponents: .hourAndMinute)
                 }
@@ -48,7 +52,7 @@ struct ScheduleEditView: View {
                                 .font(.subheadline.weight(.semibold))
                                 .frame(maxWidth: .infinity, minHeight: 38)
                                 .foregroundStyle(on ? .white : .primary)
-                                .background(on ? Color.accentColor : Color(.secondarySystemFill), in: Circle())
+                                .background(on ? Color.accentColor : ZTheme.Palette.glassFillRaised, in: Circle())
                                 .onTapGesture {
                                     if on { draft.weekdays.remove(item.day) }
                                     else { draft.weekdays.insert(item.day) }
@@ -85,15 +89,21 @@ struct ScheduleEditView: View {
                         Label("Strict mode", systemImage: "lock.shield")
                     }
                 }
+                }
+                .scrollContentBackground(.hidden)
+                .tint(ZTheme.Palette.brandBright)
             }
             .navigationTitle(schedule == nil ? "New Schedule" : "Edit Schedule")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save", action: save).disabled(!isValid)
+                    Button("Save", action: save)
+                        .accessibilityIdentifier("schedule-save")
+                        .disabled(!isValid)
                 }
             }
             .familyActivityPicker(isPresented: $showBlockPicker, selection: $draft.block)

@@ -15,6 +15,7 @@ struct ProfilesView: View {
     @Environment(ProfileStore.self) private var store
     @State private var editing: EditTarget?
     @State private var pendingDelete: FocusProfile?
+    @State private var editMode: EditMode = .inactive
 
     enum EditTarget: Identifiable {
         case new
@@ -34,15 +35,29 @@ struct ProfilesView: View {
                 ZenlyBackground()
 
                 List {
-                    ZenlyScreenTitle(title: "Profiles",
-                                     subtitle: "Each profile blocks a different set of apps and remembers its own default length.")
-                        .plainRow()
-                        .padding(.bottom, 4)
+                    HStack(alignment: .top) {
+                        ZenlyScreenTitle(title: "Profiles",
+                                         subtitle: "Each profile blocks a different set of apps and remembers its own default length.")
+                        if store.profiles.count > 1 {
+                            Button {
+                                withAnimation { editMode = editMode.isEditing ? .inactive : .active }
+                            } label: {
+                                Text(editMode.isEditing ? "Done" : "Reorder")
+                                    .font(ZTheme.Font.body(15, weight: .semibold))
+                                    .foregroundStyle(ZTheme.Palette.brandBright)
+                            }
+                        }
+                    }
+                    .plainRow()
+                    .padding(.bottom, 4)
 
                     ForEach(store.profiles, id: \.objectID) { profile in
                         ProfileRow(profile: profile, isActive: profile.id == store.activeProfileID)
                             .contentShape(Rectangle())
-                            .onTapGesture { Haptics.light(); store.setActive(profile) }
+                            .onTapGesture {
+                                guard !editMode.isEditing else { return }
+                                Haptics.light(); store.setActive(profile)
+                            }
                             .plainRow()
                             .swipeActions(edge: .trailing) {
                                 Button(role: .destructive) {
@@ -58,13 +73,16 @@ struct ProfilesView: View {
                                 .tint(ZTheme.Palette.brand)
                             }
                     }
+                    .onMove { store.move(fromOffsets: $0, toOffset: $1) }
 
                     DashedActionButton(title: "New Profile") { editing = .new }
+                        .accessibilityIdentifier("new-profile")
                         .plainRow()
                         .padding(.top, 4)
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
+                .environment(\.editMode, $editMode)
             }
             .navigationTitle("")
             .toolbar(.hidden, for: .navigationBar)

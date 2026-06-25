@@ -14,9 +14,20 @@ import Charts
 
 struct AnalyticsView: View {
     @Environment(AnalyticsService.self) private var analytics
+    @Environment(FocusSessionController.self) private var session
+    @Environment(ChallengeService.self) private var challenges
+    @Environment(CalendarService.self) private var calendar
+
+    @AppStorage("dailyGoalMinutes", store: AppGroup.defaults) private var dailyGoalMinutes = 120
+    @AppStorage("dailySessionsGoal", store: AppGroup.defaults) private var dailySessionsGoal = 3
+    @AppStorage("streakGoal", store: AppGroup.defaults) private var streakGoal = 7
 
     @State private var stats: [DayStat] = []
     @State private var score = 0
+    @State private var streak = 0
+    @State private var todayMinutes = 0
+    @State private var todaySessions = 0
+    @State private var freeBlock: FreeBlock?
 
     var body: some View {
         NavigationStack {
@@ -32,6 +43,9 @@ struct AnalyticsView: View {
                             .padding(.top, 8)
 
                         scoreCard
+                        dailyGoalsCard
+                        challengeCard
+                        if freeBlock != nil { freeTimeCard }
                         focusChartCard
                         distractionChartCard
                         usageCard
@@ -59,6 +73,11 @@ struct AnalyticsView: View {
         stats = analytics.weeklyStats()
         score = analytics.productivityScore()
         analytics.updateSnapshot()
+        streak = session.currentStreak()
+        todayMinutes = session.todayFocusMinutes()
+        todaySessions = analytics.todaySessions()
+        challenges.refresh()
+        freeBlock = calendar.isAuthorized ? calendar.nextFreeBlock : nil
     }
 
     private var totalFocus: Int { stats.reduce(0) { $0 + $1.focusMinutes } }
@@ -135,6 +154,100 @@ struct AnalyticsView: View {
             AppUsageReportView()
                 .frame(height: 220)
         }
+    }
+
+    // Daily snapshot cards (relocated from the Focus tab so it stays a single,
+    // calm screen). Read-only here — quick-start actions live on Focus.
+
+    /// The daily-goal "needs" as a row of progress orbs (Focus / Sessions /
+    /// Streak), each ring filling toward its configurable target. Reuses the
+    /// FocusOrb design at a compact size.
+    private var dailyGoalsCard: some View {
+        NavigationLink {
+            GoalsView()
+        } label: {
+            VStack(alignment: .leading, spacing: ZTheme.Spacing.md) {
+                HStack {
+                    Text("Daily Goals")
+                        .font(ZTheme.Font.display(16, weight: .semibold))
+                        .foregroundStyle(ZTheme.Palette.textPrimary)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(ZTheme.Palette.text(0.4))
+                }
+                HStack(alignment: .top, spacing: ZTheme.Spacing.sm) {
+                    GoalOrbView(title: "Focus", value: "\(todayMinutes)",
+                                caption: "of \(dailyGoalMinutes) min",
+                                progress: ratio(todayMinutes, dailyGoalMinutes),
+                                tint: ZTheme.Palette.brandGlow)
+                    GoalOrbView(title: "Sessions", value: "\(todaySessions)",
+                                caption: "of \(dailySessionsGoal)",
+                                progress: ratio(todaySessions, dailySessionsGoal),
+                                tint: ZTheme.Palette.teal)
+                    GoalOrbView(title: "Streak", value: "\(streak)",
+                                caption: "of \(streakGoal) days",
+                                progress: ratio(streak, streakGoal),
+                                tint: ZTheme.Palette.streak)
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .glassCard(radius: ZTheme.Radius.sheet, padding: 20)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func ratio(_ value: Int, _ goal: Int) -> Double {
+        guard goal > 0 else { return 0 }
+        return min(1, Double(value) / Double(goal))
+    }
+
+    private var challengeCard: some View {
+        HStack(spacing: ZTheme.Spacing.md) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(ZTheme.Palette.violet.opacity(0.18))
+                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .strokeBorder(ZTheme.Palette.violet.opacity(0.4), lineWidth: 1))
+                    .frame(width: 44, height: 44)
+                Image(systemName: challenges.challenge.systemImage)
+                    .foregroundStyle(ZTheme.Palette.lavenderSoft)
+            }
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Daily Challenge")
+                    .font(ZTheme.Font.display(15, weight: .semibold))
+                    .foregroundStyle(ZTheme.Palette.textPrimary)
+                Text(challenges.challenge.title)
+                    .font(ZTheme.Font.body(13))
+                    .foregroundStyle(ZTheme.Palette.text(0.55))
+            }
+            Spacer()
+            if challenges.isComplete {
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(ZTheme.Palette.teal)
+            } else {
+                Text("\(challenges.progress)/\(challenges.challenge.target)")
+                    .font(ZTheme.Font.display(13, weight: .bold))
+                    .foregroundStyle(ZTheme.Palette.lavenderSoft)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassCard()
+    }
+
+    private var freeTimeCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Free time", systemImage: "calendar")
+                .font(ZTheme.Font.display(15, weight: .semibold))
+                .foregroundStyle(ZTheme.Palette.textPrimary)
+            if let block = freeBlock {
+                Text("You're free until \(block.end.formatted(date: .omitted, time: .shortened)) — \(block.minutes) min.")
+                    .font(ZTheme.Font.body(13))
+                    .foregroundStyle(ZTheme.Palette.text(0.6))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassCard()
     }
 
     private func navRow(title: String, systemImage: String, tint: Color) -> some View {

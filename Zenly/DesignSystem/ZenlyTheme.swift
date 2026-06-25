@@ -43,6 +43,13 @@ enum ZTheme {
         static let lavenderSoft = Color(hex: "9FE0FF")
         static let orbMid      = Color(hex: "15294F")
 
+        // Matte surface tokens (the "Zenly Matte" theme — flat opaque cards
+        // replacing frosted glass: solid fill + a thin 10%-white hairline).
+        static let matte             = Color(hex: "1A1F33")
+        static let matteRaised       = Color(hex: "191E30")
+        static let matteBorder       = Color.white.opacity(0.10)
+        static let matteBorderStrong = Color.white.opacity(0.14)
+
         /// Text.
         static let textPrimary = Color(hex: "F4F5FF")
         static func text(_ opacity: Double) -> Color { textPrimary.opacity(opacity) }
@@ -77,18 +84,24 @@ enum ZTheme {
         )
     }
 
-    // MARK: - Typography (SF Rounded ≈ Quicksand display / Nunito body)
+    // MARK: - Typography (Quicksand display/numerals · Nunito body)
 
     enum Font {
-        /// Big rounded numerals (timer, stats, score).
+        /// Bundled variable-font families (see Resources/Fonts + Info.plist UIAppFonts).
+        static let displayFamily = "Quicksand"
+        static let bodyFamily    = "Nunito"
+
+        /// Big numerals (timer, stats, score) — Quicksand.
         static func numeral(_ size: CGFloat, weight: SwiftUI.Font.Weight = .semibold) -> SwiftUI.Font {
-            .system(size: size, weight: weight, design: .rounded)
+            .custom(displayFamily, size: size).weight(weight)
         }
+        /// Headings / titles — Quicksand.
         static func display(_ size: CGFloat, weight: SwiftUI.Font.Weight = .bold) -> SwiftUI.Font {
-            .system(size: size, weight: weight, design: .rounded)
+            .custom(displayFamily, size: size).weight(weight)
         }
+        /// Body / labels — Nunito.
         static func body(_ size: CGFloat, weight: SwiftUI.Font.Weight = .regular) -> SwiftUI.Font {
-            .system(size: size, weight: weight, design: .rounded)
+            .custom(bodyFamily, size: size).weight(weight)
         }
     }
 

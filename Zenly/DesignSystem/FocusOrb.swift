@@ -26,6 +26,8 @@ struct FocusOrb<Center: View>: View {
     var ringTint: Color = ZTheme.Palette.brandGlow
     /// "Living Focus" motion layer (pulse rings, conic glow, orbiting sparks).
     var living: Bool = true
+    /// Idle breathing scale loop. Set false for a fully static orb.
+    var breathes: Bool = true
     @ViewBuilder var center: () -> Center
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -110,13 +112,13 @@ struct FocusOrb<Center: View>: View {
     private var scale: CGFloat {
         if case .complete = state { return popped ? 1 : 0.6 }
         guard !reduceMotion else { return 1 }
-        if case .idle = state { return breathing ? 1.055 : 1 }
+        if case .idle = state { return (breathes && breathing) ? 1.055 : 1 }
         return 1
     }
 
     private func startAnimations() {
         guard !reduceMotion else { return }
-        if case .idle = state {
+        if breathes, case .idle = state {
             withAnimation(ZTheme.Motion.breathe) { breathing = true }
         }
         if isComplete { pop() }

@@ -112,6 +112,31 @@ final class ProfileStore {
         if wasActive { activeProfileID = profiles.first?.id }
     }
 
+    // MARK: - Reordering
+
+    /// Reorder profiles and persist the new order via `sortIndex`. Both the Home
+    /// pill row and the Profiles list read profiles in `sortIndex` order, so they
+    /// update together after `fetch()`.
+    func move(fromOffsets: IndexSet, toOffset: Int) {
+        var reordered = profiles
+        reordered.move(fromOffsets: fromOffsets, toOffset: toOffset)
+        for (index, profile) in reordered.enumerated() {
+            profile.sortIndex = Int16(index)
+        }
+        save()
+        fetch()
+    }
+
+    /// Drag-to-reorder helper for the Home pills: move `id` to sit just before
+    /// the profile currently at `targetID`.
+    func move(id: UUID, before targetID: UUID) {
+        guard id != targetID,
+              let from = profiles.firstIndex(where: { $0.id == id }),
+              let target = profiles.firstIndex(where: { $0.id == targetID }) else { return }
+        let destination = target > from ? target + 1 : target
+        move(fromOffsets: IndexSet(integer: from), toOffset: destination)
+    }
+
     // MARK: - Private
 
     private func apply(_ draft: ProfileDraft, to profile: FocusProfile) {

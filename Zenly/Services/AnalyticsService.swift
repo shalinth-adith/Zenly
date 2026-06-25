@@ -68,6 +68,14 @@ final class AnalyticsService {
     func streak() -> Int { history.currentStreak() }
     func todayMinutes() -> Int { history.todayFocusMinutes() }
 
+    /// Number of focus sessions completed today (a daily-goal "need").
+    func todaySessions() -> Int {
+        let calendar = Calendar.current
+        return history.completedFocusSessions()
+            .filter { $0.startedAt.map { calendar.isDateInToday($0) } ?? false }
+            .count
+    }
+
     /// Refresh the widget snapshot and reload timelines.
     func updateSnapshot() {
         let snapshot = StatsSnapshot(

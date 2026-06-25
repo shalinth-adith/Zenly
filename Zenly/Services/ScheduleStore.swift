@@ -92,8 +92,75 @@ final class ScheduleStore {
         if enabled { startMonitoring(schedule) } else { stopMonitoring(schedule) }
     }
 
+    /// Re-register monitoring for every enabled schedule. Call after Screen Time
+    /// access is granted — the initial `startMonitoring` is a silent no-op while
+    /// unauthorized, so schedules created before consent must be re-armed.
+    func rearmEnabled() {
+        reactivateAll()
+    }
+
     func weekdaySummary(_ schedule: FocusSchedule) -> String {
         Self.summary(for: Self.weekdays(from: schedule.weekdaysMask))
+    }
+
+    // MARK: - Glanceable status
+
+    /// Live state of a schedule relative to `now`, for the Schedule cards.
+    enum ScheduleStatus {
+        case off                    // disabled
+        case active(endsAt: Date)   // running right now
+        case upcoming(at: Date)     // next start time
+        case idle                   // enabled but no upcoming run found
+    }
+
+    func status(for schedule: FocusSchedule, now: Date = Date()) -> ScheduleStatus {
+        guard schedule.isEnabled else { return .off }
+        let days = Self.weekdays(from: schedule.weekdaysMask)
+        guard !days.isEmpty else { return .idle }
+
+        let cal = Calendar.current
+        let sH = Int(schedule.startHour), sM = Int(schedule.startMinute)
+        let eH = Int(schedule.endHour), eM = Int(schedule.endMinute)
+
+        func date(_ dayOffset: Int, _ hour: Int, _ minute: Int) -> Date? {
+            guard let base = cal.date(byAdding: .day, value: dayOffset, to: now) else { return nil }
+            return cal.date(bySettingHour: hour, minute: minute, second: 0, of: base)
+        }
+
+        // Active right now? (same-day windows)
+        let today = cal.component(.weekday, from: now)
+        if days.contains(today),
+           let start = date(0, sH, sM), let end = date(0, eH, eM),
+           now >= start, now < end {
+            return .active(endsAt: end)
+        }
+
+        // Next start within the coming week.
+        for offset in 0...7 {
+            guard let day = cal.date(byAdding: .day, value: offset, to: now) else { continue }
+            let wd = cal.component(.weekday, from: day)
+            guard days.contains(wd), let start = date(offset, sH, sM), start > now else { continue }
+            return .upcoming(at: start)
+        }
+        return .idle
+    }
+
+    /// "8h" / "1h30" / "45m" length of the window.
+    func durationText(for schedule: FocusSchedule) -> String {
+        let raw = (Int(schedule.endHour) * 60 + Int(schedule.endMinute))
+            - (Int(schedule.startHour) * 60 + Int(schedule.startMinute))
+        let mins = raw > 0 ? raw : raw + 24 * 60
+        let h = mins / 60, m = mins % 60
+        if h == 0 { return "\(m)m" }
+        return m == 0 ? "\(h)h" : "\(h)h\(m)"
+    }
+
+    /// What the schedule blocks, for the card subtitle.
+    func blockingSummary(for schedule: FocusSchedule) -> String {
+        if schedule.blockAllApps { return "Blocks all apps" }
+        let sel = SelectionCodec.decode(schedule.blockSelectionData)
+        let n = sel.applicationTokens.count + sel.categoryTokens.count + sel.webDomainTokens.count
+        return n == 0 ? "Nothing blocked" : "\(n) app\(n == 1 ? "" : "s") blocked"
     }
 
     // MARK: - Weekday helpers

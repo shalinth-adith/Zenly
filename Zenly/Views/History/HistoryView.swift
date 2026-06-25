@@ -116,14 +116,11 @@ struct HistoryView: View {
                 .frame(height: 36)
                 .background(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(ZTheme.Palette.glassFill))
-                        .environment(\.colorScheme, .dark)
+                        .fill(ZTheme.Palette.matte)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .strokeBorder(isOn ? ZTheme.Palette.brand : ZTheme.Palette.glassStroke,
+                        .strokeBorder(isOn ? ZTheme.Palette.brand : ZTheme.Palette.matteBorder,
                                       lineWidth: isOn ? 1.5 : 1)
                 )
                 .background(RoundedRectangle(cornerRadius: 12, style: .continuous)

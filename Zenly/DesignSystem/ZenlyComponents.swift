@@ -27,14 +27,11 @@ struct SelectablePill<Label: View>: View {
                 .frame(height: height)
                 .background(
                     RoundedRectangle(cornerRadius: ZTheme.Radius.chip, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .overlay(RoundedRectangle(cornerRadius: ZTheme.Radius.chip, style: .continuous)
-                            .fill(ZTheme.Palette.glassFill))
-                        .environment(\.colorScheme, .dark)
+                        .fill(ZTheme.Palette.matte)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: ZTheme.Radius.chip, style: .continuous)
-                        .strokeBorder(isSelected ? tint : ZTheme.Palette.glassStroke,
+                        .strokeBorder(isSelected ? tint : ZTheme.Palette.matteBorder,
                                       lineWidth: isSelected ? 1.5 : 1)
                 )
                 .background(
@@ -99,12 +96,9 @@ struct GlassIconButton: View {
                 .frame(width: size, height: size)
                 .background(
                     RoundedRectangle(cornerRadius: corner, style: .continuous)
-                        .fill(.ultraThinMaterial)
+                        .fill(ZTheme.Palette.matteRaised)
                         .overlay(RoundedRectangle(cornerRadius: corner, style: .continuous)
-                            .fill(ZTheme.Palette.glassFillRaised))
-                        .overlay(RoundedRectangle(cornerRadius: corner, style: .continuous)
-                            .strokeBorder(ZTheme.Palette.glassStroke, lineWidth: 1))
-                        .environment(\.colorScheme, .dark)
+                            .strokeBorder(ZTheme.Palette.matteBorder, lineWidth: 1))
                 )
         }
         .buttonStyle(.plain)

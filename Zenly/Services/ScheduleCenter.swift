@@ -44,7 +44,11 @@ final class ScheduleCenter {
             intervalEnd: calendar.dateComponents([.hour, .minute, .second], from: end),
             repeats: false
         )
-        try? center.startMonitoring(activity, during: schedule)
+        do {
+            try center.startMonitoring(activity, during: schedule)
+        } catch {
+            print("[Zenly] startMonitoring (one-off) failed for \(activity.rawValue): \(error)")
+        }
     }
 
     /// Recurring schedule: monitors daily within the time-of-day window; the
@@ -59,7 +63,12 @@ final class ScheduleCenter {
         ActivityShieldStore.set(block: block, allow: allow, blockAll: blockAll,
                                 weekdaysMask: weekdaysMask, for: activity.rawValue)
         let schedule = DeviceActivitySchedule(intervalStart: start, intervalEnd: end, repeats: true)
-        try? center.startMonitoring(activity, during: schedule)
+        do {
+            try center.startMonitoring(activity, during: schedule)
+        } catch {
+            print("[Zenly] startMonitoring (recurring) failed for \(activity.rawValue): \(error). " +
+                  "Screen Time access is likely not granted.")
+        }
     }
 
     func stop(_ activity: DeviceActivityName) {

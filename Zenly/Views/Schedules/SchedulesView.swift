@@ -14,6 +14,7 @@ import SwiftUI
 struct SchedulesView: View {
     @Environment(ScheduleStore.self) private var store
     @Environment(SmartSuggestionService.self) private var suggestions
+    @Environment(AuthorizationService.self) private var authorization
     @State private var editing: EditTarget?
     @State private var pendingDelete: FocusSchedule?
 
@@ -42,10 +43,12 @@ struct SchedulesView: View {
                         .plainRow()
                         .padding(.bottom, 4)
 
+                    permissionBanner
                     suggestionsSection
                     schedulesSection
 
                     DashedActionButton(title: "Add Schedule") { editing = .new }
+                        .accessibilityIdentifier("add-schedule")
                         .plainRow()
                         .padding(.top, 4)
                 }
@@ -75,6 +78,34 @@ struct SchedulesView: View {
                 }
                 Button("Cancel", role: .cancel) { pendingDelete = nil }
             }
+        }
+    }
+
+    @ViewBuilder
+    private var permissionBanner: some View {
+        if !authorization.isAuthorized {
+            VStack(alignment: .leading, spacing: 10) {
+                Label("Screen Time access needed", systemImage: "hand.raised.fill")
+                    .font(ZTheme.Font.display(15, weight: .semibold))
+                    .foregroundStyle(ZTheme.Palette.textPrimary)
+                Text("Schedules can only block apps automatically after you allow Screen Time access. Without it, a saved schedule won’t start on its own.")
+                    .font(ZTheme.Font.body(13))
+                    .foregroundStyle(ZTheme.Palette.text(0.6))
+                Button("Grant Access") {
+                    Task {
+                        await authorization.requestAuthorization()
+                        if authorization.isAuthorized { store.rearmEnabled() }
+                    }
+                }
+                .buttonStyle(.zenlyPrimary(tint: ZTheme.Palette.brand, height: 46))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .glassCard()
+            .overlay(
+                RoundedRectangle(cornerRadius: ZTheme.Radius.card, style: .continuous)
+                    .strokeBorder(ZTheme.Palette.streak.opacity(0.4), lineWidth: 1)
+            )
+            .plainRow()
         }
     }
 
@@ -119,12 +150,21 @@ struct SchedulesView: View {
     @ViewBuilder
     private var schedulesSection: some View {
         if store.schedules.isEmpty {
-            Text("No schedules yet. Add one below, or tap a suggestion to start.")
-                .font(ZTheme.Font.body(14))
-                .foregroundStyle(ZTheme.Palette.text(0.55))
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .glassCard()
-                .plainRow()
+            VStack(spacing: 10) {
+                Image(systemName: "calendar.badge.clock")
+                    .font(.system(size: 34))
+                    .foregroundStyle(ZTheme.Palette.brandBright)
+                Text("No schedules yet")
+                    .font(ZTheme.Font.display(17, weight: .semibold))
+                    .foregroundStyle(ZTheme.Palette.textPrimary)
+                Text("Zenly can start focus sessions automatically. Tap a suggestion above, or “Add Schedule” to block distractions during set hours.")
+                    .font(ZTheme.Font.body(13))
+                    .foregroundStyle(ZTheme.Palette.text(0.55))
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity)
+            .glassCard(padding: 22)
+            .plainRow()
         } else {
             ForEach(store.schedules, id: \.objectID) { schedule in
                 ScheduleRow(schedule: schedule)
@@ -151,40 +191,115 @@ private struct ScheduleRow: View {
     @Environment(ScheduleStore.self) private var store
     let schedule: FocusSchedule
 
+    // Mon-first week, matching how people read a schedule.
+    private let pillDays: [(day: Int, label: String)] = [
+        (2, "M"), (3, "T"), (4, "W"), (5, "T"), (6, "F"), (7, "S"), (1, "S")
+    ]
+
     var body: some View {
-        HStack(spacing: 14) {
-            VStack(spacing: 2) {
-                Text(time(schedule.startHour, schedule.startMinute))
-                    .font(ZTheme.Font.numeral(17, weight: .bold))
-                    .foregroundStyle(ZTheme.Palette.textPrimary)
-            }
-            .frame(width: 56)
-            .overlay(alignment: .trailing) {
-                Rectangle().fill(ZTheme.Palette.glassStroke).frame(width: 1, height: 34)
-            }
+        let status = store.status(for: schedule)
+        let isActive = { if case .active = status { return true } else { return false } }()
+        let accent = isActive ? ZTheme.Palette.teal : ZTheme.Palette.brandGlow
+        let days = ScheduleStore.weekdays(from: schedule.weekdaysMask)
 
-            VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 12) {
+            // Title + enable toggle
+            HStack {
                 Text(schedule.title?.isEmpty == false ? schedule.title! : "Untitled")
-                    .font(ZTheme.Font.display(16, weight: .semibold))
+                    .font(ZTheme.Font.display(17, weight: .bold))
                     .foregroundStyle(ZTheme.Palette.textPrimary)
-                Text("until \(time(schedule.endHour, schedule.endMinute)) · \(store.weekdaySummary(schedule))")
-                    .font(ZTheme.Font.body(13))
-                    .foregroundStyle(ZTheme.Palette.text(0.55))
+                Spacer()
+                Toggle("", isOn: Binding(
+                    get: { schedule.isEnabled },
+                    set: { store.setEnabled(schedule, $0) }
+                ))
+                .labelsHidden()
+                .toggleStyle(.zenly)
             }
 
-            Spacer()
+            // Time range + duration
+            HStack(spacing: 8) {
+                Text("\(time(schedule.startHour, schedule.startMinute)) → \(time(schedule.endHour, schedule.endMinute))")
+                    .font(ZTheme.Font.numeral(16, weight: .semibold))
+                    .monospacedDigit()
+                    .foregroundStyle(ZTheme.Palette.text(0.9))
+                Text("· \(store.durationText(for: schedule))")
+                    .font(ZTheme.Font.body(13))
+                    .foregroundStyle(ZTheme.Palette.text(0.5))
+            }
 
-            Toggle("", isOn: Binding(
-                get: { schedule.isEnabled },
-                set: { store.setEnabled(schedule, $0) }
-            ))
-            .labelsHidden()
-            .toggleStyle(.zenly)
+            // Weekday pills
+            HStack(spacing: 6) {
+                ForEach(pillDays, id: \.day) { item in
+                    let on = days.contains(item.day)
+                    Text(item.label)
+                        .font(ZTheme.Font.body(12, weight: .bold))
+                        .frame(width: 26, height: 26)
+                        .foregroundStyle(on ? .white : ZTheme.Palette.text(0.4))
+                        .background(Circle().fill(on ? accent.opacity(0.9) : ZTheme.Palette.matteRaised))
+                }
+            }
+
+            // Blocking summary + live status
+            HStack(spacing: 8) {
+                Label(store.blockingSummary(for: schedule),
+                      systemImage: schedule.blockAllApps ? "nosign" : "apps.iphone")
+                    .font(ZTheme.Font.body(12, weight: .medium))
+                    .foregroundStyle(ZTheme.Palette.text(0.55))
+                Spacer()
+                statusBadge(status)
+            }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .glassCard(padding: ZTheme.Spacing.md)
+        .overlay(
+            RoundedRectangle(cornerRadius: ZTheme.Radius.card, style: .continuous)
+                .strokeBorder(isActive ? accent : .clear, lineWidth: 1.5)
+                .shadow(color: isActive ? accent.opacity(0.4) : .clear, radius: 12)
+        )
+        .opacity(schedule.isEnabled ? 1 : 0.55)
+    }
+
+    @ViewBuilder
+    private func statusBadge(_ status: ScheduleStore.ScheduleStatus) -> some View {
+        switch status {
+        case .active(let endsAt):
+            HStack(spacing: 5) {
+                Circle().fill(ZTheme.Palette.teal).frame(width: 7, height: 7)
+                Text("Active now · ends \(hm(endsAt))")
+            }
+            .font(ZTheme.Font.body(12, weight: .semibold))
+            .foregroundStyle(ZTheme.Palette.teal)
+        case .upcoming(let at):
+            Text("Next: \(relativeDay(at)) \(hm(at))")
+                .font(ZTheme.Font.body(12, weight: .semibold))
+                .foregroundStyle(ZTheme.Palette.brandBright)
+        case .off:
+            Text("Off")
+                .font(ZTheme.Font.body(12, weight: .semibold))
+                .foregroundStyle(ZTheme.Palette.text(0.4))
+        case .idle:
+            Text("No upcoming runs")
+                .font(ZTheme.Font.body(12))
+                .foregroundStyle(ZTheme.Palette.text(0.4))
+        }
     }
 
     private func time(_ hour: Int16, _ minute: Int16) -> String {
         String(format: "%02d:%02d", hour, minute)
+    }
+
+    private func hm(_ date: Date) -> String {
+        let c = Calendar.current.dateComponents([.hour, .minute], from: date)
+        return String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0)
+    }
+
+    private func relativeDay(_ date: Date) -> String {
+        let cal = Calendar.current
+        if cal.isDateInToday(date) { return "today" }
+        if cal.isDateInTomorrow(date) { return "tomorrow" }
+        let f = DateFormatter()
+        f.dateFormat = "EEE"
+        return f.string(from: date)
     }
 }

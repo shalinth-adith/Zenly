@@ -2,11 +2,12 @@
 //  GlassCard.swift
 //  Zenly
 //
-//  Frosted-glass surface used for every card in the redesign: translucent fill,
-//  faint 1px light border, soft drop shadow, inset top highlight. Depth comes
-//  from blur + shadow, never heavy borders — and glass never stacks on glass.
+//  The "Zenly Matte" surface used for every card: a flat, opaque fill with a
+//  thin 1px hairline border — no frosted blur, no heavy shadow. Depth comes from
+//  the solid surface lifting off the near-black background, plus one soft shadow.
 //
-//  Imported from the Claude Design spec (Zenly.dc.html).
+//  Imported from the Claude Design spec (Zenly Matte.dc.html). The modifier is
+//  still named `glassCard()` so existing call sites convert without churn.
 //
 
 import SwiftUI
@@ -20,27 +21,19 @@ struct GlassCardModifier: ViewModifier {
             .padding(padding)
             .background {
                 RoundedRectangle(cornerRadius: radius, style: .continuous)
-                    .fill(.ultraThinMaterial)
+                    .fill(ZTheme.Palette.matte)
                     .overlay(
                         RoundedRectangle(cornerRadius: radius, style: .continuous)
-                            .fill(ZTheme.Palette.glassFill)
+                            .strokeBorder(ZTheme.Palette.matteBorder, lineWidth: 1)
                     )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: radius, style: .continuous)
-                            .strokeBorder(
-                                LinearGradient(
-                                    colors: [ZTheme.Palette.glassHighlight, ZTheme.Palette.glassStroke],
-                                    startPoint: .top, endPoint: .bottom),
-                                lineWidth: 1)
-                    )
-                    .shadow(color: .black.opacity(0.35), radius: 18, x: 0, y: 10)
+                    .shadow(color: .black.opacity(0.18), radius: 8, x: 0, y: 4)
             }
             .environment(\.colorScheme, .dark)
     }
 }
 
 extension View {
-    /// Wrap content in the signature frosted-glass card.
+    /// Wrap content in the signature matte card surface.
     func glassCard(radius: CGFloat = ZTheme.Radius.card,
                    padding: CGFloat = ZTheme.Spacing.lg) -> some View {
         modifier(GlassCardModifier(radius: radius, padding: padding))

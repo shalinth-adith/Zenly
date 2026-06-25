@@ -18,6 +18,11 @@ struct ProfileEditView: View {
     @State private var draft: ProfileDraft
     @State private var showBlockPicker = false
     @State private var showAllowPicker = false
+    @FocusState private var nameFocused: Bool
+
+    private var nameIsEmpty: Bool {
+        draft.name.trimmingCharacters(in: .whitespaces).isEmpty
+    }
 
     init(profile: FocusProfile?, draft: ProfileDraft) {
         self.profile = profile
@@ -32,23 +37,32 @@ struct ProfileEditView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                identitySection
-                accentSection
-                blockingSection
-                researchSection
-                lengthsSection
-                strictSection
+            ZStack {
+                ZenlyBackground()
+
+                Form {
+                    identitySection
+                    accentSection
+                    blockingSection
+                    researchSection
+                    lengthsSection
+                    strictSection
+                }
+                .scrollContentBackground(.hidden)
+                .tint(Color(hex: draft.accentHex))
             }
+            .onAppear { if profile == nil { nameFocused = true } }
             .navigationTitle(profile == nil ? "New Profile" : "Edit Profile")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save", action: save)
-                        .disabled(draft.name.trimmingCharacters(in: .whitespaces).isEmpty)
+                        .accessibilityIdentifier("profile-save")
+                        .disabled(nameIsEmpty)
                 }
             }
             .familyActivityPicker(isPresented: $showBlockPicker, selection: $draft.block)
@@ -59,8 +73,11 @@ struct ProfileEditView: View {
     // MARK: - Sections
 
     private var identitySection: some View {
-        Section("Profile") {
+        Section {
             TextField("Name", text: $draft.name)
+                .accessibilityIdentifier("profile-name")
+                .focused($nameFocused)
+                .submitLabel(.done)
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: 12) {
                 ForEach(iconOptions, id: \.self) { icon in
                     Button { draft.iconName = icon } label: {
@@ -69,7 +86,7 @@ struct ProfileEditView: View {
                             .frame(maxWidth: .infinity, minHeight: 40)
                             .foregroundStyle(draft.iconName == icon ? .white : .primary)
                             .background(
-                                draft.iconName == icon ? Color(hex: draft.accentHex) : Color(.secondarySystemFill),
+                                draft.iconName == icon ? Color(hex: draft.accentHex) : ZTheme.Palette.glassFillRaised,
                                 in: RoundedRectangle(cornerRadius: 10)
                             )
                     }
@@ -79,6 +96,13 @@ struct ProfileEditView: View {
                 }
             }
             .padding(.vertical, 4)
+        } header: {
+            Text("Profile")
+        } footer: {
+            if nameIsEmpty {
+                Label("Enter a name to save this profile.", systemImage: "pencil.line")
+                    .foregroundStyle(ZTheme.Palette.streak)
+            }
         }
     }
 
