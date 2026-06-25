@@ -78,20 +78,30 @@ final class ZenlyUITests: XCTestCase {
         XCTAssertTrue(schedulesTab.waitForExistence(timeout: 10), "Schedules tab missing")
         Thread.sleep(forTimeInterval: 3)
 
-        let addSchedule = app.buttons["add-schedule"]
         schedulesTab.tap()
-        if !addSchedule.waitForExistence(timeout: 4) { schedulesTab.tap() }
-        XCTAssertTrue(addSchedule.waitForExistence(timeout: 6), "Add Schedule button missing")
+        Thread.sleep(forTimeInterval: 1)
+        schedulesTab.tap() // ensure we landed on Schedules past the splash
+
+        // "Add Schedule" is the last row; scroll until it's realized.
+        let addSchedule = app.buttons["add-schedule"]
+        var tries = 0
+        while !addSchedule.exists && tries < 6 {
+            app.swipeUp()
+            tries += 1
+        }
+        XCTAssertTrue(addSchedule.waitForExistence(timeout: 4), "Add Schedule button missing")
         addSchedule.tap()
 
         let titleField = app.textFields["schedule-title"]
         XCTAssertTrue(titleField.waitForExistence(timeout: 5), "Title field missing")
-        titleField.tap()
-        titleField.typeText("UITestFocus")
 
         let save = app.buttons["schedule-save"]
         XCTAssertTrue(save.waitForExistence(timeout: 2), "Save button missing")
-        XCTAssertTrue(save.isEnabled, "Schedule Save is DISABLED after entering a title")
+        // The fix: Save must be tappable WITHOUT typing a title (days are pre-set).
+        XCTAssertTrue(save.isEnabled, "Schedule Save is DISABLED before any input (title should be optional)")
+
+        titleField.tap()
+        titleField.typeText("UITestFocus")
         save.tap()
 
         XCTAssertTrue(titleField.waitForNonExistence(timeout: 4),

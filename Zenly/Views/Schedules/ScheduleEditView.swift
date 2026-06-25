@@ -19,6 +19,7 @@ struct ScheduleEditView: View {
     @State private var endDate: Date
     @State private var showBlockPicker = false
     @State private var showAllowPicker = false
+    @FocusState private var titleFocused: Bool
 
     private let weekdaySymbols: [(day: Int, label: String)] = [
         (1, "S"), (2, "M"), (3, "T"), (4, "W"), (5, "T"), (6, "F"), (7, "S")
@@ -37,14 +38,19 @@ struct ScheduleEditView: View {
                 ZenlyBackground()
 
                 Form {
-                Section("Schedule") {
-                    TextField("Title", text: $draft.title)
+                Section {
+                    TextField("Title (optional)", text: $draft.title)
                         .accessibilityIdentifier("schedule-title")
+                        .focused($titleFocused)
                     DatePicker("Start", selection: $startDate, displayedComponents: .hourAndMinute)
                     DatePicker("End", selection: $endDate, displayedComponents: .hourAndMinute)
+                } header: {
+                    Text("Schedule")
+                } footer: {
+                    Text("Leave the title blank and Zenly will name it for you.")
                 }
 
-                Section("Days") {
+                Section {
                     HStack(spacing: 8) {
                         ForEach(weekdaySymbols, id: \.day) { item in
                             let on = draft.weekdays.contains(item.day)
@@ -60,6 +66,13 @@ struct ScheduleEditView: View {
                         }
                     }
                     .padding(.vertical, 4)
+                } header: {
+                    Text("Days")
+                } footer: {
+                    if draft.weekdays.isEmpty {
+                        Label("Pick at least one day to save.", systemImage: "exclamationmark.circle")
+                            .foregroundStyle(ZTheme.Palette.streak)
+                    }
                 }
 
                 Section {
@@ -93,6 +106,7 @@ struct ScheduleEditView: View {
                 .scrollContentBackground(.hidden)
                 .tint(ZTheme.Palette.brandBright)
             }
+            .onAppear { if schedule == nil { titleFocused = true } }
             .navigationTitle(schedule == nil ? "New Schedule" : "Edit Schedule")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -118,7 +132,7 @@ struct ScheduleEditView: View {
     }
 
     private var isValid: Bool {
-        !draft.title.trimmingCharacters(in: .whitespaces).isEmpty && !draft.weekdays.isEmpty
+        !draft.weekdays.isEmpty   // title is optional — defaulted on save
     }
 
     private func countText(_ count: Int) -> String {
@@ -133,6 +147,10 @@ struct ScheduleEditView: View {
         draft.startMinute = start.minute ?? 0
         draft.endHour = end.hour ?? 17
         draft.endMinute = end.minute ?? 0
+
+        if draft.title.trimmingCharacters(in: .whitespaces).isEmpty {
+            draft.title = "Focus block"
+        }
 
         if let schedule {
             store.update(schedule, with: draft)
