@@ -33,6 +33,7 @@ final class ScheduleStore {
 
     private let context: NSManagedObjectContext
     private let center = ScheduleCenter.shared
+    private let blocking = BlockingService()
 
     init(context: NSManagedObjectContext = PersistenceController.shared.container.viewContext) {
         self.context = context
@@ -146,6 +147,24 @@ final class ScheduleStore {
         return .idle
     }
 
+    // MARK: - Auto-start queries
+
+    /// The first enabled schedule whose focus window is active right now — the
+    /// candidate to auto-start an in-app session for.
+    func activeNow(_ now: Date = Date()) -> FocusSchedule? {
+        schedules.first { schedule in
+            if case .active = status(for: schedule, now: now) { return true }
+            return false
+        }
+    }
+
+    /// Whole minutes left until the active window closes (≥1), so an auto-started
+    /// session runs for exactly the remaining window.
+    func remainingMinutes(for schedule: FocusSchedule, now: Date = Date()) -> Int {
+        guard case .active(let endsAt) = status(for: schedule, now: now) else { return 0 }
+        return max(1, Int(endsAt.timeIntervalSince(now) / 60))
+    }
+
     /// "8h" / "1h30" / "45m" length of the window.
     func durationText(for schedule: FocusSchedule) -> String {
         let raw = (Int(schedule.endHour) * 60 + Int(schedule.endMinute))
@@ -221,11 +240,37 @@ final class ScheduleStore {
             weekdaysMask: Int(schedule.weekdaysMask)
         )
 
+        // If the window is already open right now, apply the shields immediately.
+        // iOS only fires the extension's intervalDidStart at the start boundary and
+        // won't do so retroactively for an in-progress interval — so arming a
+        // currently-active schedule (or relaunching mid-window) would otherwise not
+        // block until tomorrow. This closes that gap.
+        if case .active = status(for: schedule) {
+            blocking.startBlocking(
+                SelectionCodec.decode(schedule.blockSelectionData),
+                allowing: SelectionCodec.decode(schedule.allowSelectionData),
+                blockAll: schedule.blockAllApps
+            )
+        }
+
+        let displayTitle = schedule.title?.isEmpty == false ? schedule.title! : "Focus block"
+
         // A heads-up notification 15 min before the block (independent of Screen
         // Time access — only needs notification permission).
         NotificationService.shared.scheduleStartReminders(
             scheduleID: schedule.id ?? UUID(),
-            title: schedule.title?.isEmpty == false ? schedule.title! : "Focus block",
+            title: displayTitle,
+            startHour: Int(schedule.startHour),
+            startMinute: Int(schedule.startMinute),
+            weekdays: Self.weekdays(from: schedule.weekdaysMask)
+        )
+
+        // A notification AT the start time. iOS can't auto-launch the app from the
+        // background, so this is the user's one tap into the running session;
+        // opening the app triggers ScheduleAutoStart, which begins the session.
+        NotificationService.shared.scheduleStartAlerts(
+            scheduleID: schedule.id ?? UUID(),
+            title: displayTitle,
             startHour: Int(schedule.startHour),
             startMinute: Int(schedule.startMinute),
             weekdays: Self.weekdays(from: schedule.weekdaysMask)
@@ -236,6 +281,7 @@ final class ScheduleStore {
         center.stop(activityName(schedule))
         if let id = schedule.id {
             NotificationService.shared.cancelStartReminders(scheduleID: id)
+            NotificationService.shared.cancelStartAlerts(scheduleID: id)
         }
     }
 
@@ -249,5 +295,67 @@ final class ScheduleStore {
         guard context.hasChanges else { return }
         do { try context.save() }
         catch { print("[Zenly] ScheduleStore save failed: \(error)") }
+    }
+}
+
+// MARK: - Auto-start
+
+/// Converts "a schedule's window is active right now" into a real in-app focus
+/// session — the same flow as tapping Start Focus. Runs only while the app is in
+/// the foreground (iOS forbids self-launch from the background); the start-time
+/// notification covers the backgrounded case by prompting the user to open the app.
+enum ScheduleAutoStart {
+    @MainActor
+    static func run(schedules: ScheduleStore,
+                    session: FocusSessionController,
+                    profiles: ProfileStore) {
+        // Don't interrupt a session the user is already in.
+        guard session.phase == .idle,
+              let schedule = schedules.activeNow(),
+              let id = schedule.id,
+              !ScheduleAutoStartLog.didStart(id) else { return }
+
+        let minutes = schedules.remainingMinutes(for: schedule)
+        guard minutes >= 1 else { return }
+
+        // Mark before starting so a manual "end early" doesn't re-trigger while the
+        // window is still open, and so the 30s watcher fires only once per window.
+        ScheduleAutoStartLog.markStarted(id)
+
+        let profile = profiles.profiles.first { $0.name == schedule.profileName }
+        let name = schedule.title?.isEmpty == false
+            ? schedule.title!
+            : (schedule.profileName?.isEmpty == false ? schedule.profileName! : "Focus block")
+
+        session.startFocus(
+            profileName: name,
+            accentHex: profile?.accentHex ?? "1A3FA8",
+            focusMinutes: minutes,
+            breakMinutes: 0,
+            isStrict: schedule.isStrict,
+            blockAll: schedule.blockAllApps,
+            allowedWebDomains: [],
+            block: SelectionCodec.decode(schedule.blockSelectionData),
+            allow: SelectionCodec.decode(schedule.allowSelectionData)
+        )
+    }
+}
+
+/// Per-occurrence guard so a window auto-starts at most once per day. Keyed by
+/// schedule id + calendar day in the shared App Group.
+enum ScheduleAutoStartLog {
+    static func didStart(_ id: UUID, on date: Date = Date()) -> Bool {
+        AppGroup.defaults.bool(forKey: key(id, date))
+    }
+
+    static func markStarted(_ id: UUID, on date: Date = Date()) {
+        AppGroup.defaults.set(true, forKey: key(id, date))
+    }
+
+    private static func key(_ id: UUID, _ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        return "autostart.\(id.uuidString).\(formatter.string(from: date))"
     }
 }

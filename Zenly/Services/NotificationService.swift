@@ -85,48 +85,92 @@ final class NotificationService {
 
     // MARK: - Schedule start reminders
 
-    /// Repeating reminder `leadMinutes` before a recurring schedule starts, one
-    /// per selected weekday. Re-scheduling first clears this schedule's old
-    /// reminders, so it's safe to call on every create/enable/edit.
+    /// Minutes-before-start the heads-up reminders fire: a 15-min warning and a
+    /// 1-min final warning. Each lead gets its own notification ID per weekday so
+    /// they coexist instead of overwriting one another.
+    private static let reminderLeads = [15, 1]
+
+    /// Repeating heads-up reminders before a recurring schedule starts, one per
+    /// selected weekday per lead time. Re-scheduling first clears this schedule's
+    /// old reminders, so it's safe to call on every create/enable/edit.
     func scheduleStartReminders(scheduleID: UUID, title: String,
                                 startHour: Int, startMinute: Int,
-                                weekdays: Set<Int>, leadMinutes: Int = 15) {
+                                weekdays: Set<Int>) {
         cancelStartReminders(scheduleID: scheduleID)
         guard !weekdays.isEmpty else { return }
 
-        // Reminder time = start − lead; if it crosses midnight, fire the day before.
-        var total = startHour * 60 + startMinute - leadMinutes
-        var dayShift = 0
-        if total < 0 { total += 24 * 60; dayShift = -1 }
-        let rHour = total / 60, rMinute = total % 60
+        for lead in Self.reminderLeads {
+            // Reminder time = start − lead; if it crosses midnight, fire the day before.
+            var total = startHour * 60 + startMinute - lead
+            var dayShift = 0
+            if total < 0 { total += 24 * 60; dayShift = -1 }
+            let rHour = total / 60, rMinute = total % 60
 
-        for weekday in weekdays {
-            var w = weekday + dayShift
-            if w < 1 { w += 7 }
-            if w > 7 { w -= 7 }
+            for weekday in weekdays {
+                var w = weekday + dayShift
+                if w < 1 { w += 7 }
+                if w > 7 { w -= 7 }
 
-            let content = UNMutableNotificationContent()
-            content.title = "Focus starting soon"
-            content.body = "\(title) begins in \(leadMinutes) minutes."
-            content.sound = .default
+                let content = UNMutableNotificationContent()
+                content.title = "Focus starting soon"
+                content.body = "\(title) begins in \(lead) minute\(lead == 1 ? "" : "s")."
+                content.sound = .default
 
-            var components = DateComponents()
-            components.weekday = w
-            components.hour = rHour
-            components.minute = rMinute
-            let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
-            center.add(UNNotificationRequest(identifier: reminderID(scheduleID, weekday),
-                                             content: content, trigger: trigger))
+                var components = DateComponents()
+                components.weekday = w
+                components.hour = rHour
+                components.minute = rMinute
+                let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
+                center.add(UNNotificationRequest(identifier: reminderID(scheduleID, weekday, lead),
+                                                 content: content, trigger: trigger))
+            }
         }
     }
 
     func cancelStartReminders(scheduleID: UUID) {
-        let ids = (1...7).map { reminderID(scheduleID, $0) }
+        var ids = Self.reminderLeads.flatMap { lead in
+            (1...7).map { reminderID(scheduleID, $0, lead) }
+        }
+        // Also clear any pre-existing reminders saved under the legacy (lead-less) id.
+        ids.append(contentsOf: (1...7).map { "zenly.schedule.\(scheduleID.uuidString).reminder.\($0)" })
         center.removePendingNotificationRequests(withIdentifiers: ids)
     }
 
-    private func reminderID(_ scheduleID: UUID, _ weekday: Int) -> String {
-        "zenly.schedule.\(scheduleID.uuidString).reminder.\(weekday)"
+    /// Fires AT the schedule's start time, one per selected weekday. iOS can't
+    /// launch the app unattended, so this is the user's tap into the session:
+    /// opening Zenly runs ScheduleAutoStart, which begins the focus session.
+    func scheduleStartAlerts(scheduleID: UUID, title: String,
+                             startHour: Int, startMinute: Int, weekdays: Set<Int>) {
+        cancelStartAlerts(scheduleID: scheduleID)
+        guard !weekdays.isEmpty else { return }
+
+        for weekday in weekdays {
+            let content = UNMutableNotificationContent()
+            content.title = "Focus block starting"
+            content.body = "\(title) is starting now — open Zenly to begin."
+            content.sound = .default
+
+            var components = DateComponents()
+            components.weekday = weekday
+            components.hour = startHour
+            components.minute = startMinute
+            let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
+            center.add(UNNotificationRequest(identifier: startID(scheduleID, weekday),
+                                             content: content, trigger: trigger))
+        }
+    }
+
+    func cancelStartAlerts(scheduleID: UUID) {
+        let ids = (1...7).map { startID(scheduleID, $0) }
+        center.removePendingNotificationRequests(withIdentifiers: ids)
+    }
+
+    private func reminderID(_ scheduleID: UUID, _ weekday: Int, _ lead: Int) -> String {
+        "zenly.schedule.\(scheduleID.uuidString).reminder.\(lead).\(weekday)"
+    }
+
+    private func startID(_ scheduleID: UUID, _ weekday: Int) -> String {
+        "zenly.schedule.\(scheduleID.uuidString).start.\(weekday)"
     }
 
     private func add(_ id: String, _ content: UNNotificationContent, after seconds: TimeInterval) {

@@ -58,6 +58,7 @@ struct ZenlyApp: App {
                 applyFocusFilterProfile()
                 music.reconnectSpotifyIfNeeded()
                 startPendingFocusIfNeeded()
+                ScheduleAutoStart.run(schedules: schedules, session: session, profiles: profiles)
             case .background:
                 BackgroundRefresh.schedule()
             default:
