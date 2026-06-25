@@ -20,7 +20,6 @@ struct HomeView: View {
     @Environment(MusicController.self) private var music
 
     @State private var selectedMinutes = 25
-    @State private var showTasks = false
     @State private var showSession = false
 
     var body: some View {
@@ -67,7 +66,6 @@ struct HomeView: View {
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
-            .sheet(isPresented: $showTasks) { TasksView() }
             .task { await prepare() }
             .onChange(of: session.phase) { oldPhase, newPhase in
                 switch newPhase {
@@ -102,22 +100,15 @@ struct HomeView: View {
     }
 
     private var header: some View {
-        HStack {
-            // Balance placeholder (keeps the greeting centered).
-            Color.clear.frame(width: 44, height: 44)
-            Spacer()
-            VStack(spacing: 2) {
-                Text(greeting)
-                    .font(ZTheme.Font.body(13))
-                    .foregroundStyle(ZTheme.Palette.text(0.5))
-                Text("Ready to focus?")
-                    .font(ZTheme.Font.display(20, weight: .bold))
-                    .foregroundStyle(ZTheme.Palette.textPrimary)
-            }
-            Spacer()
-            GlassIconButton(systemImage: "checklist") { showTasks = true }
-                .accessibilityLabel("Tasks")
+        VStack(spacing: 2) {
+            Text(greeting)
+                .font(ZTheme.Font.body(13))
+                .foregroundStyle(ZTheme.Palette.text(0.5))
+            Text("Ready to focus?")
+                .font(ZTheme.Font.display(20, weight: .bold))
+                .foregroundStyle(ZTheme.Palette.textPrimary)
         }
+        .frame(maxWidth: .infinity)
         .padding(.top, 8)
     }
 
@@ -200,12 +191,27 @@ struct HomeView: View {
                                    tint: Color(hex: profile.accentHex ?? "1A3FA8")) {
                         profiles.setActive(profile)
                     } label: {
-                        HStack(spacing: 7) {
+                        // Icon rail: collapsed profiles show only their icon;
+                        // the active one expands to icon + name. Keeps a single
+                        // row that fits ~6-7 profiles before it needs to scroll.
+                        HStack(spacing: isActive ? 8 : 0) {
                             Image(systemName: profile.iconName ?? "brain.head.profile")
-                            Text(profile.name ?? "Untitled")
+                                .font(ZTheme.Font.display(16, weight: .semibold))
+                            if isActive {
+                                Text(profile.name ?? "Untitled")
+                                    .lineLimit(1)
+                                    .fixedSize()
+                                    .transition(.opacity.combined(with: .move(edge: .trailing)))
+                            }
                         }
+                        .padding(.horizontal, isActive ? 20 : 0)
+                        .frame(width: isActive ? nil : 56)
                     }
-                    .frame(width: 132)
+                    // Hug the label's width so the collapsed icons + the one
+                    // expanded pill fit one row; ScrollView scrolls on overflow.
+                    .fixedSize(horizontal: true, vertical: false)
+                    .animation(ZTheme.Motion.smooth, value: isActive)
+                    .accessibilityLabel(profile.name ?? "Untitled")
                     .accessibilityAddTraits(isActive ? [.isButton, .isSelected] : .isButton)
                     // Long-press to drag a pill onto another to reorder; the new
                     // order persists via FocusProfile.sortIndex (ProfileStore.move).
@@ -221,6 +227,20 @@ struct HomeView: View {
             }
             .padding(.horizontal, 2)
         }
+        // Soft trailing fade: lands on empty space when all pills fit, and on
+        // the last pill only when the row actually overflows — a subtle
+        // "swipe for more" cue instead of a hard cut-off.
+        .mask(
+            LinearGradient(
+                stops: [
+                    .init(color: .black, location: 0),
+                    .init(color: .black, location: 0.88),
+                    .init(color: .clear, location: 1.0)
+                ],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        )
     }
 
     /// Shrink the hero orb on shorter screens so the non-scrolling layout fits
