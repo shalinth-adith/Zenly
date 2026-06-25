@@ -220,10 +220,23 @@ final class ScheduleStore {
             end: end,
             weekdaysMask: Int(schedule.weekdaysMask)
         )
+
+        // A heads-up notification 15 min before the block (independent of Screen
+        // Time access — only needs notification permission).
+        NotificationService.shared.scheduleStartReminders(
+            scheduleID: schedule.id ?? UUID(),
+            title: schedule.title?.isEmpty == false ? schedule.title! : "Focus block",
+            startHour: Int(schedule.startHour),
+            startMinute: Int(schedule.startMinute),
+            weekdays: Self.weekdays(from: schedule.weekdaysMask)
+        )
     }
 
     private func stopMonitoring(_ schedule: FocusSchedule) {
         center.stop(activityName(schedule))
+        if let id = schedule.id {
+            NotificationService.shared.cancelStartReminders(scheduleID: id)
+        }
     }
 
     private func reactivateAll() {
