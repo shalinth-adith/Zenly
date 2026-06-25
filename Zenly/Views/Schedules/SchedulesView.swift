@@ -189,7 +189,7 @@ struct SchedulesView: View {
 
 private struct ScheduleRow: View {
     @Environment(ScheduleStore.self) private var store
-    let schedule: FocusSchedule
+    @ObservedObject var schedule: FocusSchedule
 
     // Mon-first week, matching how people read a schedule.
     private let pillDays: [(day: Int, label: String)] = [
@@ -209,12 +209,15 @@ private struct ScheduleRow: View {
                     .font(ZTheme.Font.display(17, weight: .bold))
                     .foregroundStyle(ZTheme.Palette.textPrimary)
                 Spacer()
+                // A system Toggle — reliable in List rows (a custom tap-gesture
+                // toggle can be swallowed by the list). Brand-tinted to fit.
                 Toggle("", isOn: Binding(
                     get: { schedule.isEnabled },
                     set: { store.setEnabled(schedule, $0) }
                 ))
                 .labelsHidden()
-                .toggleStyle(.zenly)
+                .tint(ZTheme.Palette.brand)
+                .accessibilityIdentifier("schedule-toggle")
             }
 
             // Time range + duration

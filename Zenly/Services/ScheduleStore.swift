@@ -88,7 +88,8 @@ final class ScheduleStore {
 
     func setEnabled(_ schedule: FocusSchedule, _ enabled: Bool) {
         schedule.isEnabled = enabled
-        save()
+        save() // the row observes the schedule (@ObservedObject) and updates in place;
+               // no fetch() here — re-fetching mid-tap rebuilds the list and reverts the toggle.
         if enabled { startMonitoring(schedule) } else { stopMonitoring(schedule) }
     }
 

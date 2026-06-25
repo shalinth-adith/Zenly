@@ -16,25 +16,28 @@ struct ZenlyToggleStyle: ToggleStyle {
         HStack {
             configuration.label
             Spacer(minLength: 12)
-            ZStack(alignment: configuration.isOn ? .trailing : .leading) {
-                Capsule()
-                    .fill(configuration.isOn ? ZTheme.Palette.brand : Color.white.opacity(0.14))
-                    .frame(width: 50, height: 30)
-                    .shadow(color: configuration.isOn ? ZTheme.Palette.brand.opacity(0.5) : .clear, radius: 8)
-                Circle()
-                    .fill(.white)
-                    .frame(width: 24, height: 24)
-                    .padding(.horizontal, 3)
-                    .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
-            }
-            .onTapGesture {
+            // A Button (not .onTapGesture) so taps are reliable inside List rows.
+            Button {
                 Haptics.light()
                 withAnimation(ZTheme.Motion.bouncy) { configuration.isOn.toggle() }
+            } label: {
+                ZStack(alignment: configuration.isOn ? .trailing : .leading) {
+                    Capsule()
+                        .fill(configuration.isOn ? ZTheme.Palette.brand : Color.white.opacity(0.14))
+                        .frame(width: 50, height: 30)
+                        .shadow(color: configuration.isOn ? ZTheme.Palette.brand.opacity(0.5) : .clear, radius: 8)
+                    Circle()
+                        .fill(.white)
+                        .frame(width: 24, height: 24)
+                        .padding(.horizontal, 3)
+                        .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
+                }
+                .frame(width: 50, height: 30)
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .accessibilityValue(configuration.isOn ? "On" : "Off")
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isButton)
-        .accessibilityValue(configuration.isOn ? "On" : "Off")
     }
 }
 
