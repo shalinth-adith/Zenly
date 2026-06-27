@@ -199,7 +199,8 @@ struct HistoryView: View {
         HStack(spacing: 3) {
             ForEach(0..<5, id: \.self) { i in
                 Circle()
-                    .fill(i < rating ? ZTheme.Palette.brandBright : Color.white.opacity(0.18))
+                    .fill(i < rating ? ZTheme.Palette.brandBright
+                          : Color(light: Color(hex: "1C2644").opacity(0.18), dark: Color.white.opacity(0.18)))
                     .frame(width: 7, height: 7)
                     .shadow(color: i < rating ? ZTheme.Palette.brandBright : .clear, radius: 4)
             }

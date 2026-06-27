@@ -25,7 +25,19 @@ final class SpotifyController: NSObject {
         return remote
     }()
 
-    private var accessToken: String?
+    private static let tokenKey = "spotifyAccessToken"
+
+    /// The App Remote access token, persisted so a connection established once
+    /// survives relaunches — the user authorizes only when there's no token (or
+    /// the stored one has expired and reconnect fails).
+    private var accessToken: String? {
+        didSet { AppGroup.defaults.set(accessToken, forKey: Self.tokenKey) }
+    }
+
+    override init() {
+        super.init()
+        accessToken = AppGroup.defaults.string(forKey: Self.tokenKey)
+    }
 
     /// Opens Spotify to authorize, then connects (callback arrives via handleURL).
     func authorizeAndConnect() {
@@ -38,8 +50,7 @@ final class SpotifyController: NSObject {
         guard let params = appRemote.authorizationParameters(from: url) else { return }
         if let token = params[SPTAppRemoteAccessTokenKey] {
             accessToken = token
-            appRemote.connectionParameters.accessToken = token
-            appRemote.connect()
+            connectWithToken()
         } else if let error = params[SPTAppRemoteErrorDescriptionKey] {
             print("[Zenly] Spotify auth error: \(error)")
         }
@@ -47,9 +58,19 @@ final class SpotifyController: NSObject {
 
     /// Re-establish the connection on foreground without re-authorizing. The
     /// App Remote disconnects whenever Zenly is backgrounded (e.g. during the
-    /// auth round-trip), so we must reconnect when we come back.
+    /// auth round-trip), so we must reconnect when we come back. Uses the stored
+    /// token, so it never re-opens the Spotify app.
     func reconnect() {
         guard accessToken != nil, !appRemote.isConnected else { return }
+        connectWithToken()
+    }
+
+    /// Connect using the persisted token. The token must be re-applied to the
+    /// connection parameters on a cold launch — handleURL only set it for the
+    /// session that authorized. Falls back to authorization only if absent.
+    private func connectWithToken() {
+        guard let token = accessToken else { authorizeAndConnect(); return }
+        appRemote.connectionParameters.accessToken = token
         appRemote.connect()
     }
 
@@ -57,7 +78,7 @@ final class SpotifyController: NSObject {
         guard appRemote.isConnected else {
             // Reconnect with the existing token if we have one; only re-authorize
             // as a last resort (re-authorizing re-opens the Spotify app).
-            if accessToken != nil { appRemote.connect() } else { authorizeAndConnect() }
+            if accessToken != nil { connectWithToken() } else { authorizeAndConnect() }
             return
         }
         if isPlaying {

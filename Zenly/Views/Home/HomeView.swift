@@ -368,7 +368,7 @@ struct HomeView: View {
             Button { music.playPause() } label: {
                 Image(systemName: music.isPlaying ? "pause.fill" : "play.fill")
                     .font(.title3)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(ZTheme.Palette.textPrimary)
                     .frame(width: 44, height: 44)
                     .background(
                         Circle().fill(ZTheme.Palette.matteRaised)
@@ -429,7 +429,7 @@ struct ZenlyProgressBar: View {
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
-                Capsule().fill(Color.white.opacity(0.08))
+                Capsule().fill(ZTheme.Palette.glassStroke)
                 Capsule()
                     .fill(LinearGradient(colors: [ZTheme.Palette.brand, ZTheme.Palette.violet],
                                          startPoint: .leading, endPoint: .trailing))

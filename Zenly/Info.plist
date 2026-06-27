@@ -52,11 +52,6 @@
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
-	<key>UIAppFonts</key>
-	<array>
-		<string>Quicksand.ttf</string>
-		<string>Nunito.ttf</string>
-	</array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>processing</string>

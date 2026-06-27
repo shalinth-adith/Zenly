@@ -27,8 +27,14 @@ enum MusicSource: String, CaseIterable, Identifiable {
 @Observable
 @MainActor
 final class MusicController {
-    var source: MusicSource = .appleMusic {
-        didSet { updateState() }
+    private static let sourceKey = "musicSource"
+
+    var source: MusicSource {
+        didSet {
+            guard source != oldValue else { return }
+            AppGroup.defaults.set(source.rawValue, forKey: Self.sourceKey)
+            updateState()
+        }
     }
     private(set) var isPlaying = false
     private(set) var nowPlaying = ""
@@ -39,6 +45,10 @@ final class MusicController {
     private let spotify = SpotifyController()
 
     init() {
+        // Restore the user's last-chosen source so it survives relaunches.
+        let saved = AppGroup.defaults.string(forKey: Self.sourceKey)
+        source = saved.flatMap(MusicSource.init(rawValue:)) ?? .appleMusic
+
         spotify.onState = { [weak self] playing, track in
             Task { @MainActor [weak self] in
                 guard let self, self.source == .spotify else { return }

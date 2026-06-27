@@ -83,7 +83,6 @@ struct SessionView: View {
                 .padding(.bottom, 40)
             }
         }
-        .preferredColorScheme(.dark)
         .sheet(isPresented: $showStopConfirmation) {
             StopBlockingConfirmation(
                 onConfirm: {

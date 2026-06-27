@@ -27,6 +27,9 @@ struct SettingsView: View {
     @AppStorage("breakReminderHour", store: AppGroup.defaults) private var reminderHour = 15
     @AppStorage("breakReminderMinute", store: AppGroup.defaults) private var reminderMinute = 0
 
+    /// A source the user picked but hasn't confirmed switching to yet.
+    @State private var pendingSource: MusicSource?
+
     /// Frosted row background that lets the section's rounded corners clip it.
     private var glassRow: some View {
         Rectangle()
@@ -142,9 +145,13 @@ struct SettingsView: View {
 
     private var musicSection: some View {
         Section {
+            // Selecting a different source only stages it; the actual switch
+            // happens after the user confirms, so platforms never change by accident.
             Picker("Source", selection: Binding(
                 get: { music.source },
-                set: { music.source = $0 }
+                set: { newValue in
+                    if newValue != music.source { pendingSource = newValue }
+                }
             )) {
                 ForEach(MusicSource.allCases) { source in
                     Text(source.title).tag(source)
@@ -165,6 +172,20 @@ struct SettingsView: View {
             Text("Spotify requires the Spotify app and a Premium account.")
         }
         .listRowBackground(glassRow)
+        .confirmationDialog(
+            "Switch music source?",
+            isPresented: Binding(get: { pendingSource != nil },
+                                 set: { if !$0 { pendingSource = nil } }),
+            presenting: pendingSource
+        ) { target in
+            Button("Switch to \(target.title)") {
+                music.source = target
+                pendingSource = nil
+            }
+            Button("Cancel", role: .cancel) { pendingSource = nil }
+        } message: { target in
+            Text("Change your focus music to \(target.title)?")
+        }
     }
 
     private var breakReminderSection: some View {

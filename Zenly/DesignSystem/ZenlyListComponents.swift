@@ -23,7 +23,7 @@ struct ZenlyToggleStyle: ToggleStyle {
             } label: {
                 ZStack(alignment: configuration.isOn ? .trailing : .leading) {
                     Capsule()
-                        .fill(configuration.isOn ? ZTheme.Palette.brand : Color.white.opacity(0.14))
+                        .fill(configuration.isOn ? ZTheme.Palette.brand : ZTheme.Palette.matteBorderStrong)
                         .frame(width: 50, height: 30)
                         .shadow(color: configuration.isOn ? ZTheme.Palette.brand.opacity(0.5) : .clear, radius: 8)
                     Circle()
@@ -83,7 +83,7 @@ struct DashedActionButton: View {
             .frame(height: 56)
             .background(
                 RoundedRectangle(cornerRadius: ZTheme.Radius.button, style: .continuous)
-                    .fill(Color.white.opacity(0.03))
+                    .fill(ZTheme.Palette.glassFill)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: ZTheme.Radius.button, style: .continuous)

@@ -89,7 +89,7 @@ struct AnalyticsView: View {
         HStack(spacing: ZTheme.Spacing.lg) {
             ZStack {
                 Circle()
-                    .stroke(Color.white.opacity(0.08), lineWidth: 8)
+                    .stroke(ZTheme.Palette.glassStroke, lineWidth: 8)
                 Circle()
                     .trim(from: 0, to: Double(score) / 100)
                     .stroke(ZTheme.Palette.brandBright, style: StrokeStyle(lineWidth: 8, lineCap: .round))
@@ -97,7 +97,7 @@ struct AnalyticsView: View {
                     .shadow(color: ZTheme.Palette.brandGlow.opacity(0.8), radius: 6)
                 Text("\(score)")
                     .font(ZTheme.Font.numeral(30, weight: .bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(ZTheme.Palette.textPrimary)
             }
             .frame(width: 96, height: 96)
 

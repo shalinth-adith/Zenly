@@ -50,7 +50,6 @@ struct OnboardingView: View {
             .indexViewStyle(.page(backgroundDisplayMode: .always))
             .animation(.easeInOut, value: step)
         }
-        .preferredColorScheme(.dark)
     }
 
     // MARK: - Pages

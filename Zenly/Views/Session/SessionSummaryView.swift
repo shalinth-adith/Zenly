@@ -29,7 +29,6 @@ struct SessionSummaryView: View {
                 content(summary)
             }
         }
-        .preferredColorScheme(.dark)
         .onAppear {
             if session.summary?.wasCompleted == true {
                 newBadges = achievements.evaluate()
@@ -95,7 +94,7 @@ struct SessionSummaryView: View {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text("\(summary.completedMinutes)")
                         .font(ZTheme.Font.numeral(42, weight: .bold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(ZTheme.Palette.textPrimary)
                     Text(summary.wasCompleted ? "min" : "of \(summary.plannedMinutes) min")
                         .font(ZTheme.Font.numeral(20, weight: .semibold))
                         .foregroundStyle(ZTheme.Palette.text(0.6))

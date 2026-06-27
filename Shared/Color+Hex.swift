@@ -17,4 +17,24 @@ extension Color {
         let b = Double(value & 0xFF) / 255.0
         self.init(red: r, green: g, blue: b)
     }
+
+    /// A color that resolves to `light` in light appearance and `dark` in dark
+    /// appearance. Backed by a dynamic `UIColor` provider, so it re-resolves on
+    /// every render against the active trait collection — the app follows the
+    /// system Light/Dark setting live, with no `@Environment(\.colorScheme)`
+    /// plumbing at the call sites.
+    init(light: Color, dark: Color) {
+        #if canImport(UIKit)
+        self.init(uiColor: UIColor { traits in
+            traits.userInterfaceStyle == .dark ? UIColor(dark) : UIColor(light)
+        })
+        #else
+        self = dark
+        #endif
+    }
+
+    /// Convenience: an adaptive color from two hex strings.
+    init(lightHex: String, darkHex: String) {
+        self.init(light: Color(hex: lightHex), dark: Color(hex: darkHex))
+    }
 }

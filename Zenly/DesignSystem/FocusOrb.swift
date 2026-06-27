@@ -34,62 +34,46 @@ struct FocusOrb<Center: View>: View {
     @SwiftUI.State private var breathing = false
     @SwiftUI.State private var popped = false
 
-    private var showLiving: Bool { living && !reduceMotion }
-
     var body: some View {
         ZStack {
-            // Living: expanding pulse rings (outermost) + a slow conic glow.
-            if showLiving && diameter >= 150 {
-                PulseRings(diameter: diameter)
-                ConicSpinGlow(diameter: diameter * 0.87)
+            // Idle: a calm clock-style tick ring around the sphere.
+            if isIdle {
+                OrbTicks(diameter: diameter)
             }
 
-            // Glow halo (sits behind the sphere).
+            // The matte sphere: a solid blue fill lit from the upper-left, with a
+            // soft inner shadow pooling toward the bottom for depth.
             Circle()
-                .fill(ZTheme.Palette.brand)
-                .frame(width: diameter * 0.92, height: diameter * 0.92)
-                .blur(radius: diameter * 0.28)
-                .opacity(0.45)
-
-            // The sphere.
-            Circle()
-                .fill(ZTheme.orbGradient)
+                .fill(ZTheme.orbGradient(diameter: sphereInset))
                 .overlay(
-                    // Specular highlight (top-left).
                     Circle()
                         .fill(
-                            RadialGradient(gradient: Gradient(colors: [Color.white.opacity(0.65), .clear]),
-                                           center: .center, startRadius: 0, endRadius: diameter * 0.16)
+                            RadialGradient(
+                                gradient: Gradient(colors: [Color(hex: "060A1A").opacity(0.5), .clear]),
+                                center: UnitPoint(x: 0.5, y: 0.56),
+                                startRadius: 0,
+                                endRadius: sphereInset * 0.52
+                            )
                         )
-                        .frame(width: diameter * 0.28, height: diameter * 0.28)
-                        .blur(radius: 6)
-                        .offset(x: -diameter * 0.16, y: -diameter * 0.20)
                 )
                 .frame(width: sphereInset, height: sphereInset)
 
-            // Active progress ring.
+            // Active: a thin progress ring of light fills around the sphere.
             if case let .active(progress) = state {
                 Circle()
-                    .stroke(Color.white.opacity(0.08), lineWidth: 9)
-                    .frame(width: diameter - 10, height: diameter - 10)
+                    .stroke(Color(light: Color(hex: "1C2644").opacity(0.10),
+                                  dark: Color.white.opacity(0.07)), lineWidth: 9)
+                    .frame(width: ringDiameter, height: ringDiameter)
                 Circle()
                     .trim(from: 0, to: max(0, min(1, progress)))
                     .stroke(ringTint, style: StrokeStyle(lineWidth: 9, lineCap: .round))
                     .rotationEffect(.degrees(-90))
-                    .frame(width: diameter - 10, height: diameter - 10)
+                    .frame(width: ringDiameter, height: ringDiameter)
                     .shadow(color: ringTint.opacity(0.9), radius: 8)
                     .animation(.linear(duration: 0.3), value: progress)
             }
 
             center()
-
-            // Living: two counter-rotating sparks orbiting the rim.
-            if showLiving && diameter >= 170 {
-                OrbitingSpark(diameter: diameter, dotSize: 9,
-                              color: ZTheme.Palette.lavenderSoft, duration: 9)
-                OrbitingSpark(diameter: diameter * 0.82, dotSize: 6,
-                              color: ZTheme.Palette.teal, duration: 7, reversed: true)
-            }
         }
         .frame(width: diameter, height: diameter)
         .scaleEffect(scale)
@@ -98,11 +82,25 @@ struct FocusOrb<Center: View>: View {
         .accessibilityElement(children: .combine)
     }
 
-    // The sphere is slightly inset for the active state so the ring clears it.
-    private var sphereInset: CGFloat {
-        if case .active = state { return diameter - 24 }
-        return diameter
+    private var isIdle: Bool {
+        if case .idle = state { return true }
+        return false
     }
+
+    // The design always insets the sphere inside its container so the surrounding
+    // ring sits in a clear gap around it (rather than the sphere covering it):
+    // home/idle orb 24/212 ≈ 0.775·d, session/active orb 32/320 = 0.80·d.
+    private var sphereInset: CGFloat {
+        switch state {
+        case .active:   return diameter * 0.80
+        case .complete: return diameter           // standalone celebratory sphere
+        case .idle:     return diameter * 0.775
+        }
+    }
+
+    /// Progress-ring diameter — design draws it at r150 on a 320 box (0.9375·d),
+    /// outside the 0.80·d sphere with a clean gap.
+    private var ringDiameter: CGFloat { diameter * 0.9375 }
 
     private var isComplete: Bool {
         if case .complete = state { return true }
@@ -139,6 +137,31 @@ extension FocusOrb where Center == AnyView {
                     .foregroundStyle(.white)
             )
         }
+    }
+}
+
+/// Eight clock-style ticks ringing the idle orb (four cardinal, brighter; four
+/// diagonal, dimmer), matching the Zenly Matte spec.
+private struct OrbTicks: View {
+    let diameter: CGFloat
+
+    var body: some View {
+        let radius = diameter / 2
+        let outer = radius - diameter * 0.038
+        let inner = radius - diameter * 0.090
+        let length = outer - inner
+        let mid = (outer + inner) / 2
+        ZStack {
+            ForEach(0..<8, id: \.self) { i in
+                Capsule()
+                    .fill(Color(lightHex: "5C8DF5", darkHex: "8CAAFF")
+                        .opacity(i.isMultiple(of: 2) ? 0.45 : 0.25))
+                    .frame(width: 2.4, height: length)
+                    .offset(y: -mid)
+                    .rotationEffect(.degrees(Double(i) * 45))
+            }
+        }
+        .frame(width: diameter, height: diameter)
     }
 }
 
