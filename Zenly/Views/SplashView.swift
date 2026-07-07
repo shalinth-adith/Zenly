@@ -14,6 +14,7 @@ struct SplashView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    @State private var orbIn = false
     @State private var textIn = false
 
     var body: some View {
@@ -28,6 +29,11 @@ struct SplashView: View {
                         .frame(width: 58, height: 58)
                         .shadow(color: .white.opacity(0.4), radius: 8)
                 }
+                // Entrance: fade + spring-scale in, then FocusOrb keeps breathing.
+                // This scale composes with the orb's own breathing scale (they're
+                // separate modifiers), so it settles at 1 while the loop continues.
+                .opacity(orbIn ? 1 : 0)
+                .scaleEffect(orbIn ? 1 : 0.86)
 
                 VStack(spacing: 6) {
                     ShimmerText(text: "Zenly", font: ZTheme.Font.display(46, weight: .bold))
@@ -46,8 +52,10 @@ struct SplashView: View {
 
     private func animate() {
         if reduceMotion {
+            orbIn = true
             textIn = true
         } else {
+            withAnimation(.spring(response: 0.7, dampingFraction: 0.72)) { orbIn = true }
             withAnimation(.easeOut(duration: 0.6).delay(0.35)) { textIn = true }
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) { onFinish() }

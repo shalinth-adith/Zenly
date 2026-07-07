@@ -2,11 +2,14 @@
 //  ZenlyButton.swift
 //  Zenly
 //
-//  Two button styles from the design spec: a filled periwinkle "primary" with an
-//  outer glow, and a frosted "secondary" glass button. Both press with a spring
-//  (scale on tap) + a gentle haptic. Periwinkle is the only accent.
+//  Two button styles from the design spec: a flat matte "primary" (solid blue
+//  gradient with a crisp top highlight — no glow, no sweep) and a frosted
+//  "secondary" glass button. Both press with a spring (scale on tap) + a gentle
+//  haptic. Periwinkle is the only accent.
 //
-//  Imported from the Claude Design spec (Zenly.dc.html).
+//  Imported from the Claude Design spec (Zenly Matte.dc.html — the Start Focus /
+//  Done CTA: linear-gradient(180deg,#2E63E0,#1E47B0) + inset 0 1px 0
+//  rgba(255,255,255,0.28), radius 18, flat).
 //
 
 import SwiftUI
@@ -23,19 +26,22 @@ struct ZenlyPrimaryButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity)
             .frame(height: height)
             .background(
+                // Flat vertical gradient — a lit top stop (tint blended toward
+                // white) down to the tint. No living-sweep, no outer glow: the
+                // matte surface is opaque and calm.
                 RoundedRectangle(cornerRadius: ZTheme.Radius.button, style: .continuous)
-                    .fill(LinearGradient(colors: [ZTheme.Palette.brandLight, tint],
+                    .fill(LinearGradient(colors: [tint.lightened(0.24), tint],
                                          startPoint: .top, endPoint: .bottom))
-                    .livingSweep()
-                    .clipShape(RoundedRectangle(cornerRadius: ZTheme.Radius.button, style: .continuous))
             )
             .overlay(
+                // Emulates `inset 0 1px 0 rgba(255,255,255,0.28)`: a bright top
+                // edge fading down the rim.
                 RoundedRectangle(cornerRadius: ZTheme.Radius.button, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.14), lineWidth: 1)
+                    .stroke(LinearGradient(colors: [.white.opacity(0.28), .white.opacity(0.04)],
+                                           startPoint: .top, endPoint: .bottom),
+                            lineWidth: 1)
             )
-            .shadow(color: tint.opacity(0.5), radius: 18, x: 0, y: 8)
-            .shadow(color: tint.opacity(0.32), radius: 30)
-            .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(ZTheme.Motion.bouncy, value: configuration.isPressed)
             .onChange(of: configuration.isPressed) { _, pressed in
                 if pressed { Haptics.light() }

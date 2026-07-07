@@ -37,4 +37,20 @@ extension Color {
     init(lightHex: String, darkHex: String) {
         self.init(light: Color(hex: lightHex), dark: Color(hex: darkHex))
     }
+
+    /// Blend toward white by `amount` (0…1). Used to derive the lit top stop of a
+    /// matte button gradient from a single accent tint, so profile-tinted buttons
+    /// keep the same flat top→bottom sheen as the brand default.
+    func lightened(_ amount: Double) -> Color {
+        #if canImport(UIKit)
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        UIColor(self).getRed(&r, green: &g, blue: &b, alpha: &a)
+        let f = CGFloat(max(0, min(1, amount)))
+        return Color(red: Double(r + (1 - r) * f),
+                     green: Double(g + (1 - g) * f),
+                     blue: Double(b + (1 - b) * f))
+        #else
+        return self
+        #endif
+    }
 }
