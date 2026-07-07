@@ -16,6 +16,6 @@ enum ShieldMessage {
     static func subtitle(subject: String, custom: String) -> String {
         let trimmed = custom.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.isEmpty { return trimmed }
-        return "\(subject) is paused while Zenly keeps you focused.\nYou've got this."
+        return "\(subject) is paused while Zen-ly keeps you focused.\nYou've got this."
     }
 }

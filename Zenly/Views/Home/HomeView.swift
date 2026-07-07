@@ -165,7 +165,7 @@ struct HomeView: View {
             Label("Screen Time access needed", systemImage: "hand.raised.fill")
                 .font(ZTheme.Font.display(16, weight: .semibold))
                 .foregroundStyle(ZTheme.Palette.textPrimary)
-            Text("Zenly needs Screen Time access to block distracting apps during focus.")
+            Text("Zen-ly needs Screen Time access to block distracting apps during focus.")
                 .font(ZTheme.Font.body(13))
                 .foregroundStyle(ZTheme.Palette.text(0.6))
                 .multilineTextAlignment(.center)

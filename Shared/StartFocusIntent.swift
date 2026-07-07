@@ -11,7 +11,7 @@ import AppIntents
 
 struct StartFocusIntent: AppIntent {
     static var title: LocalizedStringResource = "Start Focus Session"
-    static var description = IntentDescription("Starts a Zenly focus session with your active profile.")
+    static var description = IntentDescription("Starts a Zen-ly focus session with your active profile.")
     static var openAppWhenRun: Bool = true
 
     func perform() async throws -> some IntentResult {

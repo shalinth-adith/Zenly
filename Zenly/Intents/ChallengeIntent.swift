@@ -9,7 +9,7 @@ import AppIntents
 
 struct TodaysChallengeIntent: AppIntent {
     static var title: LocalizedStringResource = "Today's Focus Challenge"
-    static var description = IntentDescription("Check today's Zenly focus challenge and your progress.")
+    static var description = IntentDescription("Check today's Zen-ly focus challenge and your progress.")
 
     @MainActor
     func perform() async throws -> some IntentResult & ProvidesDialog {

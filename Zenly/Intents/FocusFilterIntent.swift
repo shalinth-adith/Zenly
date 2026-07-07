@@ -12,18 +12,18 @@
 import AppIntents
 
 struct ApplyFocusProfileIntent: SetFocusFilterIntent {
-    static var title: LocalizedStringResource = "Zenly Focus Profile"
+    static var title: LocalizedStringResource = "Zen-ly Focus Profile"
     static var description: IntentDescription? =
-        "Switch Zenly to a focus profile while this Focus is active."
+        "Switch Zen-ly to a focus profile while this Focus is active."
 
     @Parameter(title: "Profile name")
     var profileName: String?
 
     var displayRepresentation: DisplayRepresentation {
         if let profileName, !profileName.isEmpty {
-            return DisplayRepresentation(title: "Zenly: \(profileName)")
+            return DisplayRepresentation(title: "Zen-ly: \(profileName)")
         }
-        return DisplayRepresentation(title: "Zenly profile")
+        return DisplayRepresentation(title: "Zen-ly profile")
     }
 
     func perform() async throws -> some IntentResult {

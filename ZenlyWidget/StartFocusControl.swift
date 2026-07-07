@@ -19,6 +19,6 @@ struct StartFocusControl: ControlWidget {
             }
         }
         .displayName("Start Focus")
-        .description("Begin a Zenly focus session.")
+        .description("Begin a Zen-ly focus session.")
     }
 }

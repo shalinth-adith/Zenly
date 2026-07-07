@@ -39,7 +39,7 @@ struct SchedulesView: View {
 
                 List {
                     ZenlyScreenTitle(title: "Schedule",
-                                     subtitle: "Zenly starts these focus sessions for you automatically.")
+                                     subtitle: "Zen-ly starts these focus sessions for you automatically.")
                         .plainRow()
                         .padding(.bottom, 4)
 
@@ -157,7 +157,7 @@ struct SchedulesView: View {
                 Text("No schedules yet")
                     .font(ZTheme.Font.display(17, weight: .semibold))
                     .foregroundStyle(ZTheme.Palette.textPrimary)
-                Text("Zenly can start focus sessions automatically. Tap a suggestion above, or “Add Schedule” to block distractions during set hours.")
+                Text("Zen-ly can start focus sessions automatically. Tap a suggestion above, or “Add Schedule” to block distractions during set hours.")
                     .font(ZTheme.Font.body(13))
                     .foregroundStyle(ZTheme.Palette.text(0.55))
                     .multilineTextAlignment(.center)

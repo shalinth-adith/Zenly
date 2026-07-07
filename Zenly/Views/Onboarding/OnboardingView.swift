@@ -26,14 +26,14 @@ struct OnboardingView: View {
 
             TabView(selection: $step) {
                 infoPage(icon: "scope",
-                         title: "Welcome to Zenly",
+                         title: "Welcome to Zen-ly",
                          message: "Block distractions and reclaim your focus, one session at a time.",
                          button: "Get Started", advancesTo: 1)
                     .tag(0)
 
                 infoPage(icon: "timer",
                          title: "Focus, your way",
-                         message: "Start a focus session and Zenly blocks distracting apps and websites until your timer ends.",
+                         message: "Start a focus session and Zen-ly blocks distracting apps and websites until your timer ends.",
                          button: "Next", advancesTo: 2)
                     .tag(1)
 
@@ -65,7 +65,7 @@ struct OnboardingView: View {
     private var permissionPage: some View {
         scaffold(icon: "hand.raised.fill",
                  title: "Screen Time Access",
-                 message: "Zenly uses Apple's Screen Time to block distracting apps during focus. Your activity stays private on your device — Zenly never sees it.") {
+                 message: "Zen-ly uses Apple's Screen Time to block distracting apps during focus. Your activity stays private on your device — Zen-ly never sees it.") {
             VStack(spacing: 12) {
                 Button(action: requestAccess) {
                     HStack {

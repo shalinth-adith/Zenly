@@ -30,7 +30,7 @@ enum WidgetMetric: String, AppEnum {
 }
 
 struct ZenlyWidgetConfiguration: WidgetConfigurationIntent {
-    static var title: LocalizedStringResource = "Zenly Stat"
+    static var title: LocalizedStringResource = "Zen-ly Stat"
     static var description = IntentDescription("Choose which focus stat to show.")
 
     @Parameter(title: "Metric", default: .streak)
@@ -67,7 +67,7 @@ struct ZenlyWidgetEntryView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Label("Zenly", systemImage: icon)
+            Label("Zen-ly", systemImage: icon)
                 .font(.caption2.weight(.semibold))
                 .foregroundStyle(.tint)
 
@@ -122,7 +122,7 @@ struct ZenlyWidget: Widget {
         ) { entry in
             ZenlyWidgetEntryView(entry: entry)
         }
-        .configurationDisplayName("Zenly")
+        .configurationDisplayName("Zen-ly")
         .description("Your focus at a glance.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }

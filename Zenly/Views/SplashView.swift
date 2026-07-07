@@ -36,7 +36,7 @@ struct SplashView: View {
                 .scaleEffect(orbIn ? 1 : 0.86)
 
                 VStack(spacing: 6) {
-                    ShimmerText(text: "Zenly", font: ZTheme.Font.display(46, weight: .bold))
+                    ShimmerText(text: "Zen-ly", font: ZTheme.Font.display(46, weight: .bold))
                     Text("Focus that feels alive.")
                         .font(ZTheme.Font.body(19, weight: .medium))
                         .foregroundStyle(ZTheme.Palette.text(0.62))
@@ -46,7 +46,7 @@ struct SplashView: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Zenly. Find your focus.")
+        .accessibilityLabel("Zen-ly. Find your focus.")
         .onAppear(perform: animate)
     }
 

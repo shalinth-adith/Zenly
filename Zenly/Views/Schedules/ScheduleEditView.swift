@@ -47,7 +47,7 @@ struct ScheduleEditView: View {
                 } header: {
                     Text("Schedule")
                 } footer: {
-                    Text("Leave the title blank and Zenly will name it for you.")
+                    Text("Leave the title blank and Zen-ly will name it for you.")
                 }
 
                 Section {
