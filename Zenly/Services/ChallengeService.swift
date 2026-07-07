@@ -38,20 +38,34 @@ struct DailyChallenge: Codable {
     }
 }
 
+/// A challenge the user completed on a given day — kept so the detail screen can
+/// show a history of past wins.
+struct CompletedChallenge: Codable, Identifiable {
+    var id: String { dateKey }
+    let dateKey: String
+    let title: String
+    let systemImage: String
+    let completedAt: Date
+}
+
 @Observable
 @MainActor
 final class ChallengeService {
     private(set) var challenge: DailyChallenge
     private(set) var progress: Int = 0
+    /// Past completed challenges, newest first — powers the detail screen's history.
+    private(set) var completedHistory: [CompletedChallenge] = []
 
     private let history: SessionHistory
     private let notifications = NotificationService.shared
     private let storageKey = "dailyChallenge"
     private let completedKey = "dailyChallengeCompletedDate"
+    private let historyKey = "dailyChallengeHistory"
 
     init(history: SessionHistory? = nil) {
         self.history = history ?? SessionHistory()
         self.challenge = ChallengeService.loadOrMake()
+        completedHistory = ChallengeService.loadHistory()
         refresh()
     }
 
@@ -70,8 +84,32 @@ final class ChallengeService {
             if AppGroup.defaults.string(forKey: completedKey) != today {
                 AppGroup.defaults.set(today, forKey: completedKey)
                 notifications.notifyChallengeComplete(title: challenge.title)
+                recordCompletion(challenge)
             }
         }
+    }
+
+    /// Append today's win to the persisted history (dedup by day, keep last 60),
+    /// then refresh the in-memory list.
+    private func recordCompletion(_ challenge: DailyChallenge) {
+        var list = ChallengeService.loadHistory()
+        guard !list.contains(where: { $0.dateKey == challenge.dateKey }) else { return }
+        list.insert(CompletedChallenge(dateKey: challenge.dateKey,
+                                       title: challenge.title,
+                                       systemImage: challenge.systemImage,
+                                       completedAt: Date()),
+                    at: 0)
+        list = Array(list.prefix(60))
+        if let data = try? JSONEncoder().encode(list) {
+            AppGroup.defaults.set(data, forKey: historyKey)
+        }
+        completedHistory = list
+    }
+
+    private static func loadHistory() -> [CompletedChallenge] {
+        guard let data = AppGroup.defaults.data(forKey: "dailyChallengeHistory"),
+              let list = try? JSONDecoder().decode([CompletedChallenge].self, from: data) else { return [] }
+        return list
     }
 
     // MARK: - Progress

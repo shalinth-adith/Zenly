@@ -28,6 +28,7 @@ struct AnalyticsView: View {
     @State private var todayMinutes = 0
     @State private var todaySessions = 0
     @State private var freeBlock: FreeBlock?
+    @State private var showChallengeDetail = false
 
     var body: some View {
         NavigationStack {
@@ -44,7 +45,8 @@ struct AnalyticsView: View {
 
                         scoreCard
                         dailyGoalsCard
-                        challengeCard
+                        Button { showChallengeDetail = true } label: { challengeCard }
+                            .buttonStyle(.plain)
                         if freeBlock != nil { freeTimeCard }
                         focusChartCard
                         distractionChartCard
@@ -66,6 +68,7 @@ struct AnalyticsView: View {
             }
             .toolbar(.hidden, for: .navigationBar)
             .onAppear(perform: refresh)
+            .sheet(isPresented: $showChallengeDetail) { ChallengeDetailView() }
         }
     }
 
@@ -230,6 +233,9 @@ struct AnalyticsView: View {
                     .font(ZTheme.Font.display(13, weight: .bold))
                     .foregroundStyle(ZTheme.Palette.lavenderSoft)
             }
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(ZTheme.Palette.text(0.3))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .glassCard()
