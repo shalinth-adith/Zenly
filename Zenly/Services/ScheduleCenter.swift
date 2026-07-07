@@ -33,12 +33,17 @@ final class ScheduleCenter {
                      allowedWebDomains: [String] = [],
                      durationMinutes: Int) {
         guard durationMinutes >= 15 else { return }
-        ActivityShieldStore.set(block: block, allow: allow, blockAll: blockAll,
-                                allowedWebDomains: allowedWebDomains, for: activity.rawValue)
 
         let calendar = Calendar.current
         let now = Date()
         let end = now.addingTimeInterval(TimeInterval(durationMinutes * 60))
+        let startMin = calendar.component(.hour, from: now) * 60 + calendar.component(.minute, from: now)
+        let endMin = calendar.component(.hour, from: end) * 60 + calendar.component(.minute, from: end)
+        ActivityShieldStore.set(block: block, allow: allow, blockAll: blockAll,
+                                allowedWebDomains: allowedWebDomains,
+                                startMinutes: startMin, endMinutes: endMin,
+                                for: activity.rawValue)
+
         let schedule = DeviceActivitySchedule(
             intervalStart: calendar.dateComponents([.hour, .minute, .second], from: now),
             intervalEnd: calendar.dateComponents([.hour, .minute, .second], from: end),
@@ -60,8 +65,12 @@ final class ScheduleCenter {
                         start: DateComponents,
                         end: DateComponents,
                         weekdaysMask: Int) {
+        let startMin = (start.hour ?? 0) * 60 + (start.minute ?? 0)
+        let endMin = (end.hour ?? 0) * 60 + (end.minute ?? 0)
         ActivityShieldStore.set(block: block, allow: allow, blockAll: blockAll,
-                                weekdaysMask: weekdaysMask, for: activity.rawValue)
+                                weekdaysMask: weekdaysMask,
+                                startMinutes: startMin, endMinutes: endMin,
+                                for: activity.rawValue)
         let schedule = DeviceActivitySchedule(intervalStart: start, intervalEnd: end, repeats: true)
         do {
             try center.startMonitoring(activity, during: schedule)

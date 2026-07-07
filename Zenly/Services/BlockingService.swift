@@ -30,4 +30,11 @@ final class BlockingService {
     func stopBlocking() {
         ShieldApplier.clear(store)
     }
+
+    /// Reconcile the store to whatever enforcers are still active right now
+    /// (recurring schedule windows + any live one-off session). Use this instead
+    /// of `stopBlocking` when tearing down one enforcer must not lift the others.
+    func reconcile() {
+        ShieldReconciler.reconcile(store)
+    }
 }

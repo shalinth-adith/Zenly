@@ -27,18 +27,17 @@ final class DeviceActivityMonitorExtension: DeviceActivityMonitor {
             guard (mask & (1 << weekday)) != 0 else { return }
         }
 
-        let block = ActivityShieldStore.block(for: activity.rawValue)
-        let allow = ActivityShieldStore.allow(for: activity.rawValue)
-        let blockAll = ActivityShieldStore.blockAll(for: activity.rawValue)
-        let webAllow = ActivityShieldStore.allowedWebDomains(for: activity.rawValue)
-        ShieldApplier.apply(block: block, allow: allow, blockAll: blockAll,
-                            allowedWebDomains: webAllow, to: store)
+        // Reconcile to the union of every currently-active enforcer rather than
+        // overwriting the store, so a newly-started window composes with any that
+        // are already open instead of clobbering them.
+        ShieldReconciler.reconcile(store)
     }
 
     override func intervalDidEnd(for activity: DeviceActivityName) {
         super.intervalDidEnd(for: activity)
-        // Lift the shields when the focus window closes — even if the app was
-        // killed mid-session, this still runs.
-        ShieldApplier.clear(store)
+        // Re-assert whatever is STILL active instead of clearing the whole store —
+        // otherwise ending one window (or the one-off focus session) lifts a
+        // schedule that is still in its window. Runs even if the app was killed.
+        ShieldReconciler.reconcile(store)
     }
 }

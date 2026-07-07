@@ -24,6 +24,9 @@ struct ScheduleDraft {
     var blockAllApps = true
     var block = FamilyActivitySelection()
     var allow = FamilyActivitySelection()
+    /// Optional profile this schedule is tied to — supplies the accent color and
+    /// session name when the window auto-starts an in-app session.
+    var profileName = ""
 }
 
 @Observable
@@ -58,7 +61,8 @@ final class ScheduleStore {
             isStrict: schedule.isStrict,
             blockAllApps: schedule.blockAllApps,
             block: SelectionCodec.decode(schedule.blockSelectionData),
-            allow: SelectionCodec.decode(schedule.allowSelectionData)
+            allow: SelectionCodec.decode(schedule.allowSelectionData),
+            profileName: schedule.profileName ?? ""
         )
     }
 
@@ -129,11 +133,28 @@ final class ScheduleStore {
             return cal.date(bySettingHour: hour, minute: minute, second: 0, of: base)
         }
 
-        // Active right now? (same-day windows)
+        // Active right now? Handles windows that wrap past midnight (end ≤ start),
+        // e.g. 22:00 → 06:00, whose post-midnight tail belongs to the PREVIOUS
+        // day's weekday selection.
         let today = cal.component(.weekday, from: now)
-        if days.contains(today),
-           let start = date(0, sH, sM), let end = date(0, eH, eM),
-           now >= start, now < end {
+        let overnight = (eH * 60 + eM) <= (sH * 60 + sM)
+        if overnight {
+            // Evening portion: started today, ends tomorrow.
+            if days.contains(today),
+               let start = date(0, sH, sM), let end = date(1, eH, eM),
+               now >= start, now < end {
+                return .active(endsAt: end)
+            }
+            // Early-morning portion: started yesterday, ends today.
+            let yesterday = today == 1 ? 7 : today - 1
+            if days.contains(yesterday),
+               let start = date(-1, sH, sM), let end = date(0, eH, eM),
+               now >= start, now < end {
+                return .active(endsAt: end)
+            }
+        } else if days.contains(today),
+                  let start = date(0, sH, sM), let end = date(0, eH, eM),
+                  now >= start, now < end {
             return .active(endsAt: end)
         }
 
@@ -216,6 +237,7 @@ final class ScheduleStore {
         schedule.blockAllApps = draft.blockAllApps
         schedule.blockSelectionData = SelectionCodec.encode(draft.block)
         schedule.allowSelectionData = SelectionCodec.encode(draft.allow)
+        schedule.profileName = draft.profileName.isEmpty ? nil : draft.profileName
     }
 
     private func activityName(_ schedule: FocusSchedule) -> DeviceActivityName {
@@ -244,13 +266,11 @@ final class ScheduleStore {
         // iOS only fires the extension's intervalDidStart at the start boundary and
         // won't do so retroactively for an in-progress interval — so arming a
         // currently-active schedule (or relaunching mid-window) would otherwise not
-        // block until tomorrow. This closes that gap.
+        // block until tomorrow. This closes that gap. Reconcile (not startBlocking)
+        // so composing with any OTHER already-active schedule instead of clobbering
+        // it — the store entry was just written by center.startRecurring above.
         if case .active = status(for: schedule) {
-            blocking.startBlocking(
-                SelectionCodec.decode(schedule.blockSelectionData),
-                allowing: SelectionCodec.decode(schedule.allowSelectionData),
-                blockAll: schedule.blockAllApps
-            )
+            blocking.reconcile()
         }
 
         let displayTitle = schedule.title?.isEmpty == false ? schedule.title! : "Focus block"
@@ -279,6 +299,12 @@ final class ScheduleStore {
 
     private func stopMonitoring(_ schedule: FocusSchedule) {
         center.stop(activityName(schedule))
+        // center.stop removed this schedule's shield entry; reconcile so that if
+        // its window was active RIGHT NOW, the shields lift immediately (iOS does
+        // not fire intervalDidEnd when monitoring is stopped) — or recompose if
+        // another schedule still overlaps. Fixes apps staying blocked after a
+        // disable/delete mid-window.
+        blocking.reconcile()
         if let id = schedule.id {
             NotificationService.shared.cancelStartReminders(scheduleID: id)
             NotificationService.shared.cancelStartAlerts(scheduleID: id)

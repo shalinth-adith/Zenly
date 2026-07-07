@@ -253,8 +253,11 @@ final class FocusSessionController {
     }
 
     private func clearEnforcement() {
-        blocking.stopBlocking()
+        // Remove THIS session's one-off entry first, then reconcile — so if a
+        // recurring schedule window is still open, its shields stay applied
+        // instead of being cleared along with the session.
         schedule.stop(.focusSession)
+        blocking.reconcile()
         notifications.cancelSession()
         liveActivity.end()
         FocusSessionStore.clear()

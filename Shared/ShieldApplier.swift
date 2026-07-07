@@ -20,7 +20,26 @@ enum ShieldApplier {
                       blockAll: Bool,
                       allowedWebDomains: [String] = [],
                       to store: ManagedSettingsStore) {
-        let allowed = allow.applicationTokens
+        apply(blockApps: block.applicationTokens,
+              blockCategories: block.categoryTokens,
+              blockWebDomains: block.webDomainTokens,
+              allowedApps: allow.applicationTokens,
+              blockAll: blockAll,
+              allowedWebDomains: allowedWebDomains,
+              to: store)
+    }
+
+    /// Token-based core. The selection convenience above and the multi-activity
+    /// `ShieldReconciler` (which composes a *union* of several enforcers, and so
+    /// can't build a synthetic `FamilyActivitySelection` — its token sets are
+    /// read-only) both funnel through here, guaranteeing identical shield rules.
+    static func apply(blockApps: Set<ApplicationToken>,
+                      blockCategories: Set<ActivityCategoryToken>,
+                      blockWebDomains: Set<WebDomainToken>,
+                      allowedApps: Set<ApplicationToken>,
+                      blockAll: Bool,
+                      allowedWebDomains: [String],
+                      to store: ManagedSettingsStore) {
         let webAllow = Set(allowedWebDomains.map { WebDomain(domain: $0) })
         let researchMode = !webAllow.isEmpty
 
@@ -30,21 +49,21 @@ enum ShieldApplier {
 
         if blockAll {
             store.shield.applications = nil
-            store.shield.applicationCategories = .all(except: allowed)
+            store.shield.applicationCategories = .all(except: allowedApps)
             store.shield.webDomains = nil
             // Don't shield-all web when the filter already restricts it.
             store.shield.webDomainCategories = researchMode ? nil : .all()
             return
         }
 
-        let apps = block.applicationTokens.subtracting(allowed)
+        let apps = blockApps.subtracting(allowedApps)
         store.shield.applications = apps.isEmpty ? nil : apps
 
-        store.shield.applicationCategories = block.categoryTokens.isEmpty
+        store.shield.applicationCategories = blockCategories.isEmpty
             ? nil
-            : .specific(block.categoryTokens, except: allowed)
+            : .specific(blockCategories, except: allowedApps)
 
-        store.shield.webDomains = block.webDomainTokens.isEmpty ? nil : block.webDomainTokens
+        store.shield.webDomains = blockWebDomains.isEmpty ? nil : blockWebDomains
         store.shield.webDomainCategories = nil
     }
 
