@@ -57,6 +57,9 @@ targets:
     info:
       path: Zenly/Info.plist
       properties:
+        # User-facing app name on the Home Screen / Settings. Bundle id, App
+        # Group, target and module names stay "Zenly" (identifiers).
+        CFBundleDisplayName: "Zen-ly"
         UILaunchScreen:
           UIColorName: LaunchBackground
         # Zenly uses only exempt encryption (HTTPS + Apple standard frameworks),
@@ -91,6 +94,8 @@ targets:
       path: Zenly/Zenly.entitlements
       properties:
         com.apple.developer.family-controls: true
+        # Lets the schedule-start reminders break through Focus / Do Not Disturb.
+        com.apple.developer.usernotifications.time-sensitive: true
         com.apple.security.application-groups:
           - group.me.adithyan.shalinth.Zenly
 
@@ -215,7 +220,7 @@ targets:
     info:
       path: ZenlyWidget/Info.plist
       properties:
-        CFBundleDisplayName: Zenly
+        CFBundleDisplayName: "Zen-ly"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
     entitlements:

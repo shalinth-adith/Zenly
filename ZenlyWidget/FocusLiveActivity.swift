@@ -18,8 +18,7 @@ struct FocusLiveActivity: Widget {
             let tint = Color(hex: context.attributes.accentHex)
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Label(context.state.isBreak ? "Break" : context.attributes.profileName,
-                          systemImage: context.state.isBreak ? "cup.and.saucer.fill" : "timer")
+                    Label(title(context), systemImage: icon(context.state.phase))
                         .font(.caption)
                         .foregroundStyle(tint)
                 }
@@ -34,14 +33,14 @@ struct FocusLiveActivity: Widget {
                         .tint(tint)
                 }
             } compactLeading: {
-                Image(systemName: context.state.isBreak ? "cup.and.saucer.fill" : "timer")
+                Image(systemName: icon(context.state.phase))
                     .foregroundStyle(tint)
             } compactTrailing: {
                 Text(timerInterval: context.state.startDate...context.state.endDate, countsDown: true)
                     .monospacedDigit()
                     .frame(width: 44)
             } minimal: {
-                Image(systemName: "timer").foregroundStyle(tint)
+                Image(systemName: icon(context.state.phase)).foregroundStyle(tint)
             }
             .keylineTint(tint)
         }
@@ -50,14 +49,14 @@ struct FocusLiveActivity: Widget {
     private func lockScreen(_ context: ActivityViewContext<FocusActivityAttributes>) -> some View {
         let tint = Color(hex: context.attributes.accentHex)
         return HStack(spacing: 16) {
-            Image(systemName: context.state.isBreak ? "cup.and.saucer.fill" : "timer")
+            Image(systemName: icon(context.state.phase))
                 .font(.title2)
                 .foregroundStyle(tint)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(context.state.isBreak ? "Break" : context.attributes.profileName)
+                Text(title(context))
                     .font(.headline)
-                Text(context.state.isBreak ? "Time to recharge" : "Stay focused")
+                Text(subtitle(context.state.phase))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -72,5 +71,29 @@ struct FocusLiveActivity: Widget {
         .padding()
         .activityBackgroundTint(tint.opacity(0.12))
         .activitySystemActionForegroundColor(tint)
+    }
+
+    private func title(_ context: ActivityViewContext<FocusActivityAttributes>) -> String {
+        switch context.state.phase {
+        case .focus:     return context.attributes.profileName
+        case .breakTime: return "Break"
+        case .upcoming:  return "Focus starts soon"
+        }
+    }
+
+    private func subtitle(_ phase: FocusActivityAttributes.Phase) -> String {
+        switch phase {
+        case .focus:     return "Stay focused"
+        case .breakTime: return "Time to recharge"
+        case .upcoming:  return "Get ready to focus"
+        }
+    }
+
+    private func icon(_ phase: FocusActivityAttributes.Phase) -> String {
+        switch phase {
+        case .focus:     return "timer"
+        case .breakTime: return "cup.and.saucer.fill"
+        case .upcoming:  return "hourglass"
+        }
     }
 }

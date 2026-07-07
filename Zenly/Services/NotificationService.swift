@@ -31,26 +31,65 @@ final class NotificationService {
         add(focusEndID, content, after: seconds)
     }
 
-    func scheduleBreakEnd(after seconds: TimeInterval) {
+    /// Fires when a break ends. `focusedToday` picks the message: if the user has
+    /// focused today, nudge them back into a session; if somehow not, nudge them
+    /// to start one.
+    func scheduleBreakEnd(after seconds: TimeInterval, focusedToday: Bool) {
         let content = UNMutableNotificationContent()
-        content.title = "Break over"
-        content.body = "Ready for another focus session?"
+        if focusedToday {
+            content.title = "Break over"
+            content.body = "Ready for another focus session?"
+        } else {
+            content.title = "Ready to focus?"
+            content.body = "You haven't focused yet today — start a session."
+        }
         content.sound = .default
         add(breakEndID, content, after: seconds)
     }
 
-    /// Recurring daily break reminder at a fixed time of day.
-    func scheduleDailyBreakReminder(hour: Int, minute: Int) {
+    /// The daily nudge at a fixed time. Content depends on whether the user has
+    /// focused today: focused → suggest a break; not yet → suggest starting a
+    /// session. Scheduled NON-repeating for the next occurrence (a repeating
+    /// trigger would freeze one message forever) and re-armed on every app
+    /// foreground + after each completed session so it reflects the day's state.
+    func scheduleDailyReminder(hour: Int, minute: Int, focusedToday: Bool) {
         let content = UNMutableNotificationContent()
-        content.title = "Time for a break"
-        content.body = "Step away for a few minutes to recharge."
+        if focusedToday {
+            content.title = "Time for a break"
+            content.body = "You've focused today — step away for a few minutes to recharge."
+        } else {
+            content.title = "Ready to focus?"
+            content.body = "You haven't focused yet today. Start a session."
+        }
         content.sound = .default
 
-        var components = DateComponents()
-        components.hour = hour
-        components.minute = minute
-        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
+        let next = Self.nextOccurrence(hour: hour, minute: minute)
+        let comps = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: next)
+        let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
         center.add(UNNotificationRequest(identifier: breakReminderID, content: content, trigger: trigger))
+    }
+
+    /// Re-arm the daily reminder after a session completes (now definitely
+    /// "focused today"), so its message flips to the break nudge even if the app
+    /// isn't reopened before the reminder time. Reads the settings from the App
+    /// Group; no-op when the reminder is disabled.
+    func refreshDailyReminderAfterSession() {
+        let d = AppGroup.defaults
+        guard d.bool(forKey: "breakReminderEnabled") else { return }
+        let hour = d.object(forKey: "breakReminderHour") as? Int ?? 15
+        let minute = d.object(forKey: "breakReminderMinute") as? Int ?? 0
+        scheduleDailyReminder(hour: hour, minute: minute, focusedToday: true)
+    }
+
+    /// The next Date matching hour:minute — later today if still ahead, else tomorrow.
+    private static func nextOccurrence(hour: Int, minute: Int) -> Date {
+        let cal = Calendar.current
+        let now = Date()
+        if let today = cal.date(bySettingHour: hour, minute: minute, second: 0, of: now), today > now {
+            return today
+        }
+        let tomorrow = cal.date(byAdding: .day, value: 1, to: now) ?? now
+        return cal.date(bySettingHour: hour, minute: minute, second: 0, of: tomorrow) ?? tomorrow
     }
 
     func cancelDailyBreakReminder() {
@@ -61,7 +100,7 @@ final class NotificationService {
     func scheduleDailyChallengeReminder(hour: Int = 9, minute: Int = 0) {
         let content = UNMutableNotificationContent()
         content.title = "New daily challenge"
-        content.body = "Open Zenly to see today's focus challenge."
+        content.body = "Open Zen-ly to see today's focus challenge."
         content.sound = .default
 
         var components = DateComponents()
@@ -115,6 +154,7 @@ final class NotificationService {
                 content.title = "Focus starting soon"
                 content.body = "\(title) begins in \(lead) minute\(lead == 1 ? "" : "s")."
                 content.sound = .default
+                content.interruptionLevel = .timeSensitive
 
                 var components = DateComponents()
                 components.weekday = w
@@ -147,8 +187,9 @@ final class NotificationService {
         for weekday in weekdays {
             let content = UNMutableNotificationContent()
             content.title = "Focus block starting"
-            content.body = "\(title) is starting now — open Zenly to begin."
+            content.body = "\(title) is starting now — open Zen-ly to begin."
             content.sound = .default
+            content.interruptionLevel = .timeSensitive
 
             var components = DateComponents()
             components.weekday = weekday

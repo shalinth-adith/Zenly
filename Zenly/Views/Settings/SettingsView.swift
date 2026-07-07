@@ -138,7 +138,7 @@ struct SettingsView: View {
         } header: {
             Text("Integrations")
         } footer: {
-            Text("Calendar suggests focus during free time. Add a Zenly Focus Filter in Settings › Focus to switch profiles automatically.")
+            Text("Calendar suggests focus during free time. Add a Zen-ly Focus Filter in Settings › Focus to switch profiles automatically.")
         }
         .listRowBackground(glassRow)
     }
@@ -231,7 +231,9 @@ struct SettingsView: View {
 
     private func updateReminder() {
         if reminderEnabled {
-            NotificationService.shared.scheduleDailyBreakReminder(hour: reminderHour, minute: reminderMinute)
+            NotificationService.shared.scheduleDailyReminder(
+                hour: reminderHour, minute: reminderMinute,
+                focusedToday: SessionHistory().todayFocusMinutes() > 0)
         } else {
             NotificationService.shared.cancelDailyBreakReminder()
         }

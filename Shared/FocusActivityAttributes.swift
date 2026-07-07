@@ -10,10 +10,17 @@ import ActivityKit
 import Foundation
 
 struct FocusActivityAttributes: ActivityAttributes {
+    /// What the live timer represents.
+    enum Phase: String, Codable, Hashable {
+        case focus      // a running focus session
+        case breakTime  // a running break
+        case upcoming   // counting down to a scheduled focus window's start
+    }
+
     public struct ContentState: Codable, Hashable {
         var startDate: Date
         var endDate: Date
-        var isBreak: Bool
+        var phase: Phase
     }
 
     var profileName: String

@@ -59,6 +59,8 @@ struct ZenlyApp: App {
                 music.reconnectSpotifyIfNeeded()
                 startPendingFocusIfNeeded()
                 ScheduleAutoStart.run(schedules: schedules, session: session, profiles: profiles)
+                ScheduleCountdown.run(schedules: schedules, session: session, profiles: profiles)
+                rescheduleDailyReminder()
             case .background:
                 BackgroundRefresh.schedule()
             default:
@@ -84,6 +86,21 @@ struct ZenlyApp: App {
             block: profiles.block(for: profile),
             allow: profiles.allow(for: profile)
         )
+    }
+
+    /// Re-arm the smart daily reminder for today's state (focused → break nudge,
+    /// not yet → start-focus nudge). No-op when the reminder is disabled.
+    private func rescheduleDailyReminder() {
+        let defaults = AppGroup.defaults
+        guard defaults.bool(forKey: "breakReminderEnabled") else {
+            NotificationService.shared.cancelDailyBreakReminder()
+            return
+        }
+        let hour = defaults.object(forKey: "breakReminderHour") as? Int ?? 15
+        let minute = defaults.object(forKey: "breakReminderMinute") as? Int ?? 0
+        NotificationService.shared.scheduleDailyReminder(
+            hour: hour, minute: minute,
+            focusedToday: session.todayFocusMinutes() > 0)
     }
 
     /// Switch to the profile chosen by an active iOS Focus filter, if any.

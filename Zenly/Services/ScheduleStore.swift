@@ -179,6 +179,18 @@ final class ScheduleStore {
         }
     }
 
+    /// The enabled schedule whose window opens within `seconds` from now (the
+    /// last-minute countdown target), plus its start Date — nil if none imminent.
+    func startingSoon(_ now: Date = Date(), within seconds: TimeInterval = 60) -> (FocusSchedule, Date)? {
+        for schedule in schedules where schedule.isEnabled {
+            if case .upcoming(let at) = status(for: schedule, now: now) {
+                let delta = at.timeIntervalSince(now)
+                if delta > 0, delta <= seconds { return (schedule, at) }
+            }
+        }
+        return nil
+    }
+
     /// Whole minutes left until the active window closes (≥1), so an auto-started
     /// session runs for exactly the remaining window.
     func remainingMinutes(for schedule: FocusSchedule, now: Date = Date()) -> Int {
@@ -363,6 +375,35 @@ enum ScheduleAutoStart {
             allowedWebDomains: [],
             block: SelectionCodec.decode(schedule.blockSelectionData),
             allow: SelectionCodec.decode(schedule.allowSelectionData)
+        )
+    }
+}
+
+/// Shows the last-minute Dynamic Island / Live Activity countdown to a scheduled
+/// window's start. Foreground-only (a Live Activity can't be *started* in the
+/// background without a push server) — but once started, iOS keeps the timer
+/// ticking natively even after the app backgrounds, so it counts down to 0:00 on
+/// its own. When the window opens, `ScheduleAutoStart` begins the session, whose
+/// Live Activity replaces this one (shared `LiveActivityManager`).
+enum ScheduleCountdown {
+    @MainActor
+    static func run(schedules: ScheduleStore,
+                    session: FocusSessionController,
+                    profiles: ProfileStore) {
+        // Don't compete with a running session's own Live Activity.
+        guard session.phase == .idle,
+              let (schedule, startsAt) = schedules.startingSoon() else { return }
+
+        let profile = profiles.profiles.first { $0.name == schedule.profileName }
+        let name = schedule.title?.isEmpty == false
+            ? schedule.title!
+            : (schedule.profileName?.isEmpty == false ? schedule.profileName! : "Focus block")
+
+        LiveActivityManager.shared.startUpcoming(
+            title: name,
+            accentHex: profile?.accentHex ?? "1A3FA8",
+            startsAt: Date(),
+            endsAt: startsAt
         )
     }
 }

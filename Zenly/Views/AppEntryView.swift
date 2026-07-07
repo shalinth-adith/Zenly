@@ -46,6 +46,7 @@ private struct ScheduleAutoStartWatcher: View {
             .allowsHitTesting(false)
             .onReceive(tick) { _ in
                 ScheduleAutoStart.run(schedules: schedules, session: session, profiles: profiles)
+                ScheduleCountdown.run(schedules: schedules, session: session, profiles: profiles)
             }
     }
 }

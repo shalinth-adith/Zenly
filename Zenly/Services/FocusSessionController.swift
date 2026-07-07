@@ -39,7 +39,7 @@ final class FocusSessionController {
     private let blocking = BlockingService()
     private let schedule = ScheduleCenter.shared
     private let notifications = NotificationService.shared
-    private let liveActivity = LiveActivityManager()
+    private let liveActivity = LiveActivityManager.shared
     private let history: SessionHistory
 
     init(history: SessionHistory? = nil) {
@@ -96,7 +96,7 @@ final class FocusSessionController {
         liveActivity.start(profileName: profileName, accentHex: accentHex,
                            startsAt: focusStartedAt,
                            endsAt: focusStartedAt.addingTimeInterval(TimeInterval(focusMinutes * 60)),
-                           isBreak: false)
+                           phase: .focus)
 
         // Persist so the session is recorded even if iOS kills the app while
         // it's backgrounded during the session.
@@ -133,7 +133,7 @@ final class FocusSessionController {
             liveActivity.start(profileName: profileName, accentHex: accentHex,
                                startsAt: saved.startedAt,
                                endsAt: saved.startedAt.addingTimeInterval(TimeInterval(totalSeconds)),
-                               isBreak: false)
+                               phase: .focus)
             startTicker()
         }
     }
@@ -154,11 +154,12 @@ final class FocusSessionController {
         summary = nil
         let start = Date()
         beginPhase(.breakTime, minutes: breakMinutes)
-        notifications.scheduleBreakEnd(after: TimeInterval(breakMinutes * 60))
+        notifications.scheduleBreakEnd(after: TimeInterval(breakMinutes * 60),
+                                       focusedToday: history.todayFocusMinutes() > 0)
         liveActivity.start(profileName: profileName, accentHex: accentHex,
                            startsAt: start,
                            endsAt: start.addingTimeInterval(TimeInterval(breakMinutes * 60)),
-                           isBreak: true)
+                           phase: .breakTime)
     }
 
     func dismissSummary() {
@@ -232,6 +233,9 @@ final class FocusSessionController {
                                      endedEarly: !completed,
                                      startedAt: focusStartedAt,
                                      endedAt: Date())
+
+        // A session just finished → re-arm the daily reminder to the "break" nudge.
+        notifications.refreshDailyReminderAfterSession()
 
         Haptics.success()
         summary = SessionSummary(profileName: profileName,
