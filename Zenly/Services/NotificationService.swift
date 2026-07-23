@@ -9,7 +9,7 @@
 
 import UserNotifications
 
-final class NotificationService {
+final class NotificationService: NSObject, UNUserNotificationCenterDelegate {
     static let shared = NotificationService()
 
     private let center = UNUserNotificationCenter.current()
@@ -18,6 +18,25 @@ final class NotificationService {
     private let breakReminderID = "zenly.break.reminder"
     private let challengeReminderID = "zenly.challenge.reminder"
     private let challengeDoneID = "zenly.challenge.done"
+
+    /// Install as the notification-center delegate. Without a delegate, iOS
+    /// silently drops any notification that arrives while the app is in the
+    /// foreground — schedule start reminders/alerts included. Call once at
+    /// app startup (ZenlyApp.init).
+    func activate() {
+        center.delegate = self
+    }
+
+    /// Present notifications while the app is foregrounded. Session-end and
+    /// break-end stay silent in-app (the summary screen already covers them);
+    /// everything else — schedule reminders/alerts, daily nudges, challenge
+    /// notifications — banners like it does from the background.
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
+        let id = notification.request.identifier
+        if id == focusEndID || id == breakEndID { return [] }
+        return [.banner, .sound, .list]
+    }
 
     func requestAuthorization() async {
         _ = try? await center.requestAuthorization(options: [.alert, .sound, .badge])

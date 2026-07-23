@@ -29,6 +29,9 @@ struct ZenlyApp: App {
 
     init() {
         BackgroundRefresh.register()
+        // Install the notification delegate before anything schedules or
+        // delivers — otherwise foreground notifications are silently dropped.
+        NotificationService.shared.activate()
     }
 
     var body: some Scene {
