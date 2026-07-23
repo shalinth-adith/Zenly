@@ -15,27 +15,40 @@
 
 import SwiftUI
 
+extension Notification.Name {
+    /// Posted by screens that want to land the user on the Focus tab (e.g. the
+    /// Insights first-run "Begin your first focus" call).
+    static let zenlyOpenFocus = Notification.Name("zenlyOpenFocus")
+}
+
 struct RootView: View {
+    @Environment(ProfileStore.self) private var profiles
     @State private var selection = 0
 
+    /// The single accent — the active profile's tone drives the selected tab.
+    private var tone: Color { ZTheme.tone(forHex: profiles.activeProfile?.accentHex) }
+
     var body: some View {
+        // Four tabs, matching the Quiet comp: Focus · Insights · Schedule ·
+        // Settings. Profiles are switched from the row on the Focus screen and
+        // managed from Settings, so they're no longer a tab.
         TabView(selection: $selection) {
             HomeView()
-                .tabItem { Label("Focus", systemImage: "clock") }
+                .tabItem { Label("Focus", systemImage: "circle.circle") }
                 .tag(0)
             AnalyticsView()
                 .tabItem { Label("Insights", systemImage: "chart.bar") }
                 .tag(1)
-            ProfilesView()
-                .tabItem { Label("Profiles", systemImage: "person.crop.circle") }
-                .tag(2)
             SchedulesView()
-                .tabItem { Label("Schedules", systemImage: "calendar") }
-                .tag(3)
+                .tabItem { Label("Schedule", systemImage: "calendar") }
+                .tag(2)
             SettingsView()
-                .tabItem { Label("Settings", systemImage: "gearshape") }
-                .tag(4)
+                .tabItem { Label("Settings", systemImage: "sun.max") }
+                .tag(3)
         }
-        .tint(ZTheme.Palette.brandBright)
+        .tint(tone)
+        .onReceive(NotificationCenter.default.publisher(for: .zenlyOpenFocus)) { _ in
+            selection = 0
+        }
     }
 }

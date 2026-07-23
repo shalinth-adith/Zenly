@@ -120,6 +120,48 @@ struct ZenlyTests {
         #expect(analytics.weeklyStats().count == 7)
     }
 
+    // MARK: - Insights wiring (weekly focus / sessions / vs-last-week)
+
+    @Test func weeklyFocusSumsCompletedCurrentWeekOnly() {
+        let context = makeContext()
+        addSession(context, dayOffset: 0, minutes: 25)
+        addSession(context, dayOffset: 2, minutes: 35)
+        addSession(context, dayOffset: 3, minutes: 30, completed: false) // ended early, excluded
+        addSession(context, dayOffset: 9, minutes: 60)                   // last week, excluded
+        let analytics = AnalyticsService(history: SessionHistory(context: context))
+        #expect(analytics.weeklyStats().reduce(0) { $0 + $1.focusMinutes } == 60)
+    }
+
+    @Test func weekSessionCountCountsCurrentWindowOnly() {
+        let context = makeContext()
+        addSession(context, dayOffset: 0)
+        addSession(context, dayOffset: 6)                    // window edge, included
+        addSession(context, dayOffset: 7)                    // previous week, excluded
+        addSession(context, dayOffset: 1, completed: false)  // ended early, excluded
+        let analytics = AnalyticsService(history: SessionHistory(context: context))
+        #expect(analytics.weekSessionCount() == 2)
+    }
+
+    @Test func previousWeekMinutesCoversDays7To13() {
+        let context = makeContext()
+        addSession(context, dayOffset: 7, minutes: 40)   // included
+        addSession(context, dayOffset: 13, minutes: 20)  // included (window edge)
+        addSession(context, dayOffset: 14, minutes: 60)  // older, excluded
+        addSession(context, dayOffset: 3, minutes: 25)   // current week, excluded
+        let analytics = AnalyticsService(history: SessionHistory(context: context))
+        #expect(analytics.previousWeekMinutes() == 60)
+    }
+
+    @Test func todaySessionsCountsOnlyTodayCompleted() {
+        let context = makeContext()
+        addSession(context, dayOffset: 0)
+        addSession(context, dayOffset: 0)
+        addSession(context, dayOffset: 0, completed: false) // excluded
+        addSession(context, dayOffset: 1)                   // yesterday, excluded
+        let analytics = AnalyticsService(history: SessionHistory(context: context))
+        #expect(analytics.todaySessions() == 2)
+    }
+
     // MARK: - Achievements
 
     @Test func firstFocusBadgeAwardedAfterSession() {

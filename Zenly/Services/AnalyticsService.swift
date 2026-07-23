@@ -68,6 +68,37 @@ final class AnalyticsService {
     func streak() -> Int { history.currentStreak() }
     func todayMinutes() -> Int { history.todayFocusMinutes() }
 
+    /// Completed focus minutes for the 7 days BEFORE the current window
+    /// (days 8–14 ago) — the "vs last week" comparison on Insights.
+    func previousWeekMinutes() -> Int {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        guard let windowEnd = calendar.date(byAdding: .day, value: -6, to: today),
+              let windowStart = calendar.date(byAdding: .day, value: -13, to: today) else { return 0 }
+        return history.completedFocusSessions()
+            .filter { session in
+                guard let start = session.startedAt else { return false }
+                return start >= windowStart && start < windowEnd
+            }
+            .reduce(0) { $0 + Int($1.completedMinutes) }
+    }
+
+    /// Completed sessions in the current 7-day window (weekly sessions goal).
+    func weekSessionCount() -> Int {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        guard let windowStart = calendar.date(byAdding: .day, value: -6, to: today) else { return 0 }
+        return history.completedFocusSessions()
+            .filter { ($0.startedAt ?? .distantPast) >= windowStart }
+            .count
+    }
+
+    /// Most recent focus sessions (completed + ended early) for the Insights
+    /// history list.
+    func recentSessions(limit: Int = 5) -> [FocusSession] {
+        history.recentFocusSessions(limit: limit)
+    }
+
     /// Number of focus sessions completed today (a daily-goal "need").
     func todaySessions() -> Int {
         let calendar = Calendar.current

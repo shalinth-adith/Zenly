@@ -2,72 +2,87 @@
 //  SchedulesView.swift
 //  Zenly
 //
-//  Lists recurring focus schedules and offers smart suggestions to add new
-//  ones. Toggle to enable/disable monitoring; swipe to edit or delete.
+//  Schedule — the Quiet comp exactly (Zenly Quiet.dc.html · screen 06): the
+//  current week strip with today in the tone, flat schedule rows (start time ·
+//  title · days + length · toggle) separated by hairlines, an "Add schedule"
+//  action, and a PROFILES section whose "New profile" creates a focus profile
+//  from here. No cards, no chrome.
 //
-//  Redesign: glass schedule cards with the glowing toggle on the aurora (Claude
-//  Design spec, Zenly.dc.html). Logic, suggestions, and swipe actions unchanged.
+//  Wiring: rows come from ScheduleStore (toggle = enable/disable monitoring;
+//  tap = edit; long-press = edit/delete). "Add schedule" and "New profile"
+//  open the existing edit sheets. A quiet inline notice asks for Screen Time
+//  access when missing — without it schedules can't arm.
 //
 
 import SwiftUI
 
 struct SchedulesView: View {
     @Environment(ScheduleStore.self) private var store
-    @Environment(SmartSuggestionService.self) private var suggestions
+    @Environment(ProfileStore.self) private var profiles
     @Environment(AuthorizationService.self) private var authorization
     @State private var editing: EditTarget?
     @State private var pendingDelete: FocusSchedule?
 
     enum EditTarget: Identifiable {
-        case new
+        case newSchedule
         case existing(FocusSchedule)
-        case suggestion(ScheduleDraft)
+        case newProfile
 
         var id: String {
             switch self {
-            case .new: return "new"
+            case .newSchedule: return "new-schedule"
             case .existing(let schedule): return schedule.objectID.uriRepresentation().absoluteString
-            case .suggestion(let draft): return "suggestion-\(draft.title)"
+            case .newProfile: return "new-profile"
             }
         }
     }
+
+    /// The single accent — the active profile's Quiet tone.
+    private var tone: Color { ZTheme.tone(forHex: profiles.activeProfile?.accentHex) }
 
     var body: some View {
         NavigationStack {
             ZStack {
                 ZenlyBackground()
 
-                List {
-                    ZenlyScreenTitle(title: "Schedule",
-                                     subtitle: "Zen-ly starts these focus sessions for you automatically.")
-                        .plainRow()
-                        .padding(.bottom, 4)
+                VStack(spacing: 0) {
+                    header
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 0) {
+                            permissionNotice
 
-                    permissionBanner
-                    suggestionsSection
-                    schedulesSection
+                            sectionLabel(todayLabel)
+                                .padding(.bottom, 8)
+                            scheduleRows
+                            addScheduleButton
+                            hairline(strong: true)
+                                .padding(.top, 6)
 
-                    DashedActionButton(title: "Add Schedule") { editing = .new }
-                        .accessibilityIdentifier("add-schedule")
-                        .plainRow()
-                        .padding(.top, 4)
+                            sectionLabel("Profiles")
+                                .padding(.top, 20)
+                                .padding(.bottom, 2)
+                            newProfileButton
+                        }
+                        .padding(.horizontal, 28)
+                        .padding(.top, 20)
+                        .padding(.bottom, 30)
+                    }
+                    .scrollIndicators(.hidden)
                 }
-                .listStyle(.plain)
-                .scrollContentBackground(.hidden)
             }
             .toolbar(.hidden, for: .navigationBar)
             .sheet(item: $editing) { target in
                 switch target {
-                case .new:
+                case .newSchedule:
                     ScheduleEditView(schedule: nil, draft: ScheduleDraft())
                 case .existing(let schedule):
                     ScheduleEditView(schedule: schedule, draft: store.draft(from: schedule))
-                case .suggestion(let draft):
-                    ScheduleEditView(schedule: nil, draft: draft)
+                case .newProfile:
+                    ProfileEditView(profile: nil, draft: ProfileDraft())
                 }
             }
             .confirmationDialog(
-                "Delete \u{201C}\(pendingDelete?.title ?? "this schedule")\u{201D}?",
+                "Delete \u{201C}\(displayTitle(pendingDelete))\u{201D}?",
                 isPresented: Binding(get: { pendingDelete != nil },
                                      set: { if !$0 { pendingDelete = nil } }),
                 titleVisibility: .visible
@@ -81,228 +96,237 @@ struct SchedulesView: View {
         }
     }
 
-    @ViewBuilder
-    private var permissionBanner: some View {
-        if !authorization.isAuthorized {
-            VStack(alignment: .leading, spacing: 10) {
-                Label("Screen Time access needed", systemImage: "hand.raised.fill")
+    // MARK: - Header (title + week strip)
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            Text("Schedule")
+                .font(ZTheme.Font.display(24, weight: .semibold))
+                .foregroundStyle(ZTheme.Palette.textPrimary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            weekStrip
+        }
+        .padding(.horizontal, 28)
+        .padding(.top, 8)
+    }
+
+    /// Mon-first current week: weekday letter over the day number. Today's
+    /// number carries the tone; the weekend sits dimmer, like the comp.
+    private var weekStrip: some View {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let daysFromMonday = (calendar.component(.weekday, from: today) + 5) % 7
+        let monday = calendar.date(byAdding: .day, value: -daysFromMonday, to: today) ?? today
+        let letters = ["M", "T", "W", "T", "F", "S", "S"]
+
+        return HStack(spacing: 6) {
+            ForEach(0..<7, id: \.self) { offset in
+                let day = calendar.date(byAdding: .day, value: offset, to: monday) ?? today
+                let isToday = calendar.isDateInToday(day)
+                let isWeekend = offset >= 5
+                VStack(spacing: 7) {
+                    Text(letters[offset])
+                        .font(ZTheme.Font.body(11))
+                        .foregroundStyle(ZTheme.Palette.text(0.30))
+                    Text("\(calendar.component(.day, from: day))")
+                        .font(ZTheme.Font.numeral(15))
+                        .foregroundStyle(isToday ? tone
+                                         : isWeekend ? ZTheme.Palette.text(0.30)
+                                         : ZTheme.Palette.text(0.55))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(day.formatted(date: .abbreviated, time: .omitted)
+                                    + (isToday ? ", today" : ""))
+            }
+        }
+    }
+
+    private var todayLabel: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE"
+        return "Today · \(formatter.string(from: Date()))"
+    }
+
+    // MARK: - Schedule rows
+
+    private var scheduleRows: some View {
+        ForEach(Array(store.schedules.enumerated()), id: \.element.objectID) { index, schedule in
+            VStack(spacing: 0) {
+                if index > 0 { hairline() }
+                ScheduleRow(schedule: schedule,
+                            tone: tone,
+                            onEdit: { editing = .existing(schedule) },
+                            onDelete: { pendingDelete = schedule })
+            }
+        }
+    }
+
+    private var addScheduleButton: some View {
+        VStack(spacing: 0) {
+            if !store.schedules.isEmpty { hairline() }
+            Button {
+                Haptics.light()
+                editing = .newSchedule
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 15, weight: .semibold))
+                    Text("Add schedule")
+                        .font(ZTheme.Font.display(15, weight: .semibold))
+                }
+                .foregroundStyle(tone)
+                .padding(.vertical, 18)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("add-schedule")
+        }
+    }
+
+    private var newProfileButton: some View {
+        Button {
+            Haptics.light()
+            editing = .newProfile
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "plus")
+                    .font(.system(size: 15, weight: .semibold))
+                Text("New profile")
                     .font(ZTheme.Font.display(15, weight: .semibold))
-                    .foregroundStyle(ZTheme.Palette.textPrimary)
-                Text("Schedules can only block apps automatically after you allow Screen Time access. Without it, a saved schedule won’t start on its own.")
+            }
+            .foregroundStyle(tone)
+            .padding(.vertical, 16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("new-profile")
+    }
+
+    // MARK: - Permission notice (quiet, only when Screen Time is missing)
+
+    @ViewBuilder
+    private var permissionNotice: some View {
+        if !authorization.isAuthorized {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Schedules need Screen Time access to start on their own.")
                     .font(ZTheme.Font.body(13))
-                    .foregroundStyle(ZTheme.Palette.text(0.6))
-                Button("Grant Access") {
+                    .foregroundStyle(ZTheme.Palette.text(0.55))
+                Button {
                     Task {
                         await authorization.requestAuthorization()
                         if authorization.isAuthorized { store.rearmEnabled() }
                     }
+                } label: {
+                    Text("Grant access")
+                        .font(ZTheme.Font.display(14, weight: .semibold))
+                        .foregroundStyle(tone)
                 }
-                .buttonStyle(.zenlyPrimary(tint: ZTheme.Palette.brand, height: 46))
+                .buttonStyle(.plain)
+                hairline(strong: true)
+                    .padding(.top, 14)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .glassCard()
-            .overlay(
-                RoundedRectangle(cornerRadius: ZTheme.Radius.card, style: .continuous)
-                    .strokeBorder(ZTheme.Palette.streak.opacity(0.4), lineWidth: 1)
-            )
-            .plainRow()
+            .padding(.bottom, 18)
         }
     }
 
-    @ViewBuilder
-    private var suggestionsSection: some View {
-        let items = suggestions.suggestions()
-        if !items.isEmpty {
-            VStack(alignment: .leading, spacing: ZTheme.Spacing.sm) {
-                ZenlySectionHeader(title: "Suggested")
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: ZTheme.Spacing.sm) {
-                        ForEach(items) { suggestion in
-                            Button {
-                                Haptics.light()
-                                editing = .suggestion(suggestion.draft)
-                            } label: {
-                                VStack(alignment: .leading, spacing: 6) {
-                                    Text(suggestion.title)
-                                        .font(ZTheme.Font.display(15, weight: .semibold))
-                                        .foregroundStyle(ZTheme.Palette.textPrimary)
-                                    Text(String(format: "%02d:00–%02d:00", suggestion.startHour, suggestion.endHour))
-                                        .font(ZTheme.Font.body(12))
-                                        .foregroundStyle(ZTheme.Palette.text(0.6))
-                                    Text(suggestion.reason)
-                                        .font(ZTheme.Font.body(11))
-                                        .foregroundStyle(ZTheme.Palette.text(0.5))
-                                        .lineLimit(2)
-                                }
-                                .frame(width: 160, alignment: .leading)
-                                .glassCard(padding: ZTheme.Spacing.md)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.vertical, 2)
-                }
-            }
-            .plainRow()
-        }
+    // MARK: - Helpers
+
+    private func sectionLabel(_ text: String) -> some View {
+        Text(text.uppercased())
+            .font(ZTheme.Font.body(11))
+            .tracking(1.8)
+            .foregroundStyle(ZTheme.Palette.text(0.30))
     }
 
-    @ViewBuilder
-    private var schedulesSection: some View {
-        if store.schedules.isEmpty {
-            VStack(spacing: 10) {
-                Image(systemName: "calendar.badge.clock")
-                    .font(.system(size: 34))
-                    .foregroundStyle(ZTheme.Palette.brandBright)
-                Text("No schedules yet")
-                    .font(ZTheme.Font.display(17, weight: .semibold))
-                    .foregroundStyle(ZTheme.Palette.textPrimary)
-                Text("Zen-ly can start focus sessions automatically. Tap a suggestion above, or “Add Schedule” to block distractions during set hours.")
-                    .font(ZTheme.Font.body(13))
-                    .foregroundStyle(ZTheme.Palette.text(0.55))
-                    .multilineTextAlignment(.center)
-            }
-            .frame(maxWidth: .infinity)
-            .glassCard(padding: 22)
-            .plainRow()
-        } else {
-            ForEach(store.schedules, id: \.objectID) { schedule in
-                ScheduleRow(schedule: schedule)
-                    .plainRow()
-                    .swipeActions(edge: .trailing) {
-                        Button(role: .destructive) {
-                            pendingDelete = schedule
-                        } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
-                        Button {
-                            editing = .existing(schedule)
-                        } label: {
-                            Label("Edit", systemImage: "pencil")
-                        }
-                        .tint(ZTheme.Palette.brand)
-                    }
-            }
-        }
+    private func hairline(strong: Bool = false) -> some View {
+        Rectangle()
+            .fill(strong ? ZTheme.Palette.glassStroke : ZTheme.Palette.glassStroke.opacity(0.6))
+            .frame(height: 1)
+    }
+
+    private func displayTitle(_ schedule: FocusSchedule?) -> String {
+        guard let schedule else { return "this schedule" }
+        return schedule.title?.isEmpty == false ? schedule.title! : "Focus block"
     }
 }
 
+/// One flat schedule row: start-time column, title + "days · length", and the
+/// enable toggle. Disabled rows dim, matching the comp's off row.
 private struct ScheduleRow: View {
     @Environment(ScheduleStore.self) private var store
     @ObservedObject var schedule: FocusSchedule
-
-    // Mon-first week, matching how people read a schedule.
-    private let pillDays: [(day: Int, label: String)] = [
-        (2, "M"), (3, "T"), (4, "W"), (5, "T"), (6, "F"), (7, "S"), (1, "S")
-    ]
+    var tone: Color
+    var onEdit: () -> Void
+    var onDelete: () -> Void
 
     var body: some View {
-        let status = store.status(for: schedule)
-        let isActive = { if case .active = status { return true } else { return false } }()
-        let accent = isActive ? ZTheme.Palette.teal : ZTheme.Palette.brandGlow
-        let days = ScheduleStore.weekdays(from: schedule.weekdaysMask)
-
-        VStack(alignment: .leading, spacing: 12) {
-            // Title + enable toggle
-            HStack {
-                Text(schedule.title?.isEmpty == false ? schedule.title! : "Untitled")
-                    .font(ZTheme.Font.display(17, weight: .bold))
-                    .foregroundStyle(ZTheme.Palette.textPrimary)
-                Spacer()
-                // A system Toggle — reliable in List rows (a custom tap-gesture
-                // toggle can be swallowed by the list). Brand-tinted to fit.
-                Toggle("", isOn: Binding(
-                    get: { schedule.isEnabled },
-                    set: { store.setEnabled(schedule, $0) }
-                ))
-                .labelsHidden()
-                .tint(ZTheme.Palette.brand)
-                .accessibilityIdentifier("schedule-toggle")
-            }
-
-            // Time range + duration
-            HStack(spacing: 8) {
-                Text("\(time(schedule.startHour, schedule.startMinute)) → \(time(schedule.endHour, schedule.endMinute))")
-                    .font(ZTheme.Font.numeral(16, weight: .semibold))
-                    .monospacedDigit()
-                    .foregroundStyle(ZTheme.Palette.text(0.9))
-                Text("· \(store.durationText(for: schedule))")
-                    .font(ZTheme.Font.body(13))
-                    .foregroundStyle(ZTheme.Palette.text(0.5))
-            }
-
-            // Weekday pills
-            HStack(spacing: 6) {
-                ForEach(pillDays, id: \.day) { item in
-                    let on = days.contains(item.day)
-                    Text(item.label)
-                        .font(ZTheme.Font.body(12, weight: .bold))
-                        .frame(width: 26, height: 26)
-                        .foregroundStyle(on ? .white : ZTheme.Palette.text(0.4))
-                        .background(Circle().fill(on ? accent.opacity(0.9) : ZTheme.Palette.matteRaised))
+        HStack(alignment: .center, spacing: 18) {
+            // Tappable content → edit; the toggle stays independently tappable.
+            Button(action: { Haptics.light(); onEdit() }) {
+                HStack(alignment: .center, spacing: 18) {
+                    timeColumn
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(title)
+                            .font(ZTheme.Font.display(15, weight: .semibold))
+                            .foregroundStyle(schedule.isEnabled
+                                             ? ZTheme.Palette.textPrimary
+                                             : ZTheme.Palette.text(0.55))
+                        Text("\(store.weekdaySummary(schedule)) · \(store.durationText(for: schedule))")
+                            .font(ZTheme.Font.body(12))
+                            .foregroundStyle(schedule.isEnabled
+                                             ? ZTheme.Palette.text(0.55)
+                                             : ZTheme.Palette.text(0.30))
+                    }
+                    Spacer(minLength: 0)
                 }
+                .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
 
-            // Blocking summary + live status
-            HStack(spacing: 8) {
-                Label(store.blockingSummary(for: schedule),
-                      systemImage: schedule.blockAllApps ? "nosign" : "apps.iphone")
-                    .font(ZTheme.Font.body(12, weight: .medium))
-                    .foregroundStyle(ZTheme.Palette.text(0.55))
-                Spacer()
-                statusBadge(status)
-            }
+            // System toggle — reliable in scrolling content; tinted by the tone.
+            Toggle("", isOn: Binding(
+                get: { schedule.isEnabled },
+                set: { store.setEnabled(schedule, $0) }
+            ))
+            .labelsHidden()
+            .tint(tone)
+            .accessibilityIdentifier("schedule-toggle")
+            .accessibilityLabel("\(title) enabled")
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard(padding: ZTheme.Spacing.md)
-        .overlay(
-            RoundedRectangle(cornerRadius: ZTheme.Radius.card, style: .continuous)
-                .strokeBorder(isActive ? accent : .clear, lineWidth: 1.5)
-                .shadow(color: isActive ? accent.opacity(0.4) : .clear, radius: 12)
-        )
-        .opacity(schedule.isEnabled ? 1 : 0.55)
-    }
-
-    @ViewBuilder
-    private func statusBadge(_ status: ScheduleStore.ScheduleStatus) -> some View {
-        switch status {
-        case .active(let endsAt):
-            HStack(spacing: 5) {
-                Circle().fill(ZTheme.Palette.teal).frame(width: 7, height: 7)
-                Text("Active now · ends \(hm(endsAt))")
-            }
-            .font(ZTheme.Font.body(12, weight: .semibold))
-            .foregroundStyle(ZTheme.Palette.teal)
-        case .upcoming(let at):
-            Text("Next: \(relativeDay(at)) \(hm(at))")
-                .font(ZTheme.Font.body(12, weight: .semibold))
-                .foregroundStyle(ZTheme.Palette.brandBright)
-        case .off:
-            Text("Off")
-                .font(ZTheme.Font.body(12, weight: .semibold))
-                .foregroundStyle(ZTheme.Palette.text(0.4))
-        case .idle:
-            Text("No upcoming runs")
-                .font(ZTheme.Font.body(12))
-                .foregroundStyle(ZTheme.Palette.text(0.4))
+        .padding(.vertical, 16)
+        .contextMenu {
+            Button { onEdit() } label: { Label("Edit", systemImage: "pencil") }
+            Button(role: .destructive) { onDelete() } label: { Label("Delete", systemImage: "trash") }
         }
     }
 
-    private func time(_ hour: Int16, _ minute: Int16) -> String {
-        String(format: "%02d:%02d", hour, minute)
+    private var title: String {
+        if let t = schedule.title, !t.isEmpty { return t }
+        if let p = schedule.profileName, !p.isEmpty { return p }
+        return "Focus block"
     }
 
-    private func hm(_ date: Date) -> String {
-        let c = Calendar.current.dateComponents([.hour, .minute], from: date)
-        return String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0)
-    }
-
-    private func relativeDay(_ date: Date) -> String {
-        let cal = Calendar.current
-        if cal.isDateInToday(date) { return "today" }
-        if cal.isDateInTomorrow(date) { return "tomorrow" }
-        let f = DateFormatter()
-        f.dateFormat = "EEE"
-        return f.string(from: date)
+    /// "9:00" over "AM" — 12-hour start time, like the comp's time column.
+    private var timeColumn: some View {
+        let hour24 = Int(schedule.startHour)
+        let minute = Int(schedule.startMinute)
+        let hour12 = hour24 % 12 == 0 ? 12 : hour24 % 12
+        let meridiem = hour24 < 12 ? "AM" : "PM"
+        return VStack(alignment: .leading, spacing: 2) {
+            Text(String(format: "%d:%02d", hour12, minute))
+                .font(ZTheme.Font.numeral(15))
+                .foregroundStyle(schedule.isEnabled
+                                 ? ZTheme.Palette.textPrimary
+                                 : ZTheme.Palette.text(0.55))
+            Text(meridiem)
+                .font(ZTheme.Font.body(11))
+                .tracking(0.9)
+                .foregroundStyle(ZTheme.Palette.text(0.30))
+        }
+        .frame(width: 58, alignment: .leading)
     }
 }

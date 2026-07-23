@@ -2,289 +2,305 @@
 //  AnalyticsView.swift
 //  Zenly
 //
-//  Weekly insights: productivity score, focus-minutes chart, distraction-attempt
-//  chart (Swift Charts), and an embedded DeviceActivityReport for app usage.
+//  Insights — the Quiet comp exactly (Zenly Quiet.dc.html · screens 04 + 05):
+//  a HISTORY section (weekly hours numeral, vs-last-week delta, a flat 7-bar
+//  chart with today in the tone, recent session rows) and a GOALS section
+//  (weekly focus + sessions hairline progress bars, current streak). No cards,
+//  no chrome — flat rows separated by hairlines on the quiet surface.
 //
-//  Redesign: aurora backdrop + frosted glass cards with a glowing score ring
-//  (Claude Design spec, Zenly.dc.html). Data and navigation unchanged.
+//  First run (no sessions yet) shows the comp-05 empty state: a thin circle
+//  with a tone dot and a "Begin your first focus" call that jumps to Focus.
 //
 
 import SwiftUI
-import Charts
 
 struct AnalyticsView: View {
     @Environment(AnalyticsService.self) private var analytics
-    @Environment(FocusSessionController.self) private var session
-    @Environment(ChallengeService.self) private var challenges
-    @Environment(CalendarService.self) private var calendar
+    @Environment(ProfileStore.self) private var profiles
 
     @AppStorage("dailyGoalMinutes", store: AppGroup.defaults) private var dailyGoalMinutes = 120
     @AppStorage("dailySessionsGoal", store: AppGroup.defaults) private var dailySessionsGoal = 3
-    @AppStorage("streakGoal", store: AppGroup.defaults) private var streakGoal = 7
 
     @State private var stats: [DayStat] = []
-    @State private var score = 0
+    @State private var recent: [FocusSession] = []
+    @State private var previousWeekMinutes = 0
+    @State private var weekSessions = 0
     @State private var streak = 0
-    @State private var todayMinutes = 0
-    @State private var todaySessions = 0
-    @State private var freeBlock: FreeBlock?
-    @State private var showChallengeDetail = false
+
+    /// The single accent — the active profile's Quiet tone.
+    private var tone: Color { ZTheme.tone(forHex: profiles.activeProfile?.accentHex) }
 
     var body: some View {
         NavigationStack {
             ZStack {
                 ZenlyBackground()
 
-                ScrollView {
-                    VStack(spacing: ZTheme.Spacing.md) {
-                        Text("Insights")
-                            .font(ZTheme.Font.display(32, weight: .bold))
-                            .foregroundStyle(ZTheme.Palette.textPrimary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.top, 8)
+                if recent.isEmpty {
+                    emptyState
+                } else {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 0) {
+                            title
 
-                        scoreCard
-                        dailyGoalsCard
-                        Button { showChallengeDetail = true } label: { challengeCard }
-                            .buttonStyle(.plain)
-                        if freeBlock != nil { freeTimeCard }
-                        focusChartCard
-                        distractionChartCard
-                        usageCard
-                        NavigationLink { HistoryView() } label: {
-                            navRow(title: "History", systemImage: "clock.arrow.circlepath", tint: ZTheme.Palette.brand)
+                            sectionLabel("History")
+                                .padding(.bottom, 14)
+                            weeklyHours
+                            barChart
+                                .padding(.top, 40)
+                            hairline(strong: true)
+                                .padding(.top, 28)
+                            sessionRows
+
+                            sectionLabel("Goals")
+                                .padding(.top, 34)
+                                .padding(.bottom, 18)
+                            goalRows
                         }
-                        NavigationLink { BadgesView() } label: {
-                            navRow(title: "Badges", systemImage: "rosette", tint: ZTheme.Palette.streakWarm)
-                        }
-                        NavigationLink { LeaderboardView() } label: {
-                            navRow(title: "Accountability", systemImage: "person.2.fill", tint: ZTheme.Palette.teal)
-                        }
+                        .padding(.horizontal, 28)
+                        .padding(.top, 8)
+                        .padding(.bottom, 24)
                     }
-                    .padding(.horizontal, ZTheme.Spacing.lg)
-                    .padding(.bottom, 24)
+                    .scrollIndicators(.hidden)
                 }
-                .scrollIndicators(.hidden)
             }
             .toolbar(.hidden, for: .navigationBar)
             .onAppear(perform: refresh)
-            .sheet(isPresented: $showChallengeDetail) { ChallengeDetailView() }
         }
     }
+
+    // MARK: - Data
 
     private func refresh() {
         stats = analytics.weeklyStats()
-        score = analytics.productivityScore()
+        recent = analytics.recentSessions(limit: 5)
+        previousWeekMinutes = analytics.previousWeekMinutes()
+        weekSessions = analytics.weekSessionCount()
+        streak = analytics.streak()
         analytics.updateSnapshot()
-        streak = session.currentStreak()
-        todayMinutes = session.todayFocusMinutes()
-        todaySessions = analytics.todaySessions()
-        challenges.refresh()
-        freeBlock = calendar.isAuthorized ? calendar.nextFreeBlock : nil
     }
 
-    private var totalFocus: Int { stats.reduce(0) { $0 + $1.focusMinutes } }
-    private var totalAttempts: Int { stats.reduce(0) { $0 + $1.attempts } }
+    private var weekMinutes: Int { stats.reduce(0) { $0 + $1.focusMinutes } }
+    private var weekHours: Double { Double(weekMinutes) / 60 }
+    private var weeklyGoalHours: Double { Double(dailyGoalMinutes * 7) / 60 }
+    private var weeklySessionsGoal: Int { dailySessionsGoal * 7 }
 
-    // MARK: - Cards
+    /// "+1.1 h vs last week" / "−0.4 h vs last week" / "Same as last week".
+    private var deltaText: String {
+        let delta = Double(weekMinutes - previousWeekMinutes) / 60
+        if abs(delta) < 0.05 { return "Same as last week" }
+        let sign = delta > 0 ? "+" : "−"
+        return "\(sign)\(String(format: "%.1f", abs(delta))) h vs last week"
+    }
 
-    private var scoreCard: some View {
-        HStack(spacing: ZTheme.Spacing.lg) {
-            ZStack {
-                Circle()
-                    .stroke(ZTheme.Palette.glassStroke, lineWidth: 8)
-                Circle()
-                    .trim(from: 0, to: Double(score) / 100)
-                    .stroke(ZTheme.Palette.brandBright, style: StrokeStyle(lineWidth: 8, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
-                    .shadow(color: ZTheme.Palette.brandGlow.opacity(0.8), radius: 6)
-                Text("\(score)")
-                    .font(ZTheme.Font.numeral(30, weight: .bold))
+    // MARK: - Header
+
+    private var title: some View {
+        Text("Insights")
+            .font(ZTheme.Font.display(24, weight: .semibold))
+            .foregroundStyle(ZTheme.Palette.textPrimary)
+            .padding(.bottom, 34)
+    }
+
+    private func sectionLabel(_ text: String) -> some View {
+        Text(text.uppercased())
+            .font(ZTheme.Font.body(11))
+            .tracking(1.8)
+            .foregroundStyle(ZTheme.Palette.text(0.30))
+    }
+
+    // MARK: - History
+
+    private var weeklyHours: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(String(format: "%.1f", weekHours))
+                    .font(ZTheme.Font.numeral(52, weight: .regular))
                     .foregroundStyle(ZTheme.Palette.textPrimary)
-            }
-            .frame(width: 96, height: 96)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Productivity Score")
-                    .font(ZTheme.Font.display(18, weight: .semibold))
-                    .foregroundStyle(ZTheme.Palette.textPrimary)
-                Text("Last 7 days")
-                    .font(ZTheme.Font.body(14))
+                Text("hours this week")
+                    .font(ZTheme.Font.body(16))
                     .foregroundStyle(ZTheme.Palette.text(0.55))
             }
-            Spacer()
+            Text(deltaText)
+                .font(ZTheme.Font.body(13))
+                .foregroundStyle(ZTheme.Palette.text(0.55))
         }
-        .glassCard(radius: ZTheme.Radius.sheet, padding: 20)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(String(format: "%.1f", weekHours)) hours focused this week. \(deltaText)")
     }
 
-    private var focusChartCard: some View {
-        card(title: "Focus minutes", subtitle: "\(totalFocus) min this week") {
-            Chart(stats) { stat in
-                BarMark(
-                    x: .value("Day", stat.label),
-                    y: .value("Minutes", stat.focusMinutes)
-                )
-                .foregroundStyle(
-                    LinearGradient(colors: [ZTheme.Palette.violet, ZTheme.Palette.brand],
-                                   startPoint: .top, endPoint: .bottom)
-                )
-                .cornerRadius(6)
-            }
-            .chartXAxis { AxisMarks { _ in AxisValueLabel().foregroundStyle(ZTheme.Palette.text(0.4)) } }
-            .chartYAxis { AxisMarks { _ in AxisValueLabel().foregroundStyle(ZTheme.Palette.text(0.4)) } }
-            .frame(height: 160)
-        }
-    }
-
-    private var distractionChartCard: some View {
-        card(title: "Distractions blocked", subtitle: "\(totalAttempts) this week") {
-            Chart(stats) { stat in
-                BarMark(
-                    x: .value("Day", stat.label),
-                    y: .value("Attempts", stat.attempts)
-                )
-                .foregroundStyle(ZTheme.Palette.teal.opacity(0.6))
-                .cornerRadius(4)
-            }
-            .chartXAxis { AxisMarks { _ in AxisValueLabel().foregroundStyle(ZTheme.Palette.text(0.4)) } }
-            .chartYAxis { AxisMarks { _ in AxisValueLabel().foregroundStyle(ZTheme.Palette.text(0.4)) } }
-            .frame(height: 140)
-        }
-    }
-
-    private var usageCard: some View {
-        card(title: "App usage", subtitle: "Powered by Screen Time") {
-            AppUsageReportView()
-                .frame(height: 220)
-        }
-    }
-
-    // Daily snapshot cards (relocated from the Focus tab so it stays a single,
-    // calm screen). Read-only here — quick-start actions live on Focus.
-
-    /// The daily-goal "needs" as a row of progress orbs (Focus / Sessions /
-    /// Streak), each ring filling toward its configurable target. Reuses the
-    /// FocusOrb design at a compact size.
-    private var dailyGoalsCard: some View {
-        NavigationLink {
-            GoalsView()
-        } label: {
-            VStack(alignment: .leading, spacing: ZTheme.Spacing.md) {
-                HStack {
-                    Text("Daily Goals")
-                        .font(ZTheme.Font.display(16, weight: .semibold))
-                        .foregroundStyle(ZTheme.Palette.textPrimary)
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(ZTheme.Palette.text(0.4))
-                }
-                HStack(alignment: .top, spacing: ZTheme.Spacing.sm) {
-                    GoalOrbView(title: "Focus", value: "\(todayMinutes)",
-                                caption: "of \(dailyGoalMinutes) min",
-                                progress: ratio(todayMinutes, dailyGoalMinutes),
-                                tint: ZTheme.Palette.brandGlow)
-                    GoalOrbView(title: "Sessions", value: "\(todaySessions)",
-                                caption: "of \(dailySessionsGoal)",
-                                progress: ratio(todaySessions, dailySessionsGoal),
-                                tint: ZTheme.Palette.teal)
-                    GoalOrbView(title: "Streak", value: "\(streak)",
-                                caption: "of \(streakGoal) days",
-                                progress: ratio(streak, streakGoal),
-                                tint: ZTheme.Palette.streak)
+    /// Flat 7-day bar chart — plain rounded bars on the raise fill, today's bar
+    /// in the tone (the design's single highlight).
+    private var barChart: some View {
+        let maxMinutes = max(1, stats.map(\.focusMinutes).max() ?? 1)
+        return HStack(alignment: .bottom, spacing: 10) {
+            ForEach(Array(stats.enumerated()), id: \.element.id) { index, stat in
+                let isToday = index == stats.count - 1
+                VStack(spacing: 10) {
+                    Spacer(minLength: 0)
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(isToday ? tone : ZTheme.Palette.glassFill)
+                        .frame(width: 20,
+                               height: stat.focusMinutes == 0
+                                   ? 4
+                                   : max(8, CGFloat(stat.focusMinutes) / CGFloat(maxMinutes) * 100))
+                    Text(String(stat.label.prefix(1)))
+                        .font(ZTheme.Font.body(11))
+                        .foregroundStyle(isToday ? ZTheme.Palette.textPrimary
+                                                 : ZTheme.Palette.text(0.30))
                 }
                 .frame(maxWidth: .infinity)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .glassCard(radius: ZTheme.Radius.sheet, padding: 20)
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func ratio(_ value: Int, _ goal: Int) -> Double {
-        guard goal > 0 else { return 0 }
-        return min(1, Double(value) / Double(goal))
-    }
-
-    private var challengeCard: some View {
-        HStack(spacing: ZTheme.Spacing.md) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(ZTheme.Palette.violet.opacity(0.18))
-                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .strokeBorder(ZTheme.Palette.violet.opacity(0.4), lineWidth: 1))
-                    .frame(width: 44, height: 44)
-                Image(systemName: challenges.challenge.systemImage)
-                    .foregroundStyle(ZTheme.Palette.lavenderSoft)
-            }
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Daily Challenge")
-                    .font(ZTheme.Font.display(15, weight: .semibold))
-                    .foregroundStyle(ZTheme.Palette.textPrimary)
-                Text(challenges.challenge.title)
-                    .font(ZTheme.Font.body(13))
-                    .foregroundStyle(ZTheme.Palette.text(0.55))
-            }
-            Spacer()
-            if challenges.isComplete {
-                Image(systemName: "checkmark.circle.fill").foregroundStyle(ZTheme.Palette.teal)
-            } else {
-                Text("\(challenges.progress)/\(challenges.challenge.target)")
-                    .font(ZTheme.Font.display(13, weight: .bold))
-                    .foregroundStyle(ZTheme.Palette.lavenderSoft)
-            }
-            Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(ZTheme.Palette.text(0.3))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard()
-    }
-
-    private var freeTimeCard: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Free time", systemImage: "calendar")
-                .font(ZTheme.Font.display(15, weight: .semibold))
-                .foregroundStyle(ZTheme.Palette.textPrimary)
-            if let block = freeBlock {
-                Text("You're free until \(block.end.formatted(date: .omitted, time: .shortened)) — \(block.minutes) min.")
-                    .font(ZTheme.Font.body(13))
-                    .foregroundStyle(ZTheme.Palette.text(0.6))
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(stat.label): \(stat.focusMinutes) minutes")
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard()
+        .frame(height: 134)
     }
 
-    private func navRow(title: String, systemImage: String, tint: Color) -> some View {
-        HStack {
-            Label(title, systemImage: systemImage)
-                .font(ZTheme.Font.display(16, weight: .semibold))
-                .foregroundStyle(ZTheme.Palette.textPrimary)
-                .tint(tint)
-            Spacer()
-            Image(systemName: "chevron.right")
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(ZTheme.Palette.text(0.4))
+    private var sessionRows: some View {
+        ForEach(Array(recent.enumerated()), id: \.element.objectID) { index, session in
+            VStack(spacing: 0) {
+                if index > 0 { hairline() }
+                HStack(alignment: .firstTextBaseline) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(dayLabel(session.startedAt)) · \(session.profileName ?? "Focus")")
+                            .font(ZTheme.Font.body(15))
+                            .foregroundStyle(ZTheme.Palette.textPrimary)
+                        Text(session.wasCompleted ? "Completed" : "Ended early")
+                            .font(ZTheme.Font.body(12))
+                            .foregroundStyle(ZTheme.Palette.text(0.30))
+                    }
+                    Spacer()
+                    Text("\(session.completedMinutes) min")
+                        .font(ZTheme.Font.numeral(15))
+                        .foregroundStyle(ZTheme.Palette.text(0.55))
+                }
+                .padding(.vertical, 14)
+            }
         }
-        .glassCard(padding: ZTheme.Spacing.lg)
     }
 
-    private func card<Content: View>(title: String, subtitle: String,
-                                     @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(title)
-                    .font(ZTheme.Font.display(16, weight: .semibold))
+    private func dayLabel(_ date: Date?) -> String {
+        guard let date else { return "—" }
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) { return "Today" }
+        if calendar.isDateInYesterday(date) { return "Yesterday" }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEE"
+        return formatter.string(from: date)
+    }
+
+    // MARK: - Goals
+
+    private var goalRows: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            goalRow(title: "Weekly focus",
+                    value: "\(String(format: "%.1f", weekHours)) / \(trimmed(weeklyGoalHours)) h",
+                    progress: weeklyGoalHours > 0 ? weekHours / weeklyGoalHours : 0,
+                    fill: tone)
+            hairline()
+                .padding(.top, 20)
+            goalRow(title: "Sessions",
+                    value: "\(weekSessions) / \(weeklySessionsGoal)",
+                    progress: weeklySessionsGoal > 0 ? Double(weekSessions) / Double(weeklySessionsGoal) : 0,
+                    fill: ZTheme.Palette.text(0.30))
+                .padding(.top, 18)
+            hairline()
+                .padding(.top, 20)
+            HStack {
+                Text("Current streak")
+                    .font(ZTheme.Font.body(15))
                     .foregroundStyle(ZTheme.Palette.textPrimary)
                 Spacer()
-                Text(subtitle)
-                    .font(ZTheme.Font.body(13))
-                    .foregroundStyle(ZTheme.Palette.text(0.5))
+                Text("\(streak) day\(streak == 1 ? "" : "s")")
+                    .font(ZTheme.Font.body(15))
+                    .foregroundStyle(ZTheme.Palette.text(0.55))
             }
-            content()
+            .padding(.vertical, 16)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard(radius: ZTheme.Radius.sheet, padding: 20)
+    }
+
+    private func goalRow(title: String, value: String, progress: Double, fill: Color) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(title)
+                    .font(ZTheme.Font.body(15))
+                    .foregroundStyle(ZTheme.Palette.textPrimary)
+                Spacer()
+                Text(value)
+                    .font(ZTheme.Font.numeral(14))
+                    .foregroundStyle(ZTheme.Palette.text(0.55))
+            }
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(ZTheme.Palette.glassFill)
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(fill)
+                        .frame(width: max(0, min(1, progress)) * geo.size.width)
+                }
+            }
+            .frame(height: 3)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(title): \(value)")
+    }
+
+    /// "10" not "10.0" for whole-hour goals.
+    private func trimmed(_ hours: Double) -> String {
+        hours.truncatingRemainder(dividingBy: 1) == 0
+            ? String(Int(hours))
+            : String(format: "%.1f", hours)
+    }
+
+    private func hairline(strong: Bool = false) -> some View {
+        Rectangle()
+            .fill(strong ? ZTheme.Palette.glassStroke : ZTheme.Palette.glassStroke.opacity(0.6))
+            .frame(height: 1)
+    }
+
+    // MARK: - Empty state (comp 05 · first run)
+
+    private var emptyState: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            title
+            Spacer()
+            VStack(spacing: 22) {
+                ZStack {
+                    Circle()
+                        .stroke(ZTheme.Palette.glassStroke, lineWidth: 2)
+                        .frame(width: 108, height: 108)
+                    Circle()
+                        .fill(tone)
+                        .frame(width: 6, height: 6)
+                }
+                VStack(spacing: 8) {
+                    Text("Your focus story starts here")
+                        .font(ZTheme.Font.display(19, weight: .semibold))
+                        .foregroundStyle(ZTheme.Palette.textPrimary)
+                    Text("Finish your first session and this space fills in — hours focused, streaks, and the goals you set.")
+                        .font(ZTheme.Font.body(14))
+                        .foregroundStyle(ZTheme.Palette.text(0.55))
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(4)
+                        .frame(maxWidth: 270)
+                }
+                Button {
+                    Haptics.light()
+                    NotificationCenter.default.post(name: .zenlyOpenFocus, object: nil)
+                } label: {
+                    Text("Begin your first focus")
+                        .font(ZTheme.Font.display(15, weight: .semibold))
+                        .foregroundStyle(Color(hex: "0A0B0E"))
+                        .padding(.horizontal, 30)
+                        .frame(height: 50)
+                        .background(tone, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+            .frame(maxWidth: .infinity)
+            Spacer()
+        }
+        .padding(.horizontal, 28)
+        .padding(.top, 8)
     }
 }
