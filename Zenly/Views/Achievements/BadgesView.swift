@@ -20,7 +20,7 @@ struct BadgesView: View {
                 LazyVGrid(columns: columns, spacing: 20) {
                     ForEach(achievements.definitions) { badge in
                         let earned = achievements.isEarned(badge.id)
-                        let accent = Color(hex: badge.accentHex)
+                        let accent = ZTheme.tone(forHex: badge.accentHex)
                         VStack(spacing: 8) {
                             Image(systemName: badge.systemImage)
                                 .font(.system(size: 30))

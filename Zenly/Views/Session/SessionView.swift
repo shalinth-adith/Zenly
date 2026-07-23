@@ -18,7 +18,7 @@ struct SessionView: View {
     /// Dismiss the full-screen timer without ending the session.
     var onMinimize: () -> Void = {}
 
-    private var tint: Color { Color(hex: session.accentHex) }
+    private var tint: Color { ZTheme.tone(forHex: session.accentHex) }
     private var isBreak: Bool { session.phase == .breakTime }
     private var ringTint: Color { isBreak ? ZTheme.Palette.teal : ZTheme.Palette.brandGlow }
     private var percent: Int { Int((max(0, min(1, session.progress)) * 100).rounded()) }
@@ -53,13 +53,13 @@ struct SessionView: View {
                              diameter: 300, ringTint: ringTint, living: false) {
                         VStack(spacing: 8) {
                             Text(session.timeString)
-                                .font(ZTheme.Font.numeral(64, weight: .semibold))
+                                .font(ZTheme.Font.numeral(62, weight: .regular))
                                 .monospacedDigit()
-                                .foregroundStyle(.white)
+                                .foregroundStyle(ZTheme.Palette.textPrimary)
                             Text(isBreak ? "until focus" : "\(percent)% complete")
-                                .font(ZTheme.Font.body(13, weight: .semibold))
+                                .font(ZTheme.Font.body(12, weight: .regular))
                                 .tracking(1.5)
-                                .foregroundStyle(.white.opacity(0.6))
+                                .foregroundStyle(ZTheme.Palette.text(0.55))
                         }
                     }
                     .accessibilityElement(children: .ignore)

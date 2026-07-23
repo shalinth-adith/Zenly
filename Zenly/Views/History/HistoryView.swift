@@ -174,7 +174,7 @@ struct HistoryView: View {
     private func sessionRow(_ session: FocusSession) -> some View {
         let name = session.profileName ?? "Focus"
         let profile = profiles.profiles.first { $0.name == name }
-        let accent = Color(hex: profile?.accentHex ?? "1A3FA8")
+        let accent = ZTheme.tone(forHex: profile?.accentHex)
         return HStack(spacing: 13) {
             IconTile(systemImage: profile?.iconName ?? "timer", color: accent, size: 42, corner: 13)
 

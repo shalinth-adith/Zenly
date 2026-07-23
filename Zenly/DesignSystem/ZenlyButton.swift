@@ -2,46 +2,36 @@
 //  ZenlyButton.swift
 //  Zenly
 //
-//  Two button styles from the design spec: a flat matte "primary" (solid blue
-//  gradient with a crisp top highlight — no glow, no sweep) and a frosted
-//  "secondary" glass button. Both press with a spring (scale on tap) + a gentle
-//  haptic. Periwinkle is the only accent.
+//  Two button styles from the Quiet spec: a flat "primary" (a solid fill of the
+//  active profile's tone with dark ink on top — the single bright element, the
+//  one thing to do next) and a "secondary" ghost (transparent, hairline border,
+//  ink text). Both press with a spring + a gentle haptic.
 //
-//  Imported from the Claude Design spec (Zenly Matte.dc.html — the Start Focus /
-//  Done CTA: linear-gradient(180deg,#2E63E0,#1E47B0) + inset 0 1px 0
-//  rgba(255,255,255,0.28), radius 18, flat).
+//  Imported from the Claude Design spec (Zenly Quiet.dc.html — the Begin focus /
+//  Done CTA: background:var(--tone); color:#0A0B0E; radius 16; weight 600; flat).
 //
 
 import SwiftUI
 
 struct ZenlyPrimaryButtonStyle: ButtonStyle {
     var height: CGFloat = 56
-    /// Override the brand accent (e.g. an active profile's tint).
-    var tint: Color = ZTheme.Palette.brand
+    /// The single accent — the active profile's tone.
+    var tint: Color = ZTheme.Palette.tone
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(ZTheme.Font.display(18, weight: .bold))
-            .foregroundStyle(.white)
+            .font(ZTheme.Font.display(16, weight: .semibold))
+            // Dark ink on the bright tone — the tones are light enough that a
+            // near-black label reads cleanly (spec: color:#0A0B0E).
+            .foregroundStyle(Color(hex: "0A0B0E"))
             .frame(maxWidth: .infinity)
             .frame(height: height)
             .background(
-                // Flat vertical gradient — a lit top stop (tint blended toward
-                // white) down to the tint. No living-sweep, no outer glow: the
-                // matte surface is opaque and calm.
+                // Flat, solid tone — no gradient, no highlight, no outer glow.
                 RoundedRectangle(cornerRadius: ZTheme.Radius.button, style: .continuous)
-                    .fill(LinearGradient(colors: [tint.lightened(0.24), tint],
-                                         startPoint: .top, endPoint: .bottom))
+                    .fill(tint)
             )
-            .overlay(
-                // Emulates `inset 0 1px 0 rgba(255,255,255,0.28)`: a bright top
-                // edge fading down the rim.
-                RoundedRectangle(cornerRadius: ZTheme.Radius.button, style: .continuous)
-                    .stroke(LinearGradient(colors: [.white.opacity(0.28), .white.opacity(0.04)],
-                                           startPoint: .top, endPoint: .bottom),
-                            lineWidth: 1)
-            )
-            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
             .animation(ZTheme.Motion.bouncy, value: configuration.isPressed)
             .onChange(of: configuration.isPressed) { _, pressed in
                 if pressed { Haptics.light() }
@@ -54,17 +44,17 @@ struct ZenlySecondaryButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(ZTheme.Font.display(16, weight: .semibold))
+            .font(ZTheme.Font.display(15, weight: .medium))
             .foregroundStyle(ZTheme.Palette.text(0.85))
             .frame(maxWidth: .infinity)
             .frame(height: height)
             .background(
-                RoundedRectangle(cornerRadius: ZTheme.Radius.chip, style: .continuous)
-                    .fill(ZTheme.Palette.matteRaised)
-                    .overlay(RoundedRectangle(cornerRadius: ZTheme.Radius.chip, style: .continuous)
-                        .strokeBorder(ZTheme.Palette.matteBorderStrong, lineWidth: 1))
+                // Ghost: no fill, just a hairline — recedes so the primary is
+                // the only bright thing on screen.
+                RoundedRectangle(cornerRadius: ZTheme.Radius.button, style: .continuous)
+                    .strokeBorder(ZTheme.Palette.matteBorderStrong, lineWidth: 1)
             )
-            .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
             .animation(ZTheme.Motion.bouncy, value: configuration.isPressed)
             .onChange(of: configuration.isPressed) { _, pressed in
                 if pressed { Haptics.light() }

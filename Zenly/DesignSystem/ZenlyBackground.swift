@@ -2,11 +2,11 @@
 //  ZenlyBackground.swift
 //  Zenly
 //
-//  Flat, Apple-plain backdrop: a single solid dark surface (nightDeep, #0a0b12)
-//  behind every screen. The previous "Living Focus" aurora (radial base + waving
-//  ribbons + rising particles) was retired per the updated Zenly Matte spec.
+//  Flat, quiet backdrop: a single neutral surface (design `--bg`, #0A0B0E dark /
+//  #F3F3F0 light) behind every screen — no aurora, no gradient, nothing that
+//  competes for attention.
 //
-//  Imported from the Claude Design spec (Zenly Matte.dc.html).
+//  Imported from the Claude Design spec (Zenly Quiet.dc.html).
 //
 
 import SwiftUI
@@ -20,7 +20,7 @@ struct ZenlyBackground: View {
     var calm: Bool = false
 
     var body: some View {
-        ZTheme.Palette.nightDeep
+        ZTheme.Palette.night
             .ignoresSafeArea()
     }
 }

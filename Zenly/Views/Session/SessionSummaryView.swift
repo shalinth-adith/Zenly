@@ -49,7 +49,7 @@ struct SessionSummaryView: View {
                         } label: {
                             Label("Take a break", systemImage: "cup.and.saucer.fill")
                         }
-                        .buttonStyle(.zenlyPrimary(tint: Color(hex: summary.accentHex)))
+                        .buttonStyle(.zenlyPrimary(tint: ZTheme.tone(forHex: summary.accentHex)))
 
                         Button("Done") {
                             session.saveReview(rating: rating, note: note)
@@ -61,7 +61,7 @@ struct SessionSummaryView: View {
                             session.saveReview(rating: rating, note: note)
                             session.dismissSummary()
                         }
-                        .buttonStyle(.zenlyPrimary(tint: Color(hex: summary.accentHex)))
+                        .buttonStyle(.zenlyPrimary(tint: ZTheme.tone(forHex: summary.accentHex)))
                     }
                 }
             }
@@ -79,8 +79,8 @@ struct SessionSummaryView: View {
             } else {
                 FocusOrb(state: .idle, diameter: 128) {
                     Image(systemName: "flag.checkered")
-                        .font(.system(size: 40, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .font(.system(size: 38, weight: .medium))
+                        .foregroundStyle(ZTheme.Palette.text(0.7))
                 }
             }
 

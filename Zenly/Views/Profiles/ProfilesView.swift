@@ -114,7 +114,7 @@ private struct ProfileRow: View {
     let profile: FocusProfile
     let isActive: Bool
 
-    private var accent: Color { Color(hex: profile.accentHex ?? "1A3FA8") }
+    private var accent: Color { ZTheme.tone(forHex: profile.accentHex) }
 
     var body: some View {
         HStack(spacing: 14) {

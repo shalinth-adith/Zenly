@@ -18,6 +18,11 @@ struct SettingsView: View {
     @Environment(CalendarService.self) private var calendar
     @Environment(TaskService.self) private var tasks
     @Environment(MusicController.self) private var music
+    @Environment(ProfileStore.self) private var profiles
+
+    /// The name shown in the Focus greeting ("Good evening, <name>"). Empty by
+    /// default → a plain greeting; the user types their own name here.
+    @AppStorage("userDisplayName", store: AppGroup.defaults) private var userName = ""
 
     @AppStorage("dailyGoalMinutes", store: AppGroup.defaults) private var dailyGoalMinutes = 120
     @AppStorage("dailySessionsGoal", store: AppGroup.defaults) private var dailySessionsGoal = 3
@@ -29,6 +34,7 @@ struct SettingsView: View {
 
     /// A source the user picked but hasn't confirmed switching to yet.
     @State private var pendingSource: MusicSource?
+    @State private var showProfiles = false
 
     /// Frosted row background that lets the section's rounded corners clip it.
     private var glassRow: some View {
@@ -42,6 +48,7 @@ struct SettingsView: View {
                 ZenlyBackground()
 
                 Form {
+                    youSection
                     permissionSection
                     goalSection
                     shieldSection
@@ -55,9 +62,37 @@ struct SettingsView: View {
             }
             .navigationTitle("Settings")
             .toolbarBackground(.hidden, for: .navigationBar)
+            .sheet(isPresented: $showProfiles) { ProfilesView() }
             .onChange(of: reminderEnabled) { _, _ in updateReminder() }
             .onChange(of: reminderHour) { _, _ in updateReminder() }
             .onChange(of: reminderMinute) { _, _ in updateReminder() }
+        }
+    }
+
+    private var youSection: some View {
+        Section("You") {
+            HStack {
+                Text("Your name")
+                Spacer()
+                TextField("Add your name", text: $userName)
+                    .multilineTextAlignment(.trailing)
+                    .foregroundStyle(ZTheme.Palette.text(0.7))
+                    .submitLabel(.done)
+            }
+            Button {
+                showProfiles = true
+            } label: {
+                HStack {
+                    Text("Focus profiles")
+                        .foregroundStyle(ZTheme.Palette.textPrimary)
+                    Spacer()
+                    Text("\(profiles.profiles.count)")
+                        .foregroundStyle(ZTheme.Palette.text(0.5))
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(ZTheme.Palette.text(0.3))
+                }
+            }
         }
     }
 

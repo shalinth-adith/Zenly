@@ -24,7 +24,7 @@ struct SessionDetailView: View {
     }
 
     private var accent: Color {
-        Color(hex: profile?.accentHex ?? "1A3FA8")
+        ZTheme.tone(forHex: profile?.accentHex)
     }
 
     var body: some View {

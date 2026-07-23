@@ -112,11 +112,11 @@ struct OnboardingView: View {
             Spacer()
             FocusOrb(state: .idle, diameter: 160) {
                 Image(systemName: icon)
-                    .font(.system(size: 56, weight: .light))
-                    .foregroundStyle(.white)
+                    .font(.system(size: 52, weight: .light))
+                    .foregroundStyle(ZTheme.Palette.text(0.75))
             }
             Text(title)
-                .font(ZTheme.Font.display(34, weight: .bold))
+                .font(ZTheme.Font.display(30, weight: .semibold))
                 .foregroundStyle(ZTheme.Palette.textPrimary)
                 .multilineTextAlignment(.center)
             Text(message)

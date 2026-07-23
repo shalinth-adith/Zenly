@@ -21,24 +21,22 @@ struct SelectablePill<Label: View>: View {
     var body: some View {
         Button(action: { Haptics.light(); action() }) {
             label()
-                .font(ZTheme.Font.display(15, weight: .semibold))
-                .foregroundStyle(ZTheme.Palette.textPrimary)
+                .font(ZTheme.Font.display(15, weight: .medium))
+                // Selected text takes the tone; unselected stays quiet ink.
+                .foregroundStyle(isSelected ? tint : ZTheme.Palette.text(0.7))
                 .frame(maxWidth: .infinity)
                 .frame(height: height)
                 .background(
+                    // Soft tone wash when selected (design `--tone-soft`), else
+                    // the neutral card surface.
                     RoundedRectangle(cornerRadius: ZTheme.Radius.chip, style: .continuous)
-                        .fill(ZTheme.Palette.matte)
+                        .fill(isSelected ? tint.opacity(0.16) : ZTheme.Palette.matte)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: ZTheme.Radius.chip, style: .continuous)
-                        .strokeBorder(isSelected ? tint : ZTheme.Palette.matteBorder,
-                                      lineWidth: isSelected ? 1.5 : 1)
+                        .strokeBorder(isSelected ? tint.opacity(0.5) : ZTheme.Palette.matteBorder,
+                                      lineWidth: 1)
                 )
-                .background(
-                    RoundedRectangle(cornerRadius: ZTheme.Radius.chip, style: .continuous)
-                        .fill(tint.opacity(isSelected ? 0.16 : 0))
-                )
-                .shadow(color: isSelected ? tint.opacity(0.4) : .clear, radius: 16)
         }
         .buttonStyle(.plain)
         .animation(ZTheme.Motion.smooth, value: isSelected)

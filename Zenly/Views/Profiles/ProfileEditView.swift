@@ -33,7 +33,8 @@ struct ProfileEditView: View {
         "briefcase.fill", "book.fill", "dumbbell.fill", "brain.head.profile",
         "laptopcomputer", "pencil.and.ruler.fill", "leaf.fill", "moon.stars.fill"
     ]
-    private let accentOptions = ["1A3FA8", "34C759", "FF9F0A", "FF375F", "AF52DE", "00C7BE"]
+    // Quiet-spec tones: periwinkle, amber, green, purple, plus two calm extras.
+    private let accentOptions = ["7C93E8", "D6A85C", "7FBE9A", "9B8AD6", "C88EA7", "6FB3C0"]
 
     var body: some View {
         NavigationStack {
@@ -84,7 +85,7 @@ struct ProfileEditView: View {
                         Image(systemName: icon)
                             .font(.title3)
                             .frame(maxWidth: .infinity, minHeight: 40)
-                            .foregroundStyle(draft.iconName == icon ? .white : .primary)
+                            .foregroundStyle(draft.iconName == icon ? Color(hex: "0A0B0E") : .primary)
                             .background(
                                 draft.iconName == icon ? Color(hex: draft.accentHex) : ZTheme.Palette.glassFillRaised,
                                 in: RoundedRectangle(cornerRadius: 10)
@@ -118,7 +119,7 @@ struct ProfileEditView: View {
                                 if draft.accentHex == hex {
                                     Image(systemName: "checkmark")
                                         .font(.caption.bold())
-                                        .foregroundStyle(.white)
+                                        .foregroundStyle(Color(hex: "0A0B0E"))
                                 }
                             }
                     }

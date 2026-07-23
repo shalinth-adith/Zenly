@@ -24,9 +24,9 @@ struct GoalOrbView: View {
             FocusOrb(state: .active(progress: progress), diameter: diameter,
                      ringTint: tint, living: false, breathes: false) {
                 Text(value)
-                    .font(ZTheme.Font.numeral(diameter * 0.25, weight: .semibold))
+                    .font(ZTheme.Font.numeral(diameter * 0.25, weight: .regular))
                     .monospacedDigit()
-                    .foregroundStyle(.white)
+                    .foregroundStyle(ZTheme.Palette.textPrimary)
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("\(title) goal")

@@ -16,8 +16,10 @@ struct HomeView: View {
     @Environment(ProfileStore.self) private var profiles
     @Environment(FocusSessionController.self) private var session
     @Environment(AuthorizationService.self) private var authorization
-    @Environment(AmbientSoundService.self) private var ambient
-    @Environment(MusicController.self) private var music
+    @Environment(AnalyticsService.self) private var analytics
+
+    /// The name shown in the greeting, set by the user in Settings › You.
+    @AppStorage("userDisplayName", store: AppGroup.defaults) private var userName = ""
 
     @State private var selectedMinutes = 25
     @State private var showSession = false
@@ -27,9 +29,9 @@ struct HomeView: View {
             ZStack {
                 ZenlyBackground()
 
-                // A single, non-scrolling focus screen: the breathing orb is the
-                // hero, balanced by spacers, with a compact ambient-sound row near
-                // the bottom and the music bar pinned via safeAreaInset.
+                // A single, non-scrolling focus screen (Quiet comp 01): profile
+                // row up top, the breathing halo orb as the hero balanced by
+                // spacers, then the "Begin focus" CTA and the streak footer.
                 GeometryReader { proxy in
                     VStack(spacing: ZTheme.Spacing.lg) {
                         header
@@ -46,23 +48,18 @@ struct HomeView: View {
                             emptyProfilesCard
                             Spacer(minLength: 0)
                         } else {
-                            Spacer(minLength: 0)
                             profilePicker
+                            Spacer(minLength: 0)
                             orbSection(diameter: orbDiameter(for: proxy.size.height))
                             Spacer(minLength: 0)
-                            soundSection
+                            beginSection
+                            streakFooter
                         }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     .padding(.horizontal, ZTheme.Spacing.lg)
                     .padding(.top, 8)
-                }
-            }
-            .safeAreaInset(edge: .bottom) {
-                if !profiles.profiles.isEmpty {
-                    musicBar
-                        .padding(.horizontal, ZTheme.Spacing.lg)
-                        .padding(.bottom, 8)
+                    .padding(.bottom, 8)
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
@@ -100,16 +97,13 @@ struct HomeView: View {
     }
 
     private var header: some View {
-        VStack(spacing: 2) {
-            Text(greeting)
-                .font(ZTheme.Font.body(13))
-                .foregroundStyle(ZTheme.Palette.text(0.5))
-            Text("Ready to focus?")
-                .font(ZTheme.Font.display(20, weight: .bold))
-                .foregroundStyle(ZTheme.Palette.textPrimary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 8)
+        // Quiet spec: a single soft greeting line — no bold headline competing
+        // for attention. Includes the user's name when they've set one.
+        Text(userName.isEmpty ? greeting : "\(greeting), \(userName)")
+            .font(ZTheme.Font.body(15))
+            .foregroundStyle(ZTheme.Palette.text(0.55))
+            .frame(maxWidth: .infinity)
+            .padding(.top, 8)
     }
 
     private var resumeBanner: some View {
@@ -122,15 +116,13 @@ struct HomeView: View {
                 Text(session.timeString).monospacedDigit()
                 Image(systemName: "chevron.up").font(.caption.weight(.bold))
             }
-            .font(ZTheme.Font.body(16, weight: .semibold))
-            .foregroundStyle(.white)
+            .font(ZTheme.Font.body(16, weight: .medium))
+            .foregroundStyle(Color(hex: "0A0B0E"))
             .padding()
             .background(
-                LinearGradient(colors: [ZTheme.Palette.brandLight, Color(hex: session.accentHex)],
-                               startPoint: .top, endPoint: .bottom),
+                ZTheme.tone(forHex: session.accentHex),
                 in: RoundedRectangle(cornerRadius: ZTheme.Radius.chip, style: .continuous)
             )
-            .shadow(color: Color(hex: session.accentHex).opacity(0.4), radius: 14, y: 6)
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
@@ -139,7 +131,8 @@ struct HomeView: View {
     }
 
     private var activeProfile: FocusProfile? { profiles.activeProfile }
-    private var tint: Color { Color(hex: activeProfile?.accentHex ?? "1A3FA8") }
+    /// The single accent — the active profile's Quiet tone.
+    private var tint: Color { ZTheme.tone(forHex: activeProfile?.accentHex) }
 
     // MARK: - Sections
 
@@ -182,38 +175,38 @@ struct HomeView: View {
         )
     }
 
+    /// Quiet-spec profile selector: centered text labels, each with a small
+    /// tone dot beneath the active one. No pills, no icons — the name is enough,
+    /// and the single coloured dot is the only bright mark. Drag still reorders.
     private var profilePicker: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: ZTheme.Spacing.sm) {
+            HStack(spacing: 28) {
                 ForEach(profiles.profiles, id: \.objectID) { profile in
                     let isActive = profile.id == profiles.activeProfileID
-                    SelectablePill(isSelected: isActive,
-                                   tint: Color(hex: profile.accentHex ?? "1A3FA8")) {
+                    let tone = ZTheme.tone(forHex: profile.accentHex)
+                    Button {
+                        Haptics.light()
                         profiles.setActive(profile)
                     } label: {
-                        // Icon rail: collapsed profiles show only their icon;
-                        // the active one expands to icon + name. Keeps a single
-                        // row that fits ~6-7 profiles before it needs to scroll.
-                        HStack(spacing: isActive ? 8 : 0) {
-                            Image(systemName: profile.iconName ?? "brain.head.profile")
-                                .font(ZTheme.Font.display(16, weight: .semibold))
-                            if isActive {
-                                Text(profile.name ?? "Untitled")
-                                    .lineLimit(1)
-                                    .fixedSize()
-                                    .transition(.opacity.combined(with: .move(edge: .trailing)))
-                            }
+                        VStack(spacing: 7) {
+                            Text(profile.name ?? "Untitled")
+                                .font(ZTheme.Font.body(15, weight: isActive ? .medium : .regular))
+                                .foregroundStyle(isActive ? ZTheme.Palette.textPrimary
+                                                          : ZTheme.Palette.text(0.5))
+                                .lineLimit(1)
+                                .fixedSize()
+                            Circle()
+                                .fill(isActive ? tone : .clear)
+                                .frame(width: 5, height: 5)
                         }
-                        .padding(.horizontal, isActive ? 20 : 0)
-                        .frame(width: isActive ? nil : 56)
+                        .padding(.vertical, 2)
+                        .contentShape(Rectangle())
                     }
-                    // Hug the label's width so the collapsed icons + the one
-                    // expanded pill fit one row; ScrollView scrolls on overflow.
-                    .fixedSize(horizontal: true, vertical: false)
+                    .buttonStyle(.plain)
                     .animation(ZTheme.Motion.smooth, value: isActive)
                     .accessibilityLabel(profile.name ?? "Untitled")
                     .accessibilityAddTraits(isActive ? [.isButton, .isSelected] : .isButton)
-                    // Long-press to drag a pill onto another to reorder; the new
+                    // Long-press to drag a label onto another to reorder; the new
                     // order persists via FocusProfile.sortIndex (ProfileStore.move).
                     .draggable(profile.id?.uuidString ?? "")
                     .dropDestination(for: String.self) { items, _ in
@@ -225,22 +218,9 @@ struct HomeView: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity)
             .padding(.horizontal, 2)
         }
-        // Soft trailing fade: lands on empty space when all pills fit, and on
-        // the last pill only when the row actually overflows — a subtle
-        // "swipe for more" cue instead of a hard cut-off.
-        .mask(
-            LinearGradient(
-                stops: [
-                    .init(color: .black, location: 0),
-                    .init(color: .black, location: 0.88),
-                    .init(color: .clear, location: 1.0)
-                ],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
-        )
     }
 
     /// Shrink the hero orb on shorter screens so the non-scrolling layout fits
@@ -251,16 +231,18 @@ struct HomeView: View {
 
     private func orbSection(diameter: CGFloat) -> some View {
         VStack(spacing: ZTheme.Spacing.lg) {
-            FocusOrb(state: .idle, diameter: diameter, living: false, breathes: false) {
-                VStack(spacing: 4) {
+            // The tone halo breathes softly behind large, thin ink numerals —
+            // the number is neutral; only the halo carries the profile's colour.
+            FocusOrb(state: .idle, diameter: diameter, ringTint: tint,
+                     living: false, breathes: true) {
+                VStack(spacing: 8) {
                     Text("\(selectedMinutes)")
-                        .font(ZTheme.Font.numeral(48, weight: .semibold))
-                        .monospacedDigit()
-                        .foregroundStyle(.white)
+                        .font(ZTheme.Font.numeral(min(86, diameter * 0.4), weight: .regular))
+                        .foregroundStyle(ZTheme.Palette.textPrimary)
                     Text("MINUTES")
-                        .font(ZTheme.Font.body(12, weight: .semibold))
-                        .tracking(2.5)
-                        .foregroundStyle(.white.opacity(0.7))
+                        .font(ZTheme.Font.body(11, weight: .regular))
+                        .tracking(3)
+                        .foregroundStyle(ZTheme.Palette.text(0.55))
                 }
             }
             .accessibilityElement(children: .ignore)
@@ -268,14 +250,27 @@ struct HomeView: View {
             .accessibilityValue("\(selectedMinutes) minutes")
 
             durationStepper
-
-            Button(action: startFocus) {
-                Text("Start Focus")
-            }
-            .buttonStyle(.zenlyPrimary(tint: tint, height: 58))
-            .disabled(activeProfile == nil || !authorization.isAuthorized || session.isActive)
-            .opacity(activeProfile == nil || !authorization.isAuthorized || session.isActive ? 0.5 : 1)
         }
+    }
+
+    /// The one bright action, pinned near the bottom of the screen.
+    private var beginSection: some View {
+        Button(action: startFocus) {
+            Text("Begin focus")
+        }
+        .buttonStyle(.zenlyPrimary(tint: tint, height: 56))
+        .disabled(activeProfile == nil || !authorization.isAuthorized || session.isActive)
+        .opacity(activeProfile == nil || !authorization.isAuthorized || session.isActive ? 0.45 : 1)
+    }
+
+    /// "N-day streak · M min today" — the quiet stat line beneath the CTA.
+    private var streakFooter: some View {
+        Text("\(analytics.streak())-day streak · \(analytics.todayMinutes()) min today")
+            .font(ZTheme.Font.body(13))
+            .foregroundStyle(ZTheme.Palette.text(0.45))
+            .frame(maxWidth: .infinity)
+            .padding(.top, 14)
+            .accessibilityLabel("\(analytics.streak()) day streak, \(analytics.todayMinutes()) minutes today")
     }
 
     private var durationStepper: some View {
@@ -283,105 +278,17 @@ struct HomeView: View {
             GlassIconButton(systemImage: "minus", size: 46, corner: 23) { adjustDuration(-5) }
                 .accessibilityLabel("Decrease focus duration")
                 .accessibilityValue("\(selectedMinutes) minutes")
-            Text("session length")
-                .font(ZTheme.Font.body(14, weight: .medium))
+            Text("session\nlength")
+                .font(ZTheme.Font.body(14))
                 .foregroundStyle(ZTheme.Palette.text(0.5))
-                .frame(width: 110)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(width: 90)
             GlassIconButton(systemImage: "plus", size: 46, corner: 23) { adjustDuration(5) }
                 .accessibilityLabel("Increase focus duration")
                 .accessibilityValue("\(selectedMinutes) minutes")
         }
-    }
-
-    private var soundSection: some View {
-        VStack(alignment: .leading, spacing: ZTheme.Spacing.sm) {
-            ZenlySectionHeader(title: "Ambient sound")
-            HStack(spacing: ZTheme.Spacing.sm) {
-                ForEach(AmbientSound.available) { sound in
-                    let active = ambient.current == sound
-                    SelectablePill(isSelected: active, height: 56) {
-                        ambient.toggle(sound)
-                    } label: {
-                        VStack(spacing: 4) {
-                            Image(systemName: sound.systemImage)
-                            Text(sound.title).font(ZTheme.Font.body(13, weight: .semibold))
-                        }
-                    }
-                    .accessibilityLabel(sound.title)
-                    .accessibilityAddTraits(active ? [.isButton, .isSelected] : .isButton)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    /// Branding that follows the active music source so the bar reads "Spotify"
-    /// once Spotify is connected (chosen in Settings), and "Apple Music" otherwise.
-    private var isSpotify: Bool { music.source == .spotify }
-
-    private var musicTileColors: [Color] {
-        isSpotify
-            ? [Color(hex: "1DB954"), Color(hex: "1ED760")]   // Spotify green
-            : [ZTheme.Palette.brand, ZTheme.Palette.violet]
-    }
-
-    private var musicBar: some View {
-        HStack(spacing: ZTheme.Spacing.md) {
-            // Tapping the artwork/title area jumps to the source's app.
-            Button {
-                music.openSourceApp()
-            } label: {
-                HStack(spacing: ZTheme.Spacing.md) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(LinearGradient(colors: musicTileColors,
-                                                 startPoint: .topLeading, endPoint: .bottomTrailing))
-                            .frame(width: 44, height: 44)
-                            .shadow(color: musicTileColors[0].opacity(0.5), radius: 10, y: 4)
-                        Image(systemName: "music.note")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundStyle(.white)
-                    }
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(music.nowPlaying.isEmpty ? music.source.title : music.nowPlaying)
-                            .font(ZTheme.Font.display(15, weight: .semibold))
-                            .foregroundStyle(ZTheme.Palette.textPrimary)
-                            .lineLimit(1)
-                        Text(music.nowPlaying.isEmpty ? "Tap to open \(music.source.title)" : music.source.title)
-                            .font(ZTheme.Font.body(12))
-                            .foregroundStyle(ZTheme.Palette.text(0.5))
-                            .lineLimit(1)
-                    }
-                    Spacer(minLength: 0)
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Open \(music.source.title)")
-            .accessibilityAddTraits(.isButton)
-
-            Button { music.previous() } label: {
-                Image(systemName: "backward.fill").foregroundStyle(ZTheme.Palette.text(0.7))
-            }
-            .accessibilityLabel("Previous track")
-            Button { music.playPause() } label: {
-                Image(systemName: music.isPlaying ? "pause.fill" : "play.fill")
-                    .font(.title3)
-                    .foregroundStyle(ZTheme.Palette.textPrimary)
-                    .frame(width: 44, height: 44)
-                    .background(
-                        Circle().fill(ZTheme.Palette.matteRaised)
-                            .overlay(Circle().strokeBorder(ZTheme.Palette.matteBorder, lineWidth: 1))
-                    )
-            }
-            .accessibilityLabel(music.isPlaying ? "Pause" : "Play")
-            Button { music.next() } label: {
-                Image(systemName: "forward.fill").foregroundStyle(ZTheme.Palette.text(0.7))
-            }
-            .accessibilityLabel("Next track")
-        }
-        .glassCard(padding: ZTheme.Spacing.md)
     }
 
     // MARK: - Actions
@@ -391,7 +298,6 @@ struct HomeView: View {
         await NotificationService.shared.requestAuthorization()
         NotificationService.shared.scheduleDailyChallengeReminder()
         syncDuration()
-        music.updateState()
     }
 
     /// Reset the editable duration to the active profile's default.
@@ -421,20 +327,19 @@ struct HomeView: View {
     }
 }
 
-/// A glowing periwinkle→violet progress bar used across the redesign.
+/// A quiet progress bar: a hairline track with a flat tone fill (no glow).
 struct ZenlyProgressBar: View {
     var value: Double
-    var height: CGFloat = 10
+    var height: CGFloat = 8
+    var tint: Color = ZTheme.Palette.tone
 
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
                 Capsule().fill(ZTheme.Palette.glassStroke)
                 Capsule()
-                    .fill(LinearGradient(colors: [ZTheme.Palette.brand, ZTheme.Palette.violet],
-                                         startPoint: .leading, endPoint: .trailing))
+                    .fill(tint)
                     .frame(width: max(0, min(1, value)) * geo.size.width)
-                    .shadow(color: ZTheme.Palette.brand.opacity(0.6), radius: 8)
             }
         }
         .frame(height: height)

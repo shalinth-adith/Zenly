@@ -104,7 +104,8 @@ struct ZenlyScreenTitle: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title)
-                .font(ZTheme.Font.display(28, weight: .bold))
+                // "Gentle titles" — medium weight, not bold.
+                .font(ZTheme.Font.display(26, weight: .semibold))
                 .foregroundStyle(ZTheme.Palette.textPrimary)
             if let subtitle {
                 Text(subtitle)

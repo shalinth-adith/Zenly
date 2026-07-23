@@ -2,11 +2,11 @@
 //  GlassCard.swift
 //  Zenly
 //
-//  The "Zenly Matte" surface used for every card: a flat, opaque fill with a
-//  thin 1px hairline border — no frosted blur, no heavy shadow. Depth comes from
-//  the solid surface lifting off the near-black background, plus one soft shadow.
+//  The Quiet card surface: a barely-raised neutral fill with a thin 1px hairline
+//  — no frosted blur, no glow, and only the faintest shadow. Depth is a hint, so
+//  the card recedes into the calm background rather than lifting off it.
 //
-//  Imported from the Claude Design spec (Zenly Matte.dc.html). The modifier is
+//  Imported from the Claude Design spec (Zenly Quiet.dc.html). The modifier is
 //  still named `glassCard()` so existing call sites convert without churn.
 //
 
@@ -26,7 +26,7 @@ struct GlassCardModifier: ViewModifier {
                         RoundedRectangle(cornerRadius: radius, style: .continuous)
                             .strokeBorder(ZTheme.Palette.matteBorder, lineWidth: 1)
                     )
-                    .shadow(color: .black.opacity(0.18), radius: 8, x: 0, y: 4)
+                    .shadow(color: .black.opacity(0.06), radius: 5, x: 0, y: 2)
             }
     }
 }

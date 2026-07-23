@@ -17,7 +17,7 @@ import Observation
 struct ProfileDraft {
     var name: String = ""
     var iconName: String = "brain.head.profile"
-    var accentHex: String = "1A3FA8"
+    var accentHex: String = "7C93E8"
     var focusMinutes: Int = 25
     var breakMinutes: Int = 5
     var isStrict: Bool = false
@@ -46,6 +46,7 @@ final class ProfileStore {
         }
         seedDefaultsIfNeeded()
         fetch()
+        ensureSleepProfileOnce()
     }
 
     var activeProfile: FocusProfile? {
@@ -163,16 +164,7 @@ final class ProfileStore {
         let count = (try? context.count(for: request)) ?? 0
         guard count == 0 else { return }
 
-        let defaults: [ProfileDraft] = [
-            ProfileDraft(name: "Work", iconName: "briefcase.fill", accentHex: "1A3FA8",
-                         focusMinutes: 25, breakMinutes: 5),
-            ProfileDraft(name: "Study", iconName: "book.fill", accentHex: "34C759",
-                         focusMinutes: 50, breakMinutes: 10),
-            ProfileDraft(name: "Gym", iconName: "dumbbell.fill", accentHex: "FF9F0A",
-                         focusMinutes: 60, breakMinutes: 0)
-        ]
-
-        for (index, draft) in defaults.enumerated() {
+        for (index, draft) in Self.defaultProfiles.enumerated() {
             let profile = FocusProfile(context: context)
             profile.id = UUID()
             profile.createdAt = Date()
@@ -181,4 +173,40 @@ final class ProfileStore {
         }
         save()
     }
+
+    /// The four Quiet-spec default profiles (Work periwinkle, Study amber, Gym
+    /// green, Sleep purple) — the profile row on the Focus screen.
+    private static let defaultProfiles: [ProfileDraft] = [
+        ProfileDraft(name: "Work", iconName: "briefcase.fill", accentHex: "7C93E8",
+                     focusMinutes: 25, breakMinutes: 5),
+        ProfileDraft(name: "Study", iconName: "book.fill", accentHex: "D6A85C",
+                     focusMinutes: 50, breakMinutes: 10),
+        ProfileDraft(name: "Gym", iconName: "dumbbell.fill", accentHex: "7FBE9A",
+                     focusMinutes: 60, breakMinutes: 0),
+        ProfileDraft(name: "Sleep", iconName: "moon.fill", accentHex: "9B8AD6",
+                     focusMinutes: 480, breakMinutes: 0)
+    ]
+
+    /// One-time migration for installs seeded before "Sleep" existed: append it
+    /// once (guarded by a flag so it never re-adds if the user deletes it).
+    private func ensureSleepProfileOnce() {
+        let flag = "didAddSleepProfileV3"
+        guard !AppGroup.defaults.bool(forKey: flag) else { return }
+        AppGroup.defaults.set(true, forKey: flag)
+
+        let request = FocusProfile.fetchRequest()
+        let count = (try? context.count(for: request)) ?? 0
+        guard count > 0 else { return }   // fresh installs already seed Sleep
+        if profiles.contains(where: { ($0.name ?? "").caseInsensitiveCompare("Sleep") == .orderedSame }) {
+            return
+        }
+        let sleep = FocusProfile(context: context)
+        sleep.id = UUID()
+        sleep.createdAt = Date()
+        sleep.sortIndex = Int16(profiles.count)
+        apply(Self.defaultProfiles[3], to: sleep)
+        save()
+        fetch()
+    }
+
 }
