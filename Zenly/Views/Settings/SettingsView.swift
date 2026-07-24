@@ -15,9 +15,6 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(AuthorizationService.self) private var authorization
-    @Environment(CalendarService.self) private var calendar
-    @Environment(TaskService.self) private var tasks
-    @Environment(MusicController.self) private var music
     @Environment(ProfileStore.self) private var profiles
 
     /// The name shown in the Focus greeting ("Good evening, <name>"). Empty by
@@ -33,7 +30,6 @@ struct SettingsView: View {
     @AppStorage("breakReminderMinute", store: AppGroup.defaults) private var reminderMinute = 0
 
     /// A source the user picked but hasn't confirmed switching to yet.
-    @State private var pendingSource: MusicSource?
     @State private var showProfiles = false
 
     /// Frosted row background that lets the section's rounded corners clip it.
@@ -52,13 +48,11 @@ struct SettingsView: View {
                     permissionSection
                     goalSection
                     shieldSection
-                    integrationsSection
-                    musicSection
                     breakReminderSection
                     aboutSection
                 }
                 .scrollContentBackground(.hidden)
-                .tint(ZTheme.Palette.brandBright)
+                .tint(ZTheme.Palette.textPrimary)
             }
             .navigationTitle("Settings")
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -141,86 +135,6 @@ struct SettingsView: View {
             Text("Your daily targets, shown as progress orbs on Insights.")
         }
         .listRowBackground(glassRow)
-    }
-
-    private var integrationsSection: some View {
-        Section {
-            if calendar.isAuthorized {
-                Label("Calendar connected", systemImage: "checkmark.seal.fill")
-                    .foregroundStyle(ZTheme.Palette.teal)
-            } else if calendar.isDenied {
-                Label("Calendar access denied — enable it in the Settings app.", systemImage: "exclamationmark.triangle.fill")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            } else {
-                Button("Connect Calendar") {
-                    Task { await calendar.requestAccess() }
-                }
-            }
-
-            if tasks.remindersAuthorized {
-                Label("Reminders connected", systemImage: "checkmark.seal.fill")
-                    .foregroundStyle(ZTheme.Palette.teal)
-            } else if tasks.remindersDenied {
-                Label("Reminders access denied — enable it in the Settings app.", systemImage: "exclamationmark.triangle.fill")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            } else {
-                Button("Connect Reminders") {
-                    Task { await tasks.requestRemindersAccess() }
-                }
-            }
-        } header: {
-            Text("Integrations")
-        } footer: {
-            Text("Calendar suggests focus during free time. Add a Zen-ly Focus Filter in Settings › Focus to switch profiles automatically.")
-        }
-        .listRowBackground(glassRow)
-    }
-
-    private var musicSection: some View {
-        Section {
-            // Selecting a different source only stages it; the actual switch
-            // happens after the user confirms, so platforms never change by accident.
-            Picker("Source", selection: Binding(
-                get: { music.source },
-                set: { newValue in
-                    if newValue != music.source { pendingSource = newValue }
-                }
-            )) {
-                ForEach(MusicSource.allCases) { source in
-                    Text(source.title).tag(source)
-                }
-            }
-            if music.source == .spotify {
-                if music.spotifyConfigured {
-                    Button("Connect Spotify") { music.connectSpotify() }
-                } else {
-                    Text("Add your Spotify Client ID in SpotifyConfig.swift to enable Spotify.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-            }
-        } header: {
-            Text("Music")
-        } footer: {
-            Text("Spotify requires the Spotify app and a Premium account.")
-        }
-        .listRowBackground(glassRow)
-        .confirmationDialog(
-            "Switch music source?",
-            isPresented: Binding(get: { pendingSource != nil },
-                                 set: { if !$0 { pendingSource = nil } }),
-            presenting: pendingSource
-        ) { target in
-            Button("Switch to \(target.title)") {
-                music.source = target
-                pendingSource = nil
-            }
-            Button("Cancel", role: .cancel) { pendingSource = nil }
-        } message: { target in
-            Text("Change your focus music to \(target.title)?")
-        }
     }
 
     private var breakReminderSection: some View {

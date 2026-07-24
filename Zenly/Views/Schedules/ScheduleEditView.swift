@@ -57,8 +57,8 @@ struct ScheduleEditView: View {
                             Text(item.label)
                                 .font(.subheadline.weight(.semibold))
                                 .frame(maxWidth: .infinity, minHeight: 38)
-                                .foregroundStyle(on ? .white : .primary)
-                                .background(on ? Color.accentColor : ZTheme.Palette.glassFillRaised, in: Circle())
+                                .foregroundStyle(on ? ZTheme.Palette.night : .primary)
+                                .background(on ? ZTheme.Palette.textPrimary : ZTheme.Palette.glassFillRaised, in: Circle())
                                 .onTapGesture {
                                     if on { draft.weekdays.remove(item.day) }
                                     else { draft.weekdays.insert(item.day) }
@@ -104,7 +104,7 @@ struct ScheduleEditView: View {
                 }
                 }
                 .scrollContentBackground(.hidden)
-                .tint(ZTheme.Palette.brandBright)
+                .tint(ZTheme.Palette.textPrimary)
             }
             .onAppear { if schedule == nil { titleFocused = true } }
             .navigationTitle(schedule == nil ? "New Schedule" : "Edit Schedule")

@@ -101,7 +101,7 @@ struct GoalsView: View {
         .navigationTitle("Daily Goals")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .tint(ZTheme.Palette.brandBright)
+        .tint(ZTheme.Palette.textPrimary)
         .onAppear(perform: refresh)
     }
 

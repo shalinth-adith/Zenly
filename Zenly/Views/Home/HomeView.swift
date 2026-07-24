@@ -218,9 +218,14 @@ struct HomeView: View {
                     }
                 }
             }
-            .frame(maxWidth: .infinity)
-            .padding(.horizontal, 2)
+            .padding(.vertical, 2)
+            // Each profile label is a snap target.
+            .scrollTargetLayout()
         }
+        // Snap so a name always lands whole at the leading edge — a label never
+        // rests sliced mid-letter, and there's no fade dimming the active one.
+        // The parent column's horizontal padding supplies the resting gutter.
+        .scrollTargetBehavior(.viewAligned)
     }
 
     /// Shrink the hero orb on shorter screens so the non-scrolling layout fits

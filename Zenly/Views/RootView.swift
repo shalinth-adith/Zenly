@@ -22,11 +22,7 @@ extension Notification.Name {
 }
 
 struct RootView: View {
-    @Environment(ProfileStore.self) private var profiles
     @State private var selection = 0
-
-    /// The single accent — the active profile's tone drives the selected tab.
-    private var tone: Color { ZTheme.tone(forHex: profiles.activeProfile?.accentHex) }
 
     var body: some View {
         // Four tabs, matching the Quiet comp: Focus · Insights · Schedule ·
@@ -46,7 +42,9 @@ struct RootView: View {
                 .tabItem { Label("Settings", systemImage: "sun.max") }
                 .tag(3)
         }
-        .tint(tone)
+        // Quiet chrome: the selected tab reads primary-white, not a chromatic
+        // accent. Unselected items stay system-grey, so selection is still clear.
+        .tint(ZTheme.Palette.textPrimary)
         .onReceive(NotificationCenter.default.publisher(for: .zenlyOpenFocus)) { _ in
             selection = 0
         }
