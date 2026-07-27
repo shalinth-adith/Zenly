@@ -52,7 +52,12 @@ struct ProfilesView: View {
                     .padding(.bottom, 4)
 
                     ForEach(store.profiles, id: \.objectID) { profile in
-                        ProfileRow(profile: profile, isActive: profile.id == store.activeProfileID)
+                        ProfileRow(profile: profile,
+                                   isActive: profile.id == store.activeProfileID,
+                                   onEdit: {
+                                       guard !editMode.isEditing else { return }
+                                       editing = .existing(profile)
+                                   })
                             .contentShape(Rectangle())
                             .onTapGesture {
                                 guard !editMode.isEditing else { return }
@@ -113,6 +118,9 @@ struct ProfilesView: View {
 private struct ProfileRow: View {
     let profile: FocusProfile
     let isActive: Bool
+    /// Opens the editor. The chevron previously drew as a plain image, so the
+    /// row read as navigable while editing was only reachable by swiping.
+    var onEdit: () -> Void = {}
 
     private var accent: Color { ZTheme.tone(forHex: profile.accentHex) }
 
@@ -137,9 +145,20 @@ private struct ProfileRow: View {
                     .tracking(1.2)
                     .foregroundStyle(ZTheme.Palette.brandGlow)
             }
-            Image(systemName: "chevron.right")
-                .font(.caption.weight(.bold))
-                .foregroundStyle(ZTheme.Palette.text(0.4))
+            Button(action: onEdit) {
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(ZTheme.Palette.text(0.4))
+                    // Pad the glyph out to a 44pt-tall target rather than
+                    // leaving the chevron itself as the only tappable area.
+                    .padding(.vertical, 14)
+                    .padding(.leading, 16)
+                    .padding(.trailing, 2)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Edit \(profile.name ?? "profile")")
+            .accessibilityHint("Opens this profile's settings")
         }
         .glassCard(padding: ZTheme.Spacing.md)
         .overlay(

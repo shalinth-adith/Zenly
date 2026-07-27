@@ -315,6 +315,35 @@ final class ZenlyQuietSuite: XCTestCase {
         _ = row.waitForNonExistence(timeout: 5)
     }
 
+    /// The row chevron opens the profile editor. It used to be a plain image, so
+    /// the row looked navigable while editing was reachable only by swiping.
+    func testProfileChevronOpensEditor() throws {
+        let app = try launchToHome()
+        openTab(app, "Settings")
+
+        let profilesRow = app.buttons.containing(
+            NSPredicate(format: "label CONTAINS 'Focus profiles'")).firstMatch
+        XCTAssertTrue(profilesRow.waitForExistence(timeout: 15), "'Focus profiles' row missing")
+        robustTap(app, profilesRow)
+
+        let chevron = app.buttons.matching(
+            NSPredicate(format: "label == 'Edit Work'")).firstMatch
+        XCTAssertTrue(chevron.waitForExistence(timeout: 8),
+                      "Chevron is not exposed as a button — it is still decorative")
+        robustTap(app, chevron)
+
+        let nameField = app.textFields["profile-name"]
+        XCTAssertTrue(nameField.waitForExistence(timeout: 6),
+                      "Tapping the chevron did not open the profile editor")
+        XCTAssertEqual(nameField.value as? String, "Work",
+                       "Editor opened on the wrong profile")
+        snap(app, "TC-4.x-chevron-opens-editor")
+
+        let cancel = app.buttons.matching(
+            NSPredicate(format: "label ==[c] 'Cancel'")).firstMatch
+        if cancel.exists { cancel.tap() }
+    }
+
     /// TC-4.3 — deleting a profile asks for confirmation first.
     func testDeleteProfileAsksForConfirmation() throws {
         let app = try launchToHome()
