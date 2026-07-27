@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  Zenly keeps everything on device. There is no analytics SDK, no network
+	  client, and no tracking: focus sessions, profiles, schedules and stats
+	  live in Core Data inside the App Group container.
+	-->
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<!--
+			  AppGroup.defaults = UserDefaults(suiteName: "group.me.adithyan.shalinth.Zenly"),
+			  shared with the Monitor / Shield / ShieldAction / Widget extensions.
+			  CA92.1 covers app-group defaults; 1C8F.1 covers the `?? .standard`
+			  fallback in Shared/AppGroup.swift.
+			-->
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+				<string>1C8F.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>
