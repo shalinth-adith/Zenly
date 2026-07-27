@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zen-ly — Support</title>
+<meta name="description" content="Help and answers for Zen-ly, the calm focus app for iPhone.">
+<style>
+  :root { --bg:#0a0b12; --card:#141826; --ink:#f4f5ff; --muted:#9aa1b8; --brand:#4a72e0; --line:rgba(255,255,255,.08); }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, "SF Pro Text", system-ui, Segoe UI, Roboto, sans-serif;
+    line-height: 1.65; -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 56px 22px 96px; }
+  header { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
+  .orb { width: 40px; height: 40px; border-radius: 50%;
+    background: radial-gradient(circle at 38% 30%, #9FD4FF 0%, #2E8CFF 24%, #1A3FA8 56%, #0c1430 100%); }
+  h1 { font-size: 28px; margin: 0; font-weight: 700; letter-spacing: -.2px; }
+  .eff { color: var(--muted); font-size: 14px; margin: 4px 0 34px; }
+  h2 { font-size: 18px; margin: 34px 0 10px; font-weight: 700; }
+  h3 { font-size: 16px; margin: 22px 0 6px; font-weight: 650; }
+  p, li { color: #d8dcec; font-size: 16px; }
+  ul { padding-left: 20px; }
+  a { color: #8ab4ff; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 4px 20px 18px; margin-top: 18px; }
+  footer { margin-top: 44px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--line); padding-top: 20px; }
+  strong { color: var(--ink); }
+  .path { color: var(--ink); background: rgba(255,255,255,.06); border-radius: 6px; padding: 1px 7px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="orb" aria-hidden="true"></div>
+      <h1>Zen-ly — Support</h1>
+    </header>
+    <div class="eff">A calm and simple way to stay focused · iPhone · iOS 17 and later</div>
+
+    <div class="card">
+      <h2>Get in touch</h2>
+      <p>Questions, bugs, or feature requests — email
+      <a href="mailto:shalinth.adith@outlook.com">shalinth.adith@outlook.com</a>
+      and I'll get back to you. Including your iPhone model and iOS version helps a lot.</p>
+    </div>
+
+    <h2>Getting started</h2>
+
+    <h3>Blocking isn't working</h3>
+    <p>Zen-ly needs <strong>Screen Time access</strong> to block anything. If you skipped it during
+    setup, the Focus screen shows a "Screen Time access needed" card and <strong>Begin focus</strong>
+    stays dimmed. Tap <strong>Grant Access</strong> there, or go to
+    <span class="path">Settings → Screen Time → Grant Screen Time Access</span>. You'll be asked to
+    confirm with Face ID or your passcode — that's iOS, not Zen-ly.</p>
+
+    <h3>Choosing what gets blocked</h3>
+    <p>Open <span class="path">Settings → Focus profiles</span> and pick a profile, or add one from
+    <span class="path">Schedule → New profile</span>. Under <strong>Blocking</strong> you can:</p>
+    <ul>
+      <li><strong>Block all apps</strong> — everything except Phone, Messages, Settings and Zen-ly.</li>
+      <li><strong>Allowed apps</strong> — exceptions that stay open while everything else is blocked.</li>
+      <li><strong>Research mode</strong> — list specific websites and Safari is limited to only those
+      during focus. Useful for working without wandering.</li>
+    </ul>
+
+    <h3>Why can't Zen-ly show the names of the apps I blocked?</h3>
+    <p>It genuinely can't see them. Apple's Screen Time framework hands apps an opaque token instead
+    of a name or identifier, so your selections stay private even from Zen-ly. That's a deliberate
+    part of how iOS protects this data — see the
+    <a href="privacy-policy.html">privacy policy</a>.</p>
+
+    <h2>Sessions</h2>
+
+    <h3>Ending a session early</h3>
+    <p>Tap <strong>End early</strong> on the session screen. If the profile has <strong>Strict
+    mode</strong> on, there's a deliberate five-second wait before the confirm button becomes
+    tappable — the friction is the point. Sessions ended early don't count toward your streak or
+    your daily minutes.</p>
+
+    <h3>My session disappeared when iOS closed the app</h3>
+    <p>It didn't. Zen-ly stores the session outside the app, so if iOS shuts it down mid-focus the
+    timer keeps its real end time. Reopen the app and it either resumes with the correct time
+    remaining, or — if the session finished while you were away — records it against the day it
+    actually started.</p>
+
+    <h3>Taking a break</h3>
+    <p>Give a profile a non-zero break length and you'll be offered <strong>Take a break</strong>
+    when a focus session completes. Breaks don't block anything.</p>
+
+    <h2>Schedules</h2>
+
+    <h3>My schedule didn't start on its own</h3>
+    <p>iOS doesn't let an app launch itself in the background, so a scheduled session begins when
+    Zen-ly is open — or when you tap the notification it sends at the start time. Make sure the
+    schedule is toggled on, that today is one of its selected weekdays, and that Screen Time access
+    has been granted.</p>
+
+    <h3>How long is a scheduled session?</h3>
+    <p>It runs to the end of the window you set, so an 8-hour schedule blocks for the remainder of
+    those 8 hours — not the profile's usual session length.</p>
+
+    <h2>Widget, Lock Screen and Siri</h2>
+    <p>Add the Zen-ly widget from the Home Screen and choose which stat it shows. While a session
+    runs you'll get a Live Activity on the Lock Screen and in the Dynamic Island. You can also start
+    a session with <strong>"Hey Siri, start a focus session in Zen-ly"</strong>, from the Shortcuts
+    app, or via the Control Center control on iOS 18 and later.</p>
+
+    <h2>Your data</h2>
+    <p>Everything stays on your iPhone. Zen-ly has no account, no server and no analytics, so there
+    is nothing to sign into and nothing to recover remotely. Deleting the app deletes your history
+    with it. Full detail is in the <a href="privacy-policy.html">privacy policy</a>.</p>
+
+    <h2>Something's broken</h2>
+    <p>Email <a href="mailto:shalinth.adith@outlook.com">shalinth.adith@outlook.com</a> with what you
+    were doing, what you expected, and what happened instead. Your iPhone model, iOS version and the
+    Zen-ly version from <span class="path">Settings → About</span> make it much faster to track down.</p>
+
+    <footer>© 2026 Zen-ly · <a href="privacy-policy.html">Privacy Policy</a></footer>
+  </div>
+</body>
+</html>
