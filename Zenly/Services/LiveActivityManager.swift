@@ -51,11 +51,28 @@ final class LiveActivityManager {
 
     var isShowingUpcoming: Bool { currentPhase == .upcoming }
 
+    /// Ends every focus Live Activity the system is showing — not just the one
+    /// this instance happens to hold a reference to.
+    ///
+    /// `activity` only lives as long as the process. ActivityKit activities do
+    /// not: if iOS terminates the app mid-session, the relaunched process has
+    /// `activity == nil` while the Dynamic Island / Lock Screen timer is still
+    /// on screen. Guarding on the local reference made `end()` silently no-op in
+    /// exactly that case, stranding the timer after the session had ended (and
+    /// letting `start()` add a second activity beside the orphan). Sweeping
+    /// `Activity.activities` makes this authoritative and idempotent.
     func end() {
-        guard let current = activity else { return }
         activity = nil
         currentPhase = nil
         currentEnd = nil
-        Task { await current.end(nil, dismissalPolicy: .immediate) }
+        // Snapshot synchronously: `start()` calls `end()` and then immediately
+        // requests a new activity. Reading the list inside the Task instead
+        // would let the sweep tear down that brand-new activity.
+        let stale = Activity<FocusActivityAttributes>.activities
+        Task {
+            for activity in stale {
+                await activity.end(nil, dismissalPolicy: .immediate)
+            }
+        }
     }
 }
