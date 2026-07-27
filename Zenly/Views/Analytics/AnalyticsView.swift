@@ -47,9 +47,12 @@ struct AnalyticsView: View {
                             weeklyHours
                             barChart
                                 .padding(.top, 40)
+                            distractionRow
+                                .padding(.top, 30)
                             hairline(strong: true)
                                 .padding(.top, 28)
                             sessionRows
+                            historyLink
 
                             sectionLabel("Goals")
                                 .padding(.top, 34)
@@ -80,6 +83,9 @@ struct AnalyticsView: View {
     }
 
     private var weekMinutes: Int { stats.reduce(0) { $0 + $1.focusMinutes } }
+    private var weekAttempts: Int { stats.reduce(0) { $0 + $1.attempts } }
+    /// `weeklyStats()` is oldest-first, so today is the last entry.
+    private var todayAttempts: Int { stats.last?.attempts ?? 0 }
     private var weekHours: Double { Double(weekMinutes) / 60 }
     private var weeklyGoalHours: Double { Double(dailyGoalMinutes * 7) / 60 }
     private var weeklySessionsGoal: Int { dailySessionsGoal * 7 }
@@ -126,6 +132,49 @@ struct AnalyticsView: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(String(format: "%.1f", weekHours)) hours focused this week. \(deltaText)")
+    }
+
+    /// Shield hits this week. The Shield extensions record every attempt to open
+    /// a blocked app into the App Group; `weeklyStats()` folds them in per day.
+    /// Surfacing the count is what makes TC-6.3 observable — the data already fed
+    /// the productivity score but had nowhere to show.
+    private var distractionRow: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text("\(weekAttempts)")
+                .font(ZTheme.Font.numeral(30, weight: .regular))
+                .foregroundStyle(ZTheme.Palette.textPrimary)
+            Text(weekAttempts == 1 ? "distraction blocked this week"
+                                   : "distractions blocked this week")
+                .font(ZTheme.Font.body(14))
+                .foregroundStyle(ZTheme.Palette.text(0.55))
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(
+            "\(weekAttempts) \(weekAttempts == 1 ? "distraction" : "distractions") blocked this week"
+            + (todayAttempts > 0 ? ", \(todayAttempts) today" : ""))
+    }
+
+    /// Push into the full chronological log. Insights shows only the 5 most
+    /// recent sessions inline.
+    private var historyLink: some View {
+        NavigationLink {
+            HistoryView()
+        } label: {
+            HStack {
+                Text("See all sessions")
+                    .font(ZTheme.Font.body(15))
+                    .foregroundStyle(ZTheme.Palette.textPrimary)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(ZTheme.Palette.text(0.30))
+            }
+            .padding(.vertical, 14)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Opens the full history of past focus sessions")
     }
 
     /// Flat 7-day bar chart — plain rounded bars on the raise fill, today's bar
