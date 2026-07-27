@@ -29,11 +29,6 @@ settings:
 fileGroups:
   - project.yml
 
-packages:
-  SpotifyiOS:
-    url: https://github.com/spotify/ios-sdk
-    branch: master
-
 targets:
   # ───────────────────────────── Main app ─────────────────────────────
   Zenly:
@@ -48,7 +43,6 @@ targets:
       - target: ZenlyShieldAction
       - target: ZenlyReport
       - target: ZenlyWidget
-      - package: SpotifyiOS
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: me.adithyan.shalinth.Zenly
@@ -77,14 +71,9 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        NSCalendarsFullAccessUsageDescription: "Zenly reads your calendar to auto-start focus sessions during free time."
-        NSRemindersFullAccessUsageDescription: "Zenly syncs your focus tasks with Reminders."
-        NSAppleMusicUsageDescription: "Zenly controls focus music playback from your library."
         CFBundleURLTypes:
           - CFBundleURLSchemes:
               - zenly
-        LSApplicationQueriesSchemes:
-          - spotify
         UIBackgroundModes:
           - processing
           - fetch

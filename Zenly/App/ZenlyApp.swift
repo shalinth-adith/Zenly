@@ -19,11 +19,7 @@ struct ZenlyApp: App {
     @State private var analytics = AnalyticsService()
     @State private var achievements = AchievementService()
     @State private var challenges = ChallengeService()
-    @State private var ambient = AmbientSoundService()
     @State private var accountability = AccountabilityService()
-    @State private var calendar = CalendarService()
-    @State private var taskList = TaskService()
-    @State private var music = MusicController()
 
     @Environment(\.scenePhase) private var scenePhase
 
@@ -45,12 +41,7 @@ struct ZenlyApp: App {
                 .environment(analytics)
                 .environment(achievements)
                 .environment(challenges)
-                .environment(ambient)
                 .environment(accountability)
-                .environment(calendar)
-                .environment(taskList)
-                .environment(music)
-                .onOpenURL { url in music.handleSpotifyCallback(url) }
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
@@ -59,7 +50,6 @@ struct ZenlyApp: App {
                 session.restoreIfNeeded()
                 session.refresh()
                 applyFocusFilterProfile()
-                music.reconnectSpotifyIfNeeded()
                 startPendingFocusIfNeeded()
                 ScheduleAutoStart.run(schedules: schedules, session: session, profiles: profiles)
                 ScheduleCountdown.run(schedules: schedules, session: session, profiles: profiles)

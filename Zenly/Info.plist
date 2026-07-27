@@ -35,16 +35,6 @@
 	<string>1</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
-	<key>LSApplicationQueriesSchemes</key>
-	<array>
-		<string>spotify</string>
-	</array>
-	<key>NSAppleMusicUsageDescription</key>
-	<string>Zenly controls focus music playback from your library.</string>
-	<key>NSCalendarsFullAccessUsageDescription</key>
-	<string>Zenly reads your calendar to auto-start focus sessions during free time.</string>
-	<key>NSRemindersFullAccessUsageDescription</key>
-	<string>Zenly syncs your focus tasks with Reminders.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>
