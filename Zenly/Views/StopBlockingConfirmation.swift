@@ -32,14 +32,30 @@ struct StopBlockingConfirmation: View {
 
             Spacer()
 
-            Button(role: .destructive, action: onConfirm) {
+            // Explicit fill + label colours, deliberately NOT `.borderedProminent`.
+            // That style fills with the inherited tint, and the Quiet theme sets
+            // `.tint(ZTheme.Palette.textPrimary)` — near-white in dark mode — which
+            // rendered a white label on a white button: the confirm action was
+            // invisible once the countdown finished.
+            Button(action: onConfirm) {
                 Text(secondsRemaining > 0 ? "Wait \(secondsRemaining)s…" : "End focus")
                     .frame(maxWidth: .infinity)
                     .fontWeight(.semibold)
+                    .foregroundStyle(.white)
+                    .padding(.vertical, 15)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(secondsRemaining > 0
+                                  ? Color.red.opacity(0.35)   // waiting: visibly muted
+                                  : Color.red)                // armed: full strength
+                    )
             }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
+            .buttonStyle(.plain)
             .disabled(secondsRemaining > 0)
+            .animation(.easeInOut(duration: 0.2), value: secondsRemaining == 0)
+            .accessibilityLabel(secondsRemaining > 0
+                                ? "End focus, available in \(secondsRemaining) seconds"
+                                : "End focus")
 
             Button("Keep focusing", action: onCancel)
                 .fontWeight(.semibold)

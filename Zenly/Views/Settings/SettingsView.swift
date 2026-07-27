@@ -16,6 +16,7 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(AuthorizationService.self) private var authorization
     @Environment(ProfileStore.self) private var profiles
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     /// The name shown in the Focus greeting ("Good evening, <name>"). Empty by
     /// default → a plain greeting; the user types their own name here.
@@ -31,6 +32,9 @@ struct SettingsView: View {
 
     /// A source the user picked but hasn't confirmed switching to yet.
     @State private var showProfiles = false
+
+    /// Drives the keyboard's Done button for the multiline shield-message field.
+    @FocusState private var shieldFieldFocused: Bool
 
     /// Frosted row background that lets the section's rounded corners clip it.
     private var glassRow: some View {
@@ -53,9 +57,27 @@ struct SettingsView: View {
                 }
                 .scrollContentBackground(.hidden)
                 .tint(ZTheme.Palette.textPrimary)
+                // Drag the form downward to dismiss. Independent of any toolbar,
+                // so it works even where the keyboard accessory does not render.
+                .scrollDismissesKeyboard(.interactively)
             }
             .navigationTitle("Settings")
             .toolbarBackground(.hidden, for: .navigationBar)
+            // The shield-message field uses `axis: .vertical`, where Return
+            // inserts a newline instead of submitting — so the keyboard needs an
+            // explicit way out. Three independent paths, because a keyboard
+            // accessory attached to a subview inside the ZStack does not
+            // reliably render:
+            //   1. this Done item, now hung off the NavigationStack's content root
+            //   2. interactive scroll-to-dismiss (above)
+            //   3. tapping the Done row in the section footer (see shieldSection)
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { shieldFieldFocused = false }
+                        .fontWeight(.semibold)
+                }
+            }
             .sheet(isPresented: $showProfiles) { ProfilesView() }
             .onChange(of: reminderEnabled) { _, _ in updateReminder() }
             .onChange(of: reminderHour) { _, _ in updateReminder() }
@@ -63,16 +85,34 @@ struct SettingsView: View {
         }
     }
 
+    /// Label + text field. Side-by-side normally; stacked at accessibility text
+    /// sizes, where an `HStack` leaves neither child enough width and the field
+    /// draws on top of the wrapped label.
+    private var nameRow: some View {
+        let field = TextField("Add your name", text: $userName)
+            .foregroundStyle(ZTheme.Palette.text(0.7))
+            .submitLabel(.done)
+
+        return Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Your name")
+                    field.multilineTextAlignment(.leading)
+                }
+                .padding(.vertical, 2)
+            } else {
+                HStack {
+                    Text("Your name")
+                    Spacer()
+                    field.multilineTextAlignment(.trailing)
+                }
+            }
+        }
+    }
+
     private var youSection: some View {
         Section("You") {
-            HStack {
-                Text("Your name")
-                Spacer()
-                TextField("Add your name", text: $userName)
-                    .multilineTextAlignment(.trailing)
-                    .foregroundStyle(ZTheme.Palette.text(0.7))
-                    .submitLabel(.done)
-            }
+            nameRow
             Button {
                 showProfiles = true
             } label: {
@@ -107,9 +147,33 @@ struct SettingsView: View {
 
     private var shieldSection: some View {
         Section {
+            // `axis: .vertical` makes Return insert a newline instead of
+            // submitting, so this field needs an explicit way out of the
+            // keyboard — otherwise it can be opened and never dismissed.
             TextField("e.g. Future you will thank you.",
                       text: $shieldMessage, axis: .vertical)
                 .lineLimit(1...3)
+                .focused($shieldFieldFocused)
+
+            // Always-rendered escape hatch. The keyboard accessory can fail to
+            // appear depending on how SwiftUI resolves the toolbar; an ordinary
+            // row in the section cannot.
+            if shieldFieldFocused {
+                Button {
+                    shieldFieldFocused = false
+                } label: {
+                    HStack {
+                        Spacer()
+                        Text("Done")
+                            .font(ZTheme.Font.body(15, weight: .semibold))
+                            .foregroundStyle(ZTheme.Palette.brandBright)
+                        Spacer()
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Done editing shield message")
+            }
         } header: {
             Text("Shield message")
         } footer: {
