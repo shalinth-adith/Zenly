@@ -216,3 +216,84 @@ struct ZenlyTests {
         #expect(Set(ids).count == ids.count)
     }
 }
+
+/// Distraction-attempt accounting — the data behind the "N distractions blocked
+/// this week" row on Insights (TC-6.3).
+///
+/// `DistractionLog` persists to the shared App Group defaults, so these tests
+/// touch process-wide state: the suite is `.serialized` and each test clears the
+/// keys before and after itself.
+@MainActor
+@Suite(.serialized)
+struct DistractionLogTests {
+
+    private func reset() {
+        for key in ["distractionCounts", "distractionEvents", "distractionLastAttempt"] {
+            AppGroup.defaults.removeObject(forKey: key)
+        }
+    }
+
+    @Test func recordsAnAttemptForToday() {
+        reset(); defer { reset() }
+        #expect(DistractionLog.today() == 0)
+        DistractionLog.recordAttempt()
+        #expect(DistractionLog.today() == 1)
+    }
+
+    @Test func rapidRepeatsAreDeduped() {
+        reset(); defer { reset() }
+        // iOS can ask for the shield configuration several times per app open;
+        // anything inside the 1.5s window must count once.
+        let now = Date()
+        DistractionLog.recordAttempt(on: now)
+        DistractionLog.recordAttempt(on: now.addingTimeInterval(0.3))
+        DistractionLog.recordAttempt(on: now.addingTimeInterval(0.9))
+        #expect(DistractionLog.today() == 1)
+    }
+
+    @Test func attemptsOutsideTheDedupeWindowBothCount() {
+        reset(); defer { reset() }
+        let now = Date()
+        DistractionLog.recordAttempt(on: now)
+        DistractionLog.recordAttempt(on: now.addingTimeInterval(5))
+        #expect(DistractionLog.today() == 2)
+    }
+
+    @Test func perDayCountsAreKeptSeparately() {
+        reset(); defer { reset() }
+        let today = Date()
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: today)!
+        DistractionLog.recordAttempt(on: yesterday)
+        DistractionLog.recordAttempt(on: today.addingTimeInterval(10))
+        #expect(DistractionLog.count(on: yesterday) == 1)
+        #expect(DistractionLog.count(on: today) == 1)
+    }
+
+    @Test func sessionWindowAttributionIsInclusive() {
+        reset(); defer { reset() }
+        let start = Date()
+        DistractionLog.recordAttempt(on: start.addingTimeInterval(30))
+        DistractionLog.recordAttempt(on: start.addingTimeInterval(90))
+        DistractionLog.recordAttempt(on: start.addingTimeInterval(600)) // outside
+        #expect(DistractionLog.count(from: start, to: start.addingTimeInterval(120)) == 2)
+    }
+
+    /// The Insights row sums `weeklyStats().attempts`; this is that fold.
+    @Test func weeklyStatsFoldInTodaysAttempts() {
+        reset(); defer { reset() }
+        let context = PersistenceController(inMemory: true).container.viewContext
+        let analytics = AnalyticsService(history: SessionHistory(context: context))
+
+        #expect(analytics.weeklyStats().reduce(0) { $0 + $1.attempts } == 0)
+
+        let now = Date()
+        DistractionLog.recordAttempt(on: now)
+        DistractionLog.recordAttempt(on: now.addingTimeInterval(5))
+
+        let stats = analytics.weeklyStats()
+        #expect(stats.reduce(0) { $0 + $1.attempts } == 2)
+        // weeklyStats() is oldest-first, so today is the last entry — which is
+        // what AnalyticsView reads for "today".
+        #expect(stats.last?.attempts == 2)
+    }
+}
