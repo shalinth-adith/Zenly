@@ -2,11 +2,14 @@
 //  SessionSummaryView.swift
 //  Zenly
 //
-//  Celebration screen shown when a focus session finishes. Confetti + haptic
-//  (fired by the controller) reward completion; offers a break or returns home.
+//  What a finished session lands on — Quiet spec screens 04 ("Complete") and
+//  04b ("Ended early").
 //
-//  Redesign: a frosted glass celebration card with the complete-state Focus Orb
-//  on the session aurora (Claude Design spec, Zenly.dc.html). Logic unchanged.
+//  These are two different screens, not one screen with a different adjective.
+//  A completed session gets the checkmark, the total, and the streak. A session
+//  ended early gets a ring showing how far it actually got, a sentence that
+//  refuses to treat it as a failure, and an offer of something shorter — the
+//  spec is explicit that "nothing about today is broken".
 //
 
 import SwiftUI
@@ -14,19 +17,21 @@ import SwiftUI
 struct SessionSummaryView: View {
     @Environment(FocusSessionController.self) private var session
     @Environment(AchievementService.self) private var achievements
+    @Environment(AnalyticsService.self) private var analytics
 
     @State private var newBadges: [BadgeDefinition] = []
     @State private var rating = 0
-    @State private var note = ""
 
     var body: some View {
         ZStack {
-            ZenlyBackground(variant: .session)
+            ZenlyBackground()
             if let summary = session.summary {
                 if summary.wasCompleted {
                     ConfettiView().ignoresSafeArea()
+                    completed(summary)
+                } else {
+                    endedEarly(summary)
                 }
-                content(summary)
             }
         }
         .onAppear {
@@ -36,146 +41,239 @@ struct SessionSummaryView: View {
         }
     }
 
-    private func content(_ summary: SessionSummary) -> some View {
-        ScrollView {
-            VStack(spacing: ZTheme.Spacing.lg) {
-                celebrationCard(summary)
-
-                VStack(spacing: 12) {
-                    if session.canTakeBreak {
-                        Button {
-                            session.saveReview(rating: rating, note: note)
-                            session.startBreak()
-                        } label: {
-                            Label("Take a break", systemImage: "cup.and.saucer.fill")
-                        }
-                        .buttonStyle(.zenlyPrimary(tint: ZTheme.tone(forHex: summary.accentHex)))
-
-                        Button("Done") {
-                            session.saveReview(rating: rating, note: note)
-                            session.dismissSummary()
-                        }
-                        .buttonStyle(.zenlySecondary)
-                    } else {
-                        Button("Done") {
-                            session.saveReview(rating: rating, note: note)
-                            session.dismissSummary()
-                        }
-                        .buttonStyle(.zenlyPrimary(tint: ZTheme.tone(forHex: summary.accentHex)))
-                    }
-                }
-            }
-            .padding(.horizontal, ZTheme.Spacing.xl)
-            .padding(.vertical, 40)
-            .frame(maxWidth: .infinity)
-        }
-        .scrollIndicators(.hidden)
+    private func tone(_ summary: SessionSummary) -> Color {
+        ZTheme.tone(forHex: summary.accentHex)
     }
 
-    private func celebrationCard(_ summary: SessionSummary) -> some View {
-        VStack(spacing: ZTheme.Spacing.md) {
-            if summary.wasCompleted {
-                FocusOrb.completeMark(diameter: 128)
-            } else {
-                FocusOrb(state: .idle, diameter: 128) {
-                    Image(systemName: "flag.checkered")
-                        .font(.system(size: 38, weight: .medium))
-                        .foregroundStyle(ZTheme.Palette.text(0.7))
-                }
-            }
+    // MARK: - 04 · Complete
 
-            VStack(spacing: 4) {
-                Text(summary.wasCompleted ? "Nice work!" : "Session ended")
-                    .font(ZTheme.Font.display(30, weight: .bold))
+    private func completed(_ summary: SessionSummary) -> some View {
+        VStack(spacing: 0) {
+            Spacer(minLength: 0)
+
+            ZStack {
+                Circle()
+                    .fill(ZTheme.orbHalo(tone: tone(summary), diameter: 108))
+                    .frame(width: 108, height: 108)
+                Image(systemName: "checkmark")
+                    .font(.system(size: 34, weight: .medium))
+                    .foregroundStyle(tone(summary))
+            }
+            .padding(.bottom, 30)
+
+            Text("You focused for")
+                .font(ZTheme.Font.body(14))
+                .foregroundStyle(ZTheme.Palette.text(0.55))
+
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text("\(summary.completedMinutes)")
+                    .font(ZTheme.Font.numeral(64, weight: .regular))
                     .foregroundStyle(ZTheme.Palette.textPrimary)
-                Text(summary.wasCompleted ? "You stayed focused for" : "You focused for")
-                    .font(ZTheme.Font.body(15))
-                    .foregroundStyle(ZTheme.Palette.text(0.6))
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text("\(summary.completedMinutes)")
-                        .font(ZTheme.Font.numeral(42, weight: .bold))
-                        .foregroundStyle(ZTheme.Palette.textPrimary)
-                    Text(summary.wasCompleted ? "min" : "of \(summary.plannedMinutes) min")
-                        .font(ZTheme.Font.numeral(20, weight: .semibold))
-                        .foregroundStyle(ZTheme.Palette.text(0.6))
-                }
+                Text("min")
+                    .font(ZTheme.Font.body(22))
+                    .foregroundStyle(ZTheme.Palette.text(0.55))
             }
+            .padding(.top, 4)
 
-            if summary.streak > 0 {
-                Label("\(summary.streak)-day streak", systemImage: "flame.fill")
-                    .font(ZTheme.Font.display(14, weight: .semibold))
-                    .foregroundStyle(ZTheme.Palette.streak)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(ZTheme.Palette.streak.opacity(0.14), in: Capsule())
-            }
+            Text("A calm, unbroken session.")
+                .font(ZTheme.Font.display(17, weight: .semibold))
+                .foregroundStyle(ZTheme.Palette.textPrimary)
+                .padding(.top, 20)
 
-            Divider().overlay(ZTheme.Palette.glassStroke)
+            Text(weekLine(summary))
+                .font(ZTheme.Font.body(14))
+                .foregroundStyle(ZTheme.Palette.text(0.55))
+                .multilineTextAlignment(.center)
+                .lineSpacing(2)
+                .frame(maxWidth: 260)
+                .padding(.top, 6)
 
-            reviewSection
+            ratingDots(tone: tone(summary))
+                .padding(.top, 30)
+
+            Text("How did it feel?")
+                .font(ZTheme.Font.body(12))
+                .foregroundStyle(ZTheme.Palette.text(0.30))
+                .padding(.top, 12)
 
             ForEach(newBadges) { badge in
-                badgeRow(badge)
+                badgeLine(badge, tone: tone(summary))
+                    .padding(.top, 16)
+            }
+
+            Spacer(minLength: 0)
+
+            VStack(spacing: 6) {
+                Button("Done") {
+                    session.saveReview(rating: rating, note: "")
+                    session.dismissSummary()
+                }
+                .buttonStyle(QuietCTAStyle(tone: tone(summary), isReady: true))
+                .accessibilityIdentifier("summary-done")
+
+                Button(session.canTakeBreak ? "Take a break" : "Start another") {
+                    session.saveReview(rating: rating, note: "")
+                    if session.canTakeBreak {
+                        session.startBreak()
+                    } else {
+                        session.repeatLastSession()
+                    }
+                }
+                .font(ZTheme.Font.body(15))
+                .foregroundStyle(ZTheme.Palette.text(0.55))
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .buttonStyle(.plain)
             }
         }
-        .frame(maxWidth: .infinity)
-        .glassCard(radius: ZTheme.Radius.sheet, padding: 26)
+        .padding(.horizontal, 34)
+        .padding(.top, 60)
+        .padding(.bottom, 24)
     }
 
-    private func badgeRow(_ badge: BadgeDefinition) -> some View {
-        HStack(spacing: 11) {
+    // MARK: - 04b · Ended early
+
+    private func endedEarly(_ summary: SessionSummary) -> some View {
+        VStack(spacing: 0) {
+            Spacer(minLength: 0)
+
+            // A ring showing how far it actually got — the point of the screen
+            // is that the part you did is real, so it is drawn rather than
+            // described.
             ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(LinearGradient(colors: [ZTheme.Palette.violet, ZTheme.Palette.brand],
-                                         startPoint: .topLeading, endPoint: .bottomTrailing))
-                    .frame(width: 42, height: 42)
-                Image(systemName: badge.systemImage)
-                    .foregroundStyle(.white)
-            }
-            VStack(alignment: .leading, spacing: 2) {
-                Text("BADGE UNLOCKED")
-                    .font(ZTheme.Font.body(11, weight: .semibold))
-                    .tracking(1.5)
-                    .foregroundStyle(ZTheme.Palette.lavenderSoft)
-                Text(badge.title)
-                    .font(ZTheme.Font.display(16, weight: .bold))
+                Circle()
+                    .stroke(ZTheme.Palette.glassStroke, lineWidth: 1.5)
+                Circle()
+                    .trim(from: 0, to: fractionKept(summary))
+                    .stroke(tone(summary),
+                            style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                Text(summary.completedMinutes < 1 ? "<1" : "\(summary.completedMinutes)")
+                    .font(ZTheme.Font.numeral(26))
                     .foregroundStyle(ZTheme.Palette.textPrimary)
             }
-            Spacer()
+            .frame(width: 130, height: 130)
+            .padding(.bottom, 34)
+
+            Text(headline(summary))
+                .font(ZTheme.Font.display(22, weight: .semibold))
+                .foregroundStyle(ZTheme.Palette.textPrimary)
+                .multilineTextAlignment(.center)
+
+            Text("Some days that\u{2019}s what there is. \(keptPhrase(summary)) still count — nothing about today is broken.")
+                .font(ZTheme.Font.body(14))
+                .foregroundStyle(ZTheme.Palette.text(0.55))
+                .multilineTextAlignment(.center)
+                .lineSpacing(3)
+                .frame(maxWidth: 264)
+                .padding(.top, 10)
+
+            Text(streakLine(summary))
+                .font(ZTheme.Font.body(12))
+                .foregroundStyle(ZTheme.Palette.text(0.30))
+                .multilineTextAlignment(.center)
+                .padding(.top, 18)
+
+            Spacer(minLength: 0)
+
+            VStack(spacing: 6) {
+                Button("Try a shorter one — \(shorterMinutes(summary)) min") {
+                    session.dismissSummary()
+                    session.repeatLastSession(minutes: shorterMinutes(summary))
+                }
+                .buttonStyle(QuietCTAStyle(tone: tone(summary), isReady: true))
+                .accessibilityIdentifier("summary-try-shorter")
+
+                Button("That\u{2019}s all for now") { session.dismissSummary() }
+                    .font(ZTheme.Font.body(15))
+                    .foregroundStyle(ZTheme.Palette.text(0.55))
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .buttonStyle(.plain)
+            }
         }
-        .padding(13)
-        .background(ZTheme.Palette.violet.opacity(0.14),
-                    in: RoundedRectangle(cornerRadius: ZTheme.Radius.button, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: ZTheme.Radius.button, style: .continuous)
-            .strokeBorder(ZTheme.Palette.violet.opacity(0.4), lineWidth: 1))
+        .padding(.horizontal, 34)
+        .padding(.top, 60)
+        .padding(.bottom, 24)
     }
 
-    private var reviewSection: some View {
-        VStack(spacing: ZTheme.Spacing.sm) {
-            Text("How focused were you?")
-                .font(ZTheme.Font.body(14, weight: .semibold))
-                .foregroundStyle(ZTheme.Palette.text(0.7))
-            HStack(spacing: 12) {
-                ForEach(1...5, id: \.self) { i in
-                    Button { Haptics.light(); rating = i } label: {
-                        Image(systemName: i <= rating ? "star.fill" : "star")
-                            .font(.title2)
-                            .foregroundStyle(i <= rating ? ZTheme.Palette.streakWarm : ZTheme.Palette.text(0.35))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(i == 1 ? "1 star" : "\(i) stars")
-                    .accessibilityAddTraits(i == rating ? [.isButton, .isSelected] : .isButton)
+    // MARK: - Pieces
+
+    private func ratingDots(tone: Color) -> some View {
+        HStack(spacing: 16) {
+            ForEach(1...5, id: \.self) { value in
+                Button { Haptics.light(); rating = value } label: {
+                    Circle()
+                        .fill(value <= rating ? tone : .clear)
+                        .frame(width: 12, height: 12)
+                        .overlay(Circle().strokeBorder(ZTheme.Palette.glassStroke, lineWidth: 1))
+                        .padding(6)
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel(value == 1 ? "1 out of 5" : "\(value) out of 5")
+                .accessibilityAddTraits(value == rating ? [.isButton, .isSelected] : .isButton)
             }
-            TextField("What did you work on? (optional)", text: $note, axis: .vertical)
-                .font(ZTheme.Font.body(14))
-                .padding(10)
-                .background(ZTheme.Palette.glassFill, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(ZTheme.Palette.glassStroke, lineWidth: 1))
-                .foregroundStyle(ZTheme.Palette.textPrimary)
-                .tint(ZTheme.Palette.brand)
-                .lineLimit(1...3)
+        }
+        .animation(ZTheme.Motion.smooth, value: rating)
+    }
+
+    private func badgeLine(_ badge: BadgeDefinition, tone: Color) -> some View {
+        HStack(spacing: 9) {
+            Image(systemName: badge.systemImage)
+                .font(.system(size: 13))
+                .foregroundStyle(tone)
+            Text(badge.title)
+                .font(ZTheme.Font.body(13))
+                .foregroundStyle(ZTheme.Palette.text(0.55))
         }
     }
+
+    // MARK: - Copy
+
+    /// "That's your fourth this week — the streak holds."
+    private func weekLine(_ summary: SessionSummary) -> String {
+        let count = analytics.weekSessionCount()
+        let ordinal = Self.ordinals[min(count, Self.ordinals.count - 1)]
+        let streak = summary.streak > 1 ? " — the streak holds." : "."
+        return count > 0 ? "That\u{2019}s your \(ordinal) this week\(streak)"
+                         : "The first of the week\(streak)"
+    }
+
+    private func headline(_ summary: SessionSummary) -> String {
+        let minutes = summary.completedMinutes
+        guard minutes >= 1 else { return "You made a start." }
+        let spelled = Self.spelled[min(minutes, Self.spelled.count - 1)]
+        return minutes <= 10 ? "You gave it \(spelled) minute\(minutes == 1 ? "" : "s")."
+                             : "You gave it \(minutes) minutes."
+    }
+
+    private func keptPhrase(_ summary: SessionSummary) -> String {
+        let minutes = summary.completedMinutes
+        guard minutes >= 1 else { return "Starting at all does" }
+        let spelled = Self.spelled[min(minutes, Self.spelled.count - 1)]
+        return minutes <= 10 ? "The \(spelled) minute\(minutes == 1 ? "" : "s")"
+                             : "The \(minutes) minutes"
+    }
+
+    /// "Your streak is safe · kept 4 of 5 this week"
+    private func streakLine(_ summary: SessionSummary) -> String {
+        let kept = analytics.weekSessionCount()
+        let safe = summary.streak > 0 ? "Your streak is safe" : "Nothing lost"
+        return kept > 0 ? "\(safe) · kept \(kept) this week" : safe
+    }
+
+    /// Something genuinely easier than what was just abandoned: round the time
+    /// actually managed up to the nearest 5, and never suggest longer.
+    private func shorterMinutes(_ summary: SessionSummary) -> Int {
+        let managed = max(5, ((summary.completedMinutes + 4) / 5) * 5)
+        return min(managed, max(5, summary.plannedMinutes - 5))
+    }
+
+    private func fractionKept(_ summary: SessionSummary) -> Double {
+        guard summary.plannedMinutes > 0 else { return 0 }
+        return min(1, max(0.02, Double(summary.completedMinutes) / Double(summary.plannedMinutes)))
+    }
+
+    private static let ordinals = ["none", "first", "second", "third", "fourth", "fifth",
+                                   "sixth", "seventh", "eighth", "ninth", "tenth", "latest"]
+    private static let spelled = ["zero", "one", "two", "three", "four", "five",
+                                  "six", "seven", "eight", "nine", "ten"]
 }

@@ -138,6 +138,10 @@ final class FocusSessionController {
                            startsAt: focusStartedAt,
                            endsAt: focusStartedAt.addingTimeInterval(TimeInterval(focusMinutes * 60)),
                            phase: .focus)
+        // The block screen renders in another process and reads this to say how
+        // much quiet is left.
+        ActiveSessionInfo.set(profileName: profileName,
+                              endsAt: focusStartedAt.addingTimeInterval(TimeInterval(focusMinutes * 60)))
 
         // Persist so the session is recorded even if iOS kills the app while
         // it's backgrounded during the session.
@@ -206,6 +210,8 @@ final class FocusSessionController {
                                startsAt: phaseStart,
                                endsAt: phaseStart.addingTimeInterval(TimeInterval(totalSeconds)),
                                phase: .focus)
+            ActiveSessionInfo.set(profileName: profileName,
+                                  endsAt: phaseStart.addingTimeInterval(TimeInterval(totalSeconds)))
             startTicker()
         }
     }
@@ -231,6 +237,9 @@ final class FocusSessionController {
 
         liveActivity.hold(profileName: profileName, accentHex: accentHex,
                           remaining: TimeInterval(remainingSeconds))
+        // A held session has no shields up, so nothing should be quoting a
+        // countdown on a block screen that can no longer appear.
+        ActiveSessionInfo.clear()
         persistSnapshot()
         Haptics.light()
     }
@@ -263,6 +272,8 @@ final class FocusSessionController {
                            startsAt: phaseStart,
                            endsAt: phaseStart.addingTimeInterval(TimeInterval(totalSeconds)),
                            phase: .focus)
+        ActiveSessionInfo.set(profileName: profileName,
+                              endsAt: phaseStart.addingTimeInterval(TimeInterval(totalSeconds)))
         persistSnapshot()
         startTicker()
         Haptics.light()
@@ -395,14 +406,15 @@ final class FocusSessionController {
         phase = .summary
     }
 
-    /// "Again" from the finished Live Activity — run the same profile's session
-    /// with the same enforcement.
-    func repeatLastSession() {
+    /// "Again" from the finished Live Activity, and "Try a shorter one" from the
+    /// ended-early screen — run the same profile with the same enforcement.
+    /// `minutes` overrides the length; nil keeps the profile's own.
+    func repeatLastSession(minutes: Int? = nil) {
         guard phase != .focus, plannedFocusMinutes > 0 else { return }
         summary = nil
         startFocus(profileName: profileName,
                    accentHex: accentHex,
-                   focusMinutes: plannedFocusMinutes,
+                   focusMinutes: minutes ?? plannedFocusMinutes,
                    breakMinutes: breakMinutes,
                    isStrict: isStrict,
                    blockAll: currentBlockAll,
@@ -427,6 +439,7 @@ final class FocusSessionController {
         blocking.reconcile()
         notifications.cancelSession()
         liveActivity.end()
+        ActiveSessionInfo.clear()
         FocusSessionStore.clear()
     }
 }

@@ -20,8 +20,13 @@ struct SessionView: View {
 
     private var tint: Color { ZTheme.tone(forHex: session.accentHex) }
     private var isBreak: Bool { session.phase == .breakTime }
-    private var ringTint: Color { isBreak ? ZTheme.Palette.teal : ZTheme.Palette.brandGlow }
-    private var percent: Int { Int((max(0, min(1, session.progress)) * 100).rounded()) }
+
+    /// "Focusing · Work", or the state the session is actually in.
+    private var eyebrow: String {
+        if isBreak { return "BREAK" }
+        if session.isPaused { return "HELD · \(session.profileName.uppercased())" }
+        return "FOCUSING · \(session.profileName.uppercased())"
+    }
 
     var body: some View {
         ZStack {
@@ -38,27 +43,25 @@ struct SessionView: View {
 
                 Spacer()
 
-                VStack(spacing: 30) {
-                    VStack(spacing: 5) {
-                        Text(isBreak ? "BREAK" : "FOCUSING")
-                            .font(ZTheme.Font.body(13, weight: .bold))
-                            .tracking(3)
-                            .foregroundStyle(ringTint)
-                        Text(isBreak ? "Recharge" : session.profileName)
-                            .font(ZTheme.Font.display(22, weight: .semibold))
-                            .foregroundStyle(ZTheme.Palette.textPrimary)
-                    }
+                VStack(spacing: 0) {
+                    // "Focusing · Work" — one quiet tracked line, not a heading
+                    // stack. The screen's subject is the number, not the label.
+                    Text(eyebrow)
+                        .font(ZTheme.Font.body(11))
+                        .tracking(3.08)                    // .28em at 11pt
+                        .foregroundStyle(ZTheme.Palette.text(0.55))
+                        .padding(.bottom, 44)
 
                     FocusOrb(state: .active(progress: session.progress),
-                             diameter: 300, ringTint: ringTint, living: false) {
-                        VStack(spacing: 8) {
+                             diameter: 300, ringTint: tint, living: false) {
+                        VStack(spacing: 10) {
                             Text(session.timeString)
                                 .font(ZTheme.Font.numeral(62, weight: .regular))
                                 .monospacedDigit()
                                 .foregroundStyle(ZTheme.Palette.textPrimary)
-                            Text(isBreak ? "until focus" : "\(percent)% complete")
-                                .font(ZTheme.Font.body(12, weight: .regular))
-                                .tracking(1.5)
+                            Text(session.isPaused ? "HELD" : "REMAINING")
+                                .font(ZTheme.Font.body(11))
+                                .tracking(2.64)            // .24em at 11pt
                                 .foregroundStyle(ZTheme.Palette.text(0.55))
                         }
                     }
@@ -67,32 +70,39 @@ struct SessionView: View {
                     .accessibilityValue(session.timeString)
 
                     Text(sessionMessage)
-                        .font(ZTheme.Font.body(17, weight: .medium))
-                        .foregroundStyle(ZTheme.Palette.text(0.6))
+                        .font(ZTheme.Font.body(15))
+                        .foregroundStyle(ZTheme.Palette.text(0.55))
                         .multilineTextAlignment(.center)
+                        .padding(.top, 44)
                 }
 
                 Spacer()
 
-                HStack(spacing: 12) {
-                    // Holding a session is only offered when it isn't strict —
+                VStack(spacing: 10) {
+                    // Pausing is only offered when the session isn't strict —
                     // strict exists so a session can't be wriggled out of, and
                     // an open-ended pause would be exactly that.
                     if !isBreak && !session.strictLockActive {
-                        Button(session.isPaused ? "Resume" : "Pause") {
+                        QuietCircleButton(systemImage: session.isPaused ? "play.fill" : "pause.fill",
+                                          label: session.isPaused ? "Resume session" : "Pause session") {
                             session.isPaused ? session.resume() : session.pause()
                         }
-                        .buttonStyle(.zenlySecondary)
-                        .fixedSize()
                         .accessibilityIdentifier("session-pause")
                     }
 
-                    Button(role: .destructive, action: endTapped) {
-                        Text(isBreak ? "End break" : "End early")
-                            .padding(.horizontal, 12)
+                    if session.strictLockActive {
+                        // Strict keeps its own gate: a deliberate confirmation
+                        // rather than a hold anyone could complete distractedly.
+                        Button("End early", action: endTapped)
+                            .font(ZTheme.Font.body(14))
+                            .foregroundStyle(ZTheme.Palette.text(0.30))
+                            .buttonStyle(.plain)
+                            .padding(10)
+                    } else {
+                        QuietHoldToEnd(tone: tint,
+                                       idleLabel: isBreak ? "Hold to end the break" : "Hold to end early",
+                                       action: endTapped)
                     }
-                    .buttonStyle(.zenlySecondary)
-                    .fixedSize()
                 }
                 .padding(.bottom, 40)
             }
@@ -110,7 +120,7 @@ struct SessionView: View {
 
     private var sessionMessage: String {
         if session.isPaused { return "Held for you. Nothing is blocked while you\u{2019}re away." }
-        return isBreak ? "Take a breath. Focus resumes soon." : "Stay with it. You\u{2019}re doing great."
+        return isBreak ? "Take a breath." : "Stay with it."
     }
 
     private func endTapped() {

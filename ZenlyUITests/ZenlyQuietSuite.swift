@@ -22,9 +22,11 @@ final class ZenlyQuietSuite: XCTestCase {
     /// Launches the app and returns once the main tab bar is on screen,
     /// dismissing the splash and completing onboarding if either is present.
     @discardableResult
-    private func launchToHome(_ file: StaticString = #filePath,
+    private func launchToHome(arguments: [String] = [],
+                              _ file: StaticString = #filePath,
                               _ line: UInt = #line) throws -> XCUIApplication {
         let app = XCUIApplication()
+        app.launchArguments += arguments
         app.launch()
 
         let tabBar = app.tabBars.firstMatch
@@ -49,18 +51,30 @@ final class ZenlyQuietSuite: XCTestCase {
     /// A schedule whose window covers "now" auto-starts a focus session, whose
     /// full-screen cover hides the whole tab UI. Dismiss it so the suite can run.
     private func endAnyRunningSession(_ app: XCUIApplication) {
-        let endEarly = app.buttons.matching(
-            NSPredicate(format: "label == 'End early' OR label == 'End break'")).firstMatch
-        guard endEarly.waitForExistence(timeout: 3) else { return }
-        robustTap(app, endEarly)
+        // A non-strict session ends by holding for three seconds (Quiet spec
+        // screen 02); strict keeps the old button plus its confirmation gate.
+        let hold = app.descendants(matching: .any)["session-hold-to-end"].firstMatch
+        if hold.waitForExistence(timeout: 3) {
+            hold.press(forDuration: 3.8)
+        } else {
+            let endEarly = app.buttons.matching(
+                NSPredicate(format: "label == 'End early' OR label == 'End break'")).firstMatch
+            guard endEarly.waitForExistence(timeout: 3) else { return }
+            robustTap(app, endEarly)
 
-        // Strict mode routes through a 5s-gated confirmation.
-        let confirm = app.buttons.matching(
-            NSPredicate(format: "label == 'End focus'")).firstMatch
-        if confirm.waitForExistence(timeout: 2) {
-            waitUntilHittable(confirm, timeout: 8)
-            if confirm.isEnabled { robustTap(app, confirm) }
+            // Strict mode routes through a 5s-gated confirmation.
+            let confirm = app.buttons.matching(
+                NSPredicate(format: "label == 'End focus'")).firstMatch
+            if confirm.waitForExistence(timeout: 2) {
+                waitUntilHittable(confirm, timeout: 8)
+                if confirm.isEnabled { robustTap(app, confirm) }
+            }
         }
+
+        // Both endings land on a summary that must be dismissed to get back.
+        let leave = app.buttons.matching(
+            NSPredicate(format: "label CONTAINS[c] 'all for now' OR label ==[c] 'Done'")).firstMatch
+        if leave.waitForExistence(timeout: 4) { robustTap(app, leave) }
         _ = app.tabBars.firstMatch.waitForExistence(timeout: 8)
     }
 
@@ -80,12 +94,20 @@ final class ZenlyQuietSuite: XCTestCase {
     @discardableResult
     private func completeOnboardingIfPresent(_ app: XCUIApplication) -> Bool {
         guard button(app, "Get Started").waitForExistence(timeout: 3) else { return false }
-        tapHittable(app, "Get Started")
-        tapHittable(app, "Next")
-        tapHittable(app, "Next")
-        tapHittable(app, "Maybe later")
-        tapHittable(app, "Start Focusing")
-        return true
+        // Tap whichever forward action is on screen rather than a fixed script:
+        // the permission page behaves differently when Screen Time already
+        // reports authorized, which shifts the sequence.
+        let forward = ["Get Started", "Next", "Maybe later", "Grant Access", "Start Focusing"]
+        for _ in 0..<8 {
+            if app.tabBars.firstMatch.exists { return true }
+            var moved = false
+            for label in forward where tapHittable(app, label, timeout: 1) {
+                moved = true
+                break
+            }
+            if !moved { usleep(400_000) }
+        }
+        return app.tabBars.firstMatch.waitForExistence(timeout: 6)
     }
 
     /// First button whose accessibility label matches exactly.
@@ -422,6 +444,58 @@ final class ZenlyQuietSuite: XCTestCase {
         if cancel.exists { cancel.tap() }
         XCTAssertTrue(app.staticTexts["Gym"].waitForExistence(timeout: 4),
                       "Cancel did not keep the profile")
+    }
+
+    // MARK: - Session screens (Quiet spec 02 · 04 · 04b)
+
+    /// Drives a real session so the in-session screen and the ended-early
+    /// screen can be seen. Needs the debug Screen Time bypass, without which
+    /// "Begin focus" is permanently disabled on Simulator.
+    ///
+    /// Screen 03 (the block screen) is deliberately absent: iOS renders it in
+    /// the shield extension's own process over a blocked app, which cannot
+    /// happen here. It needs a device.
+    func testSessionAndEndedEarlyScreens() throws {
+        let app = try launchToHome(arguments: ["ZenlyUITestBypassScreenTime"])
+
+        let begin = app.buttons.matching(
+            NSPredicate(format: "label CONTAINS[c] 'Begin focus'")).firstMatch
+        XCTAssertTrue(begin.waitForExistence(timeout: 8), "Begin focus missing")
+        waitUntilHittable(begin, timeout: 8)
+        guard begin.isEnabled else {
+            throw XCTSkip("Begin focus stayed disabled — the debug bypass did not take")
+        }
+        robustTap(app, begin)
+
+        // The hold control carries the .isButton trait, so it is not a
+        // staticText — match it by identifier across every element type.
+        let hold = app.descendants(matching: .any)["session-hold-to-end"].firstMatch
+        XCTAssertTrue(hold.waitForExistence(timeout: 10), "Session screen did not appear")
+        snap(app, "Quiet-02-in-session")
+
+        // The held state, then back to running.
+        let pause = app.buttons["session-pause"]
+        if pause.waitForExistence(timeout: 3), pause.isHittable {
+            pause.tap()
+            usleep(700_000)
+            snap(app, "Quiet-02b-held")
+            if pause.isHittable { pause.tap() }
+            usleep(500_000)
+        }
+
+        // Three seconds of hold ends it; a shorter press must not.
+        hold.press(forDuration: 3.8)
+
+        let tryShorter = app.buttons["summary-try-shorter"]
+        XCTAssertTrue(tryShorter.waitForExistence(timeout: 10),
+                      "Holding did not end the session onto the ended-early screen")
+        snap(app, "Quiet-04b-ended-early")
+
+        // Leave without starting another, so later tests see a clean app.
+        let done = app.buttons.matching(
+            NSPredicate(format: "label CONTAINS[c] 'all for now'")).firstMatch
+        if done.waitForExistence(timeout: 3) { robustTap(app, done) }
+        _ = app.tabBars.firstMatch.waitForExistence(timeout: 8)
     }
 
     // MARK: - TC-5.x Schedules

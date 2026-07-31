@@ -489,6 +489,106 @@ struct QuietFlowLayout: Layout {
     }
 }
 
+// MARK: - Hold to end
+
+/// The comp's "Hold to end early" (screen 02): a quiet label with a hairline
+/// under it that fills with the tone while you hold, and fires at three seconds.
+///
+/// Why a hold and not a tap: ending a session is the one destructive thing on
+/// this screen, and it sits under your thumb for the whole session. A hold
+/// cannot be done by accident, and — unlike a confirmation dialog — it doesn't
+/// interrupt the screen to ask a question.
+struct QuietHoldToEnd: View {
+    var tone: Color = ZTheme.Palette.tone
+    var idleLabel: String = "Hold to end early"
+    var holdingLabel: String = "Keep holding…"
+    /// Seconds of continuous hold required.
+    var duration: TimeInterval = 3
+    let action: () -> Void
+
+    @State private var progress: Double = 0
+    @State private var timer: Timer?
+
+    private var label: String { progress > 0 ? holdingLabel : idleLabel }
+
+    var body: some View {
+        Text(label)
+            .font(ZTheme.Font.body(14))
+            .foregroundStyle(ZTheme.Palette.text(0.30))
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .overlay(alignment: .bottom) {
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        Rectangle().fill(ZTheme.Palette.glassStroke)
+                        Rectangle()
+                            .fill(tone)
+                            .frame(width: geo.size.width * progress)
+                    }
+                }
+                .frame(height: 1)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 6)
+            }
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in start() }
+                    .onEnded { _ in cancel() }
+            )
+            .onDisappear(perform: cancel)
+            .accessibilityLabel(idleLabel)
+            .accessibilityHint("Press and hold for \(Int(duration)) seconds")
+            .accessibilityAddTraits(.isButton)
+            // VoiceOver cannot express a hold, so a direct activation ends it.
+            .accessibilityAction { action() }
+            .accessibilityIdentifier("session-hold-to-end")
+    }
+
+    private func start() {
+        guard timer == nil else { return }
+        Haptics.light()
+        let step = 0.05
+        timer = Timer.scheduledTimer(withTimeInterval: step, repeats: true) { t in
+            progress += step / duration
+            if progress >= 1 {
+                t.invalidate()
+                timer = nil
+                progress = 0
+                Haptics.success()
+                action()
+            }
+        }
+    }
+
+    private func cancel() {
+        timer?.invalidate()
+        timer = nil
+        withAnimation(.easeOut(duration: 0.2)) { progress = 0 }
+    }
+}
+
+/// A 64pt hairline circle holding one glyph — the comp's pause control.
+struct QuietCircleButton: View {
+    let systemImage: String
+    var label: String
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: { Haptics.light(); action() }) {
+            Image(systemName: systemImage)
+                .font(.system(size: 20, weight: .medium))
+                .foregroundStyle(ZTheme.Palette.textPrimary)
+                .frame(width: 64, height: 64)
+                .background(
+                    Circle().strokeBorder(ZTheme.Palette.glassStroke, lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+    }
+}
+
 // MARK: - Blocking sheet (shared by both editors)
 
 /// The "Couldn't save" sheet from comp 12 — a bottom card over a dimmed form.
