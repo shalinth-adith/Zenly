@@ -25,18 +25,22 @@ enum ShieldMessage {
 
     /// The line under it: what is paused, and how long the quiet lasts.
     ///
-    /// `subject` is the app name or domain iOS gives us. A custom message from
-    /// Settings replaces the reassurance but never the remaining-time line —
-    /// that is the part the user is actually waiting for.
+    /// `subject` is the app name or domain iOS gives us. Naming it is the whole
+    /// point of the comp's line — "Instagram will be exactly where you left it"
+    /// answers the actual worry — so it is always shown. A custom message from
+    /// Settings is added underneath rather than swapped in for it; neither one
+    /// ever displaces the remaining-time line, which is what the person
+    /// standing there is really waiting to read.
     static func subtitle(subject: String, custom: String) -> String {
-        let trimmed = custom.trimmingCharacters(in: .whitespacesAndNewlines)
-        let lead = trimmed.isEmpty
-            ? "\(subject) will be exactly where you left it — unchanged, unhurried."
-            : trimmed
+        var lines = ["\(subject) will be exactly where you left it — unchanged, unhurried."]
 
-        guard let minutes = ActiveSessionInfo.remainingMinutes else { return lead }
-        let quiet = minutes == 1 ? "1 minute of quiet remains."
-                                 : "\(minutes) minutes of quiet remain."
-        return "\(lead)\n\n\(quiet)"
+        let trimmed = custom.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty { lines.append(trimmed) }
+
+        if let minutes = ActiveSessionInfo.remainingMinutes {
+            lines.append(minutes == 1 ? "1 minute of quiet remains."
+                                      : "\(minutes) minutes of quiet remain.")
+        }
+        return lines.joined(separator: "\n\n")
     }
 }

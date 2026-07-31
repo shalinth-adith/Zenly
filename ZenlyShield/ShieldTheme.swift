@@ -50,31 +50,56 @@ enum ShieldTheme {
         }
     }
 
-    /// A small tone dot — the comp's marker on the thread of light, which is the
-    /// only part of that drawing a single fixed-size icon can carry.
-    private static var icon: UIImage? {
-        let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .regular)
-        return UIImage(systemName: "circle.fill", withConfiguration: config)?
-            .withTintColor(tone, renderingMode: .alwaysOriginal)
-    }
+    /// No icon.
+    ///
+    /// The comp has no central figure — its only mark is a small dot on the
+    /// timeline, at the scale of a bullet. `ShieldConfiguration` scales whatever
+    /// image it is handed into a large fixed slot near the top, so supplying
+    /// that dot produced a big flat disc that reads as a loading state. Nothing
+    /// is closer to the comp than nothing, and it gives the sentence the room.
+    private static let icon: UIImage? = nil
 
     /// The block screen, personalised with what is being paused (`subject` = app
     /// name or website domain, when iOS provides one).
-    static func configuration(subject: String?) -> ShieldConfiguration {
+    ///
+    /// `offersSnooze` adds the comp's second button. Only apps get it: the
+    /// five-minute door is per-app, and there is no sane way to open a whole
+    /// category or the web for five minutes without unblocking far more than
+    /// the one thing that was asked for.
+    static func configuration(subject: String?, offersSnooze: Bool = false) -> ShieldConfiguration {
         let name = subject ?? "It"
         let custom = AppGroup.defaults.string(forKey: ShieldMessage.storageKey) ?? ""
+
+        let title = ShieldConfiguration.Label(text: ShieldMessage.title(), color: primaryText)
+        let subtitle = ShieldConfiguration.Label(
+            text: ShieldMessage.subtitle(subject: name, custom: custom),
+            color: secondaryText
+        )
+        let primary = ShieldConfiguration.Label(text: "Back to focus", color: onTone)
+
+        guard offersSnooze else {
+            return ShieldConfiguration(
+                backgroundBlurStyle: .systemUltraThinMaterialDark,
+                backgroundColor: background,
+                icon: icon,
+                title: title,
+                subtitle: subtitle,
+                primaryButtonLabel: primary,
+                primaryButtonBackgroundColor: tone
+            )
+        }
 
         return ShieldConfiguration(
             backgroundBlurStyle: .systemUltraThinMaterialDark,
             backgroundColor: background,
             icon: icon,
-            title: ShieldConfiguration.Label(text: ShieldMessage.title(), color: primaryText),
-            subtitle: ShieldConfiguration.Label(
-                text: ShieldMessage.subtitle(subject: name, custom: custom),
-                color: secondaryText
-            ),
-            primaryButtonLabel: ShieldConfiguration.Label(text: "Back to focus", color: onTone),
-            primaryButtonBackgroundColor: tone
+            title: title,
+            subtitle: subtitle,
+            primaryButtonLabel: primary,
+            primaryButtonBackgroundColor: tone,
+            secondaryButtonLabel: ShieldConfiguration.Label(
+                text: "I need it for 5 minutes", color: tertiaryText
+            )
         )
     }
 }

@@ -13,13 +13,15 @@ import ManagedSettingsUI
 final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
     override func configuration(shielding application: Application) -> ShieldConfiguration {
         DistractionLog.recordAttempt()
-        return ShieldTheme.configuration(subject: application.localizedDisplayName)
+        return ShieldTheme.configuration(subject: application.localizedDisplayName,
+                                         offersSnooze: true)
     }
 
     override func configuration(shielding application: Application,
                                 in category: ActivityCategory) -> ShieldConfiguration {
         DistractionLog.recordAttempt()
-        return ShieldTheme.configuration(subject: application.localizedDisplayName)
+        return ShieldTheme.configuration(subject: application.localizedDisplayName,
+                                         offersSnooze: true)
     }
 
     override func configuration(shielding webDomain: WebDomain) -> ShieldConfiguration {

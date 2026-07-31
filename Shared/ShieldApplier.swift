@@ -40,6 +40,13 @@ enum ShieldApplier {
                       blockAll: Bool,
                       allowedWebDomains: [String],
                       to store: ManagedSettingsStore) {
+        // An app the user asked for five minutes with is exempted exactly like
+        // an allowed app. Folding it in here — rather than subtracting it from
+        // the block list — is what makes it work under "block everything" too,
+        // where the rule is a category-wide `.all(except:)` and removing a
+        // token from `blockApps` would achieve nothing.
+        let allowedApps = allowedApps.union(SnoozeStore.activeTokens())
+
         let webAllow = Set(allowedWebDomains.map { WebDomain(domain: $0) })
         let researchMode = !webAllow.isEmpty
 

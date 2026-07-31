@@ -156,6 +156,13 @@ targets:
       - path: ZenlyShieldAction
       - path: Shared/AppGroup.swift
       - path: Shared/DistractionLog.swift
+      # The five-minute door recomputes the shield in this process, so it needs
+      # the same reconcile stack the app and the monitor use.
+      - path: Shared/SnoozeStore.swift
+      - path: Shared/ShieldReconciler.swift
+      - path: Shared/ShieldApplier.swift
+      - path: Shared/ActivityShieldStore.swift
+      - path: Shared/SelectionCodec.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: me.adithyan.shalinth.Zenly.ZenlyShieldAction
