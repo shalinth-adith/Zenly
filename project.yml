@@ -207,6 +207,8 @@ targets:
       - path: Shared/Color+Hex.swift
       - path: Shared/StartFocusIntent.swift
       - path: Shared/FocusLaunchRequest.swift
+      - path: Shared/SessionControlIntents.swift
+      - path: Shared/SessionControlRequest.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: me.adithyan.shalinth.Zenly.ZenlyWidget

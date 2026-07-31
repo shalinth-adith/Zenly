@@ -27,6 +27,9 @@ final class FocusSessionController {
     private(set) var totalSeconds = 0
     private(set) var remainingSeconds = 0
     private(set) var summary: SessionSummary?
+    /// The session is held: the countdown has stopped and the shields are off,
+    /// but nothing has been recorded and the remaining time is kept.
+    private(set) var isPaused = false
 
     private var phaseStart = Date()
     private var focusStartedAt = Date()
@@ -35,6 +38,19 @@ final class FocusSessionController {
     private var breakMinutes = 0
     private var ticker: Task<Void, Never>?
     private var lastSession: FocusSession?
+    private var pausedSeconds: TimeInterval = 0
+    private var pauseStartedAt: Date?
+
+    // What this session is enforcing. Held so a pause can lift the shields and
+    // a resume can put back exactly the same ones.
+    private var currentBlock = FamilyActivitySelection()
+    private var currentAllow = FamilyActivitySelection()
+    private var currentBlockAll = true
+    private var currentAllowedWebDomains: [String] = []
+
+    /// The live controller, for App Intents fired from the Live Activity. Those
+    /// run in this process but have no view hierarchy to reach through.
+    static private(set) weak var current: FocusSessionController?
 
     private let blocking = BlockingService()
     private let schedule = ScheduleCenter.shared
@@ -44,6 +60,25 @@ final class FocusSessionController {
 
     init(history: SessionHistory? = nil) {
         self.history = history ?? SessionHistory()
+        Self.current = self
+        // Live Activity buttons run in this process but have no view hierarchy
+        // to reach through — they call in here instead.
+        SessionControlRequest.handler = { [weak self] action in
+            switch action {
+            case .resume: self?.resume()
+            case .again:  self?.repeatLastSession()
+            }
+        }
+    }
+
+    /// Apply a Live Activity button press that arrived before this process was
+    /// ready to take it. Called on activation.
+    func applyPendingControlRequest() {
+        guard let action = SessionControlRequest.consume() else { return }
+        switch action {
+        case .resume: resume()
+        case .again:  repeatLastSession()
+        }
     }
 
     // MARK: - Derived
@@ -83,6 +118,12 @@ final class FocusSessionController {
         self.breakMinutes = breakMinutes
         self.isStrict = isStrict
         self.focusStartedAt = Date()
+        self.currentBlock = block
+        self.currentAllow = allow
+        self.currentBlockAll = blockAll
+        self.currentAllowedWebDomains = allowedWebDomains
+        self.pausedSeconds = 0
+        self.isPaused = false
 
         beginPhase(.focus, minutes: focusMinutes)
 
@@ -100,13 +141,25 @@ final class FocusSessionController {
 
         // Persist so the session is recorded even if iOS kills the app while
         // it's backgrounded during the session.
+        persistSnapshot()
+    }
+
+    /// Write the current session state to the App Group. Called on every change
+    /// that a relaunch would otherwise lose — start, pause, resume.
+    private func persistSnapshot() {
         FocusSessionStore.save(PersistedFocusSession(
             startedAt: focusStartedAt,
-            focusMinutes: focusMinutes,
+            focusMinutes: plannedFocusMinutes,
             breakMinutes: breakMinutes,
             isStrict: isStrict,
             profileName: profileName,
-            accentHex: accentHex
+            accentHex: accentHex,
+            pausedAt: isPaused ? pauseStartedAt : nil,
+            pausedSeconds: pausedSeconds,
+            blockData: SelectionCodec.encode(currentBlock),
+            allowData: SelectionCodec.encode(currentAllow),
+            blockAll: currentBlockAll,
+            allowedWebDomains: currentAllowedWebDomains
         ))
     }
 
@@ -122,20 +175,97 @@ final class FocusSessionController {
         isStrict = saved.isStrict
         focusStartedAt = saved.startedAt
         totalSeconds = saved.focusMinutes * 60
-        phaseStart = saved.startedAt
+        currentBlock = SelectionCodec.decode(saved.blockData)
+        currentAllow = SelectionCodec.decode(saved.allowData)
+        currentBlockAll = saved.blockAll
+        currentAllowedWebDomains = saved.allowedWebDomains
         phase = .focus
 
-        let elapsed = Int(Date().timeIntervalSince(saved.startedAt))
+        // A session that was held while the app was away is still held, and the
+        // time it spent held doesn't count against the countdown.
+        if let pausedAt = saved.pausedAt {
+            pausedSeconds = saved.pausedSeconds
+            pauseStartedAt = pausedAt
+            isPaused = true
+            phaseStart = saved.startedAt.addingTimeInterval(saved.pausedSeconds)
+            let elapsed = Int(pausedAt.timeIntervalSince(phaseStart))
+            remainingSeconds = max(0, totalSeconds - elapsed)
+            liveActivity.hold(profileName: profileName, accentHex: accentHex,
+                              remaining: TimeInterval(remainingSeconds))
+            return   // no ticker: a held session doesn't run
+        }
+
+        pausedSeconds = saved.pausedSeconds
+        phaseStart = saved.startedAt.addingTimeInterval(saved.pausedSeconds)
+        let elapsed = Int(Date().timeIntervalSince(phaseStart))
         if elapsed >= totalSeconds {
             finishFocus(completed: true) // completed while away → record it
         } else {
             remainingSeconds = totalSeconds - elapsed
             liveActivity.start(profileName: profileName, accentHex: accentHex,
-                               startsAt: saved.startedAt,
-                               endsAt: saved.startedAt.addingTimeInterval(TimeInterval(totalSeconds)),
+                               startsAt: phaseStart,
+                               endsAt: phaseStart.addingTimeInterval(TimeInterval(totalSeconds)),
                                phase: .focus)
             startTicker()
         }
+    }
+
+    // MARK: - Pause / resume
+
+    /// Hold the session: stop the clock and lift the shields, keeping the time
+    /// that's left. Nothing is recorded — a paused session hasn't ended.
+    ///
+    /// Strict mode deliberately refuses. Strict exists so a session can't be
+    /// wriggled out of, and a pause with no time limit would be exactly that.
+    func pause() {
+        guard phase == .focus, !isPaused, !isStrict else { return }
+        ticker?.cancel()
+        isPaused = true
+        pauseStartedAt = Date()
+
+        // Drop this session's own enforcement, then reconcile so any recurring
+        // schedule that happens to be open keeps its shields.
+        schedule.stop(.focusSession)
+        blocking.reconcile()
+        notifications.cancelSession()
+
+        liveActivity.hold(profileName: profileName, accentHex: accentHex,
+                          remaining: TimeInterval(remainingSeconds))
+        persistSnapshot()
+        Haptics.light()
+    }
+
+    /// Put the shields back and start the clock again from where it stopped.
+    func resume() {
+        guard isPaused else { return }
+        let held = Date().timeIntervalSince(pauseStartedAt ?? Date())
+        pausedSeconds += max(0, held)
+        pauseStartedAt = nil
+        isPaused = false
+
+        // The countdown is anchored to `phaseStart`, so pushing that forward by
+        // the time spent held resumes at exactly the same number.
+        phaseStart = phaseStart.addingTimeInterval(max(0, held))
+
+        let secondsLeft = TimeInterval(remainingSeconds)
+        blocking.startBlocking(currentBlock, allowing: currentAllow,
+                               blockAll: currentBlockAll,
+                               allowedWebDomains: currentAllowedWebDomains)
+        schedule.startOneOff(activity: .focusSession, block: currentBlock, allow: currentAllow,
+                             blockAll: currentBlockAll,
+                             allowedWebDomains: currentAllowedWebDomains,
+                             durationMinutes: max(1, Int(ceil(secondsLeft / 60))))
+        notifications.scheduleFocusEnd(after: secondsLeft, profileName: profileName)
+        // Anchor the card to the (shifted) phase start, not to now — otherwise
+        // the progress rule snaps back to empty every time you resume, and a
+        // session paused near the end looks like it just began.
+        liveActivity.start(profileName: profileName, accentHex: accentHex,
+                           startsAt: phaseStart,
+                           endsAt: phaseStart.addingTimeInterval(TimeInterval(totalSeconds)),
+                           phase: .focus)
+        persistSnapshot()
+        startTicker()
+        Haptics.light()
     }
 
     /// User ends the focus session before the timer completes.
@@ -219,11 +349,20 @@ final class FocusSessionController {
     }
 
     private func finishFocus(completed: Bool) {
+        // Settle any pause still open, so the time held is excluded from what
+        // the user is credited with.
+        if isPaused, let pauseStartedAt {
+            pausedSeconds += max(0, Date().timeIntervalSince(pauseStartedAt))
+        }
+        isPaused = false
+        pauseStartedAt = nil
+
         clearEnforcement()
 
+        let focusedSeconds = Date().timeIntervalSince(focusStartedAt) - pausedSeconds
         let completedMinutes = completed
             ? plannedFocusMinutes
-            : max(0, Int(Date().timeIntervalSince(focusStartedAt) / 60))
+            : max(0, Int(focusedSeconds / 60))
 
         lastSession = history.record(profileName: profileName,
                                      plannedMinutes: plannedFocusMinutes,
@@ -238,6 +377,14 @@ final class FocusSessionController {
         notifications.refreshDailyReminderAfterSession()
 
         Haptics.success()
+
+        // The comp's "finished" card: the Lock Screen keeps what was kept, and
+        // a way to go again, for a couple of minutes after the session ends.
+        liveActivity.finish(profileName: profileName,
+                            accentHex: accentHex,
+                            startedAt: focusStartedAt,
+                            keptSeconds: TimeInterval(completedMinutes * 60))
+
         summary = SessionSummary(profileName: profileName,
                                  accentHex: accentHex,
                                  plannedMinutes: plannedFocusMinutes,
@@ -246,6 +393,22 @@ final class FocusSessionController {
                                  endedEarly: !completed,
                                  streak: history.currentStreak())
         phase = .summary
+    }
+
+    /// "Again" from the finished Live Activity — run the same profile's session
+    /// with the same enforcement.
+    func repeatLastSession() {
+        guard phase != .focus, plannedFocusMinutes > 0 else { return }
+        summary = nil
+        startFocus(profileName: profileName,
+                   accentHex: accentHex,
+                   focusMinutes: plannedFocusMinutes,
+                   breakMinutes: breakMinutes,
+                   isStrict: isStrict,
+                   blockAll: currentBlockAll,
+                   allowedWebDomains: currentAllowedWebDomains,
+                   block: currentBlock,
+                   allow: currentAllow)
     }
 
     private func finishBreak() {

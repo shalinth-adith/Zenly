@@ -71,6 +71,18 @@ enum ZTheme {
         static let streak      = Color(hex: "D6A85C")
         static let streakWarm  = Color(hex: "D6A85C")
 
+        // Semantic feedback (design `--alert` / `--alert-soft` / `--warn`).
+        // Deliberately desaturated: an error must never out-shout the profile
+        // tone, which is reserved for the one thing to do next.
+        /// Something is wrong and blocks saving (design `--alert`).
+        static let alert       = Color(lightHex: "9E4E39", darkHex: "C98D7E")
+        /// Wash behind a required field the user left empty (design `--alert-soft`).
+        static let alertSoft   = Color(light: Color(hex: "9E4E39").opacity(0.10),
+                                       dark: Color(hex: "C98D7E").opacity(0.13))
+        /// Unusual but allowed — a clamp, an overlap, an overnight window
+        /// (design `--warn`).
+        static let warn        = Color(lightHex: "8A5F1A", darkHex: "D6A85C")
+
         // Subtle fills/strokes (design `--raise` / `--line` / `--line-2`).
         static let glassFill        = Color(light: line(0.04), dark: Color.white.opacity(0.035))
         static let glassFillRaised   = Color(light: line(0.05), dark: Color.white.opacity(0.05))

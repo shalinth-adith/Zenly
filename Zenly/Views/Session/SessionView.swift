@@ -66,7 +66,7 @@ struct SessionView: View {
                     .accessibilityLabel(isBreak ? "Break time remaining" : "Focus time remaining")
                     .accessibilityValue(session.timeString)
 
-                    Text(isBreak ? "Take a breath. Focus resumes soon." : "Stay with it. You're doing great.")
+                    Text(sessionMessage)
                         .font(ZTheme.Font.body(17, weight: .medium))
                         .foregroundStyle(ZTheme.Palette.text(0.6))
                         .multilineTextAlignment(.center)
@@ -74,12 +74,26 @@ struct SessionView: View {
 
                 Spacer()
 
-                Button(role: .destructive, action: endTapped) {
-                    Text(isBreak ? "End break" : "End early")
-                        .padding(.horizontal, 12)
+                HStack(spacing: 12) {
+                    // Holding a session is only offered when it isn't strict —
+                    // strict exists so a session can't be wriggled out of, and
+                    // an open-ended pause would be exactly that.
+                    if !isBreak && !session.strictLockActive {
+                        Button(session.isPaused ? "Resume" : "Pause") {
+                            session.isPaused ? session.resume() : session.pause()
+                        }
+                        .buttonStyle(.zenlySecondary)
+                        .fixedSize()
+                        .accessibilityIdentifier("session-pause")
+                    }
+
+                    Button(role: .destructive, action: endTapped) {
+                        Text(isBreak ? "End break" : "End early")
+                            .padding(.horizontal, 12)
+                    }
+                    .buttonStyle(.zenlySecondary)
+                    .fixedSize()
                 }
-                .buttonStyle(.zenlySecondary)
-                .fixedSize()
                 .padding(.bottom, 40)
             }
         }
@@ -92,6 +106,11 @@ struct SessionView: View {
                 onCancel: { showStopConfirmation = false }
             )
         }
+    }
+
+    private var sessionMessage: String {
+        if session.isPaused { return "Held for you. Nothing is blocked while you\u{2019}re away." }
+        return isBreak ? "Take a breath. Focus resumes soon." : "Stay with it. You\u{2019}re doing great."
     }
 
     private func endTapped() {

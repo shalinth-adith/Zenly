@@ -215,6 +215,207 @@ struct ZenlyTests {
         let ids = BadgeCatalog.all.map(\.id)
         #expect(Set(ids).count == ids.count)
     }
+
+    // MARK: - Window length
+
+    @Test func durationOfANormalWindow() {
+        #expect(ScheduleStore.duration(startMinutes: 9 * 60, endMinutes: 17 * 60) == 480)
+    }
+
+    @Test func aWindowEndingBeforeItStartsRunsOvernight() {
+        // 22:00 → 06:00 is eight hours, not minus sixteen.
+        #expect(ScheduleStore.duration(startMinutes: 22 * 60, endMinutes: 6 * 60) == 480)
+    }
+
+    @Test func equalStartAndEndIsAFullDay() {
+        // Callers must reject this before it gets here — the editor does, which
+        // is what makes "That's no time at all" a blocking error.
+        #expect(ScheduleStore.duration(startMinutes: 14 * 60, endMinutes: 14 * 60) == 1440)
+    }
+
+    // MARK: - Allowed-website parsing (profile editor, spec screen 11)
+
+    @Test func realHostsAreAccepted() {
+        for host in ["claude.ai", "docs.google.com", "a-b.co.uk", "x1.example.org"] {
+            #expect(ProfileEditView.isValidDomain(host), "\(host) should be valid")
+        }
+    }
+
+    @Test func thingsThatAreNotHostsAreRejected() {
+        for junk in ["chatgpt,com", "chatgpt", "chat gpt.com", "-bad.com", "bad-.com",
+                     ".com", "example.", "example.c", "example.12"] {
+            #expect(!ProfileEditView.isValidDomain(junk), "\(junk) should be invalid")
+        }
+    }
+
+    @Test func theCommaTypoIsRepaired() {
+        #expect(ProfileEditView.repair("chatgpt,com") == "chatgpt.com")
+    }
+
+    @Test func schemesAndPathsAreStripped() {
+        #expect(ProfileEditView.repair("https://docs.google.com/document/d/1") == "docs.google.com")
+        #expect(ProfileEditView.repair("HTTP://Example.COM/path") == "example.com")
+        // A stray space is itself worth offering to fix.
+        #expect(ProfileEditView.repair("claude.ai ") == "claude.ai")
+        // Nothing to change means nothing to offer.
+        #expect(ProfileEditView.repair("claude.ai") == nil)
+    }
+
+    @Test func noRepairIsOfferedWhenTheGuessWouldBeWrong() {
+        // "chatgpt" has nothing to fix into a host — better to say nothing than
+        // to invent a top-level domain on the user's behalf.
+        #expect(ProfileEditView.repair("chatgpt") == nil)
+        #expect(ProfileEditView.repair("") == nil)
+    }
+
+    @Test func siteLabelsReadTheWayPeopleSayThem() {
+        #expect(ProfileEditView.siteLabel("claude.ai") == "Claude")
+        #expect(ProfileEditView.siteLabel("docs.google.com") == "Docs")
+        #expect(ProfileEditView.siteLabel("www.notion.so") == "Notion")
+    }
+
+    @Test func readableListJoinsNaturally() {
+        #expect(ProfileEditView.readableList([]) == "")
+        #expect(ProfileEditView.readableList(["Claude"]) == "Claude")
+        #expect(ProfileEditView.readableList(["Claude", "Docs"]) == "Claude and Docs")
+        #expect(ProfileEditView.readableList(["Claude", "Docs", "Figma"])
+                == "Claude, Docs and Figma")
+    }
+}
+
+/// Schedule overlap detection — the data behind the Quiet spec's screen 18.
+///
+/// The interesting cases are the ones a per-day comparison gets wrong: a window
+/// that runs past midnight into the next morning's window, and one that runs
+/// past Saturday midnight into Sunday.
+@MainActor
+@Suite(.serialized)
+struct ScheduleConflictTests {
+
+    private func makeStore() -> ScheduleStore {
+        ScheduleStore(context: PersistenceController(inMemory: true).container.viewContext)
+    }
+
+    private func draft(start: (Int, Int), end: (Int, Int),
+                       days: Set<Int>, profile: String = "Work") -> ScheduleDraft {
+        ScheduleDraft(title: "", startHour: start.0, startMinute: start.1,
+                      endHour: end.0, endMinute: end.1,
+                      weekdays: days, profileName: profile)
+    }
+
+    @Test func sameDaySameHoursCollide() {
+        let store = makeStore()
+        store.create(from: draft(start: (9, 0), end: (17, 0), days: [2]))
+        let found = store.conflicts(for: draft(start: (14, 0), end: (16, 0), days: [2]),
+                                    excluding: nil)
+        #expect(found.count == 1)
+        #expect(found.first?.days == [2])
+    }
+
+    @Test func differentDaysDoNotCollide() {
+        let store = makeStore()
+        store.create(from: draft(start: (9, 0), end: (17, 0), days: [2]))
+        #expect(store.conflicts(for: draft(start: (9, 0), end: (17, 0), days: [4]),
+                                excluding: nil).isEmpty)
+    }
+
+    @Test func backToBackWindowsDoNotCollide() {
+        // Half-open: a window ending at 17:00 leaves 17:00 free.
+        let store = makeStore()
+        store.create(from: draft(start: (9, 0), end: (17, 0), days: [2]))
+        #expect(store.conflicts(for: draft(start: (17, 0), end: (19, 0), days: [2]),
+                                excluding: nil).isEmpty)
+    }
+
+    @Test func anOvernightWindowCollidesWithTheNextMorning() {
+        // Monday 22:00 → 06:00 runs into Tuesday, where a 05:00 window lives.
+        let store = makeStore()
+        store.create(from: draft(start: (22, 0), end: (6, 0), days: [2]))
+        let found = store.conflicts(for: draft(start: (5, 0), end: (7, 0), days: [3]),
+                                    excluding: nil)
+        #expect(found.count == 1)
+        #expect(found.first?.days == [3])
+    }
+
+    @Test func saturdayNightWrapsIntoSundayMorning() {
+        let store = makeStore()
+        store.create(from: draft(start: (23, 0), end: (2, 0), days: [7]))   // Sat night
+        let found = store.conflicts(for: draft(start: (1, 0), end: (3, 0), days: [1]), // Sun
+                                    excluding: nil)
+        #expect(found.count == 1)
+    }
+
+    @Test func onlyTheCollidingDaysAreReported() {
+        let store = makeStore()
+        store.create(from: draft(start: (14, 0), end: (15, 0), days: [2, 4, 6]))
+        let found = store.conflicts(for: draft(start: (14, 30), end: (16, 0), days: [3, 4, 5]),
+                                    excluding: nil)
+        #expect(found.first?.days == [4])   // only Wednesday is in both
+    }
+
+    @Test func aScheduleDoesNotCollideWithItself() {
+        let store = makeStore()
+        let existing = store.create(from: draft(start: (9, 0), end: (17, 0), days: [2]))
+        #expect(store.conflicts(for: draft(start: (9, 0), end: (17, 0), days: [2]),
+                                excluding: existing).isEmpty)
+    }
+
+    @Test func aDisabledScheduleIsNotInTheWay() {
+        let store = makeStore()
+        let existing = store.create(from: draft(start: (9, 0), end: (17, 0), days: [2]))
+        store.setEnabled(existing, false)
+        #expect(store.conflicts(for: draft(start: (9, 0), end: (17, 0), days: [2]),
+                                excluding: nil).isEmpty)
+    }
+
+    // MARK: - How a schedule is named (comp 07 / 19)
+
+    /// Held for the lifetime of the suite: a managed object whose context has
+    /// been deallocated faults back to nil for every attribute, which would
+    /// make these tests pass or fail for the wrong reason.
+    private let namingContext = PersistenceController(inMemory: true).container.viewContext
+
+    private func schedule(profile: String, title: String) -> FocusSchedule {
+        let schedule = FocusSchedule(context: namingContext)
+        schedule.id = UUID()
+        schedule.profileName = profile.isEmpty ? nil : profile
+        schedule.title = title
+        return schedule
+    }
+
+    @Test func bothHalvesAreWrittenWhenTheyDiffer() {
+        #expect(ScheduleStore.displayName(for: schedule(profile: "Work", title: "Deep focus"))
+                == "Work · Deep focus")
+    }
+
+    @Test func aTitleThatRepeatsItsProfileIsWrittenOnce() {
+        #expect(ScheduleStore.displayName(for: schedule(profile: "Work", title: "Work")) == "Work")
+        #expect(ScheduleStore.displayName(for: schedule(profile: "Work", title: "work")) == "Work")
+    }
+
+    @Test func anUntitledScheduleIsItsProfile() {
+        #expect(ScheduleStore.displayName(for: schedule(profile: "Work", title: "")) == "Work")
+    }
+
+    @Test func aScheduleWithNeitherFallsBackToSomethingSayable() {
+        #expect(ScheduleStore.displayName(for: schedule(profile: "", title: "")) == "Focus block")
+        #expect(ScheduleStore.displayName(for: schedule(profile: "", title: "Reading")) == "Reading")
+    }
+
+    @Test func anEmptyWindowIsNotReportedAsAClash() {
+        // Same start and end is its own error, with its own message.
+        let store = makeStore()
+        store.create(from: draft(start: (9, 0), end: (17, 0), days: [2]))
+        #expect(store.conflicts(for: draft(start: (14, 0), end: (14, 0), days: [2]),
+                                excluding: nil).isEmpty)
+    }
+
+    @Test func noDaysMeansNothingToCollideWith() {
+        let store = makeStore()
+        store.create(from: draft(start: (9, 0), end: (17, 0), days: [2]))
+        #expect(store.conflicts(for: draft(start: (9, 0), end: (17, 0), days: []),
+                                excluding: nil).isEmpty)
+    }
 }
 
 /// Distraction-attempt accounting — the data behind the "N distractions blocked

@@ -66,7 +66,8 @@ final class ScheduleStore {
         )
     }
 
-    func create(from draft: ScheduleDraft) {
+    @discardableResult
+    func create(from draft: ScheduleDraft) -> FocusSchedule {
         let schedule = FocusSchedule(context: context)
         schedule.id = UUID()
         schedule.isEnabled = true
@@ -74,6 +75,7 @@ final class ScheduleStore {
         save()
         fetch()
         startMonitoring(schedule)
+        return schedule
     }
 
     func update(_ schedule: FocusSchedule, with draft: ScheduleDraft) {
@@ -107,6 +109,27 @@ final class ScheduleStore {
 
     func weekdaySummary(_ schedule: FocusSchedule) -> String {
         Self.summary(for: Self.weekdays(from: schedule.weekdaysMask))
+    }
+
+    /// How a schedule is named everywhere it appears — the list, the clash
+    /// notice, the delete prompt, the start notification.
+    ///
+    /// The comp writes both halves ("Work · Deep focus"), because the profile
+    /// says what gets blocked and the title says what it's for. A schedule with
+    /// no title of its own is simply its profile; one whose title repeats its
+    /// profile is written once, not twice.
+    static func displayName(for schedule: FocusSchedule) -> String {
+        let profile = schedule.profileName ?? ""
+        let title = schedule.title ?? ""
+        if profile.caseInsensitiveCompare(title) == .orderedSame && !profile.isEmpty {
+            return profile
+        }
+        switch (profile.isEmpty, title.isEmpty) {
+        case (false, false): return "\(profile) · \(title)"
+        case (false, true):  return profile
+        case (true, false):  return title
+        case (true, true):   return "Focus block"
+        }
     }
 
     // MARK: - Glanceable status
@@ -216,6 +239,86 @@ final class ScheduleStore {
         return n == 0 ? "Nothing blocked" : "\(n) app\(n == 1 ? "" : "s") blocked"
     }
 
+    // MARK: - Conflict detection (Quiet spec, screen 18)
+
+    /// An existing schedule whose window collides with the one being edited.
+    struct ScheduleConflict: Identifiable {
+        let schedule: FocusSchedule
+        /// Weekdays of the *draft* that collide (1 = Sun … 7 = Sat).
+        let days: Set<Int>
+        /// Minute-of-day the existing schedule frees up — the "start at" repair.
+        let existingEndMinutes: Int
+
+        var id: NSManagedObjectID { schedule.objectID }
+    }
+
+    /// Two focus windows can't hold the same hour. Compare on a minutes-of-week
+    /// line rather than per-day, so a window that runs past midnight is caught
+    /// against the next morning's window (and Saturday night against Sunday).
+    func conflicts(for draft: ScheduleDraft, excluding schedule: FocusSchedule?) -> [ScheduleConflict] {
+        let draftStart = draft.startHour * 60 + draft.startMinute
+        let draftEnd = draft.endHour * 60 + draft.endMinute
+        // A window with the same start and end has its own error and its own
+        // message; reading it as a 24-hour block here would make it collide
+        // with everything.
+        guard draftStart != draftEnd, !draft.weekdays.isEmpty else { return [] }
+        let draftDuration = Self.duration(startMinutes: draftStart, endMinutes: draftEnd)
+
+        var found: [ScheduleConflict] = []
+        for other in schedules where other.objectID != schedule?.objectID && other.isEnabled {
+            let otherDays = Self.weekdays(from: other.weekdaysMask)
+            let otherStart = Int(other.startHour) * 60 + Int(other.startMinute)
+            let otherEnd = Int(other.endHour) * 60 + Int(other.endMinute)
+            guard otherStart != otherEnd, !otherDays.isEmpty else { continue }
+            let otherDuration = Self.duration(startMinutes: otherStart, endMinutes: otherEnd)
+
+            let otherWindows = Self.weekWindows(days: otherDays,
+                                                startMinutes: otherStart,
+                                                duration: otherDuration)
+            var collidingDays: Set<Int> = []
+            for day in draft.weekdays {
+                let mine = Self.weekWindows(days: [day],
+                                            startMinutes: draftStart,
+                                            duration: draftDuration)[0]
+                if otherWindows.contains(where: { Self.overlap(mine, $0) }) {
+                    collidingDays.insert(day)
+                }
+            }
+            if !collidingDays.isEmpty {
+                found.append(ScheduleConflict(schedule: other,
+                                              days: collidingDays,
+                                              existingEndMinutes: otherEnd))
+            }
+        }
+        return found
+    }
+
+    /// Window length in minutes. A window that ends at or before it starts is
+    /// read as overnight and runs into the next day; equal start and end is
+    /// zero, which the editor rejects.
+    static func duration(startMinutes: Int, endMinutes: Int) -> Int {
+        let raw = endMinutes - startMinutes
+        return raw > 0 ? raw : raw + 24 * 60
+    }
+
+    private static func weekWindows(days: Set<Int>,
+                                    startMinutes: Int,
+                                    duration: Int) -> [(start: Int, end: Int)] {
+        days.sorted().map { day in
+            let start = (day - 1) * 24 * 60 + startMinutes
+            return (start: start, end: start + duration)
+        }
+    }
+
+    /// Half-open overlap on a circular week, so a window running past Saturday
+    /// midnight is tested against Sunday morning too.
+    private static func overlap(_ a: (start: Int, end: Int), _ b: (start: Int, end: Int)) -> Bool {
+        let week = 7 * 24 * 60
+        return [-week, 0, week].contains { shift in
+            a.start < b.end + shift && b.start + shift < a.end
+        }
+    }
+
     // MARK: - Weekday helpers
 
     static func mask(from weekdays: Set<Int>) -> Int16 {
@@ -285,7 +388,9 @@ final class ScheduleStore {
             blocking.reconcile()
         }
 
-        let displayTitle = schedule.title?.isEmpty == false ? schedule.title! : "Focus block"
+        // Same name the list shows — a schedule with no title of its own is
+        // still "Work", not a generic "Focus block", in its notifications.
+        let displayTitle = Self.displayName(for: schedule)
 
         // A heads-up notification 15 min before the block (independent of Screen
         // Time access — only needs notification permission).

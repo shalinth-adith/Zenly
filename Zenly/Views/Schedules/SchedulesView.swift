@@ -15,6 +15,7 @@
 //
 
 import SwiftUI
+import CoreData
 
 struct SchedulesView: View {
     @Environment(ScheduleStore.self) private var store
@@ -22,6 +23,19 @@ struct SchedulesView: View {
     @Environment(AuthorizationService.self) private var authorization
     @State private var editing: EditTarget?
     @State private var pendingDelete: FocusSchedule?
+    /// The schedule just added — carries the comp's tone wash and NEW label
+    /// until the user's eye has had a moment to land on it (screen 19).
+    @State private var recentlyAdded: NSManagedObjectID?
+    @State private var toast: ScheduleToast?
+    /// Set when arriving here from "Put it on the schedule" on a new profile.
+    @State private var prefilledProfileName: String?
+
+    /// What the editor changed on the user's behalf, and how to put it back.
+    struct ScheduleToast: Identifiable {
+        let id = UUID()
+        let message: String
+        let undo: (() -> Void)?
+    }
 
     enum EditTarget: Identifiable {
         case newSchedule
@@ -71,14 +85,21 @@ struct SchedulesView: View {
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
-            .sheet(item: $editing) { target in
+            .safeAreaInset(edge: .bottom) { toastBar }
+            .sheet(item: $editing, onDismiss: { prefilledProfileName = nil }) { target in
                 switch target {
                 case .newSchedule:
-                    ScheduleEditView(schedule: nil, draft: ScheduleDraft())
+                    ScheduleEditView(schedule: nil,
+                                     draft: ScheduleDraft(profileName: prefilledProfileName ?? ""),
+                                     onSaved: handleSaved)
                 case .existing(let schedule):
-                    ScheduleEditView(schedule: schedule, draft: store.draft(from: schedule))
+                    ScheduleEditView(schedule: schedule,
+                                     draft: store.draft(from: schedule),
+                                     onSaved: handleSaved)
                 case .newProfile:
-                    ProfileEditView(profile: nil, draft: ProfileDraft())
+                    ProfileEditView(profile: nil,
+                                    draft: ProfileDraft(),
+                                    onScheduleRequested: scheduleNewProfile)
                 }
             }
             .confirmationDialog(
@@ -157,9 +178,77 @@ struct SchedulesView: View {
                 if index > 0 { hairline() }
                 ScheduleRow(schedule: schedule,
                             tone: tone,
+                            detail: detail(for: schedule),
+                            isNew: schedule.objectID == recentlyAdded,
                             onEdit: { editing = .existing(schedule) },
                             onDelete: { pendingDelete = schedule })
             }
+        }
+        .animation(ZTheme.Motion.smooth, value: recentlyAdded)
+    }
+
+    // MARK: - Just added (screen 19)
+
+    /// The bar the comp shows after a schedule the editor had to adjust —
+    /// what changed, and a way back. Only appears when something was changed
+    /// on the user's behalf; a plain add just gets the NEW label on its row.
+    @ViewBuilder
+    private var toastBar: some View {
+        if let toast {
+            HStack(spacing: 14) {
+                Text(toast.message)
+                    .font(ZTheme.Font.body(14))
+                    .foregroundStyle(ZTheme.Palette.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if let undo = toast.undo {
+                    Button("Undo") {
+                        Haptics.light()
+                        undo()
+                        self.toast = nil
+                        recentlyAdded = nil
+                    }
+                    .font(ZTheme.Font.display(14, weight: .semibold))
+                    .foregroundStyle(tone)
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: ZTheme.Radius.button, style: .continuous)
+                    .fill(ZTheme.Palette.matteRaised)
+                    .overlay(RoundedRectangle(cornerRadius: ZTheme.Radius.button,
+                                              style: .continuous)
+                        .strokeBorder(ZTheme.Palette.matteBorder, lineWidth: 1))
+            )
+            .padding(.horizontal, 28)
+            .padding(.bottom, 8)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
+    }
+
+    private func handleSaved(_ outcome: ScheduleSaveOutcome) {
+        recentlyAdded = outcome.schedule.objectID
+        if let note = outcome.note {
+            toast = ScheduleToast(message: note, undo: outcome.undo)
+        }
+        let marked = outcome.schedule.objectID
+        Task {
+            try? await Task.sleep(for: .seconds(6))
+            if recentlyAdded == marked { recentlyAdded = nil }
+            toast = nil
+        }
+    }
+
+    /// "Put it on the schedule" from a freshly created profile: the profile
+    /// sheet dismisses itself, then the schedule editor opens prefilled. The
+    /// pause lets the first sheet finish leaving before the second arrives.
+    private func scheduleNewProfile(_ profile: FocusProfile) {
+        prefilledProfileName = profile.name
+        Task {
+            try? await Task.sleep(for: .milliseconds(450))
+            editing = .newSchedule
         }
     }
 
@@ -250,7 +339,22 @@ struct SchedulesView: View {
 
     private func displayTitle(_ schedule: FocusSchedule?) -> String {
         guard let schedule else { return "this schedule" }
-        return schedule.title?.isEmpty == false ? schedule.title! : "Focus block"
+        return ScheduleStore.displayName(for: schedule)
+    }
+
+    /// "Weekdays · 25 min" — which days it repeats, and how long a session runs.
+    ///
+    /// The comp's second number is the *session* length, which lives on the
+    /// profile, not the width of the schedule's window. A schedule pointing at
+    /// no profile we still have falls back to the window, which is the only
+    /// length we can honestly state.
+    private func detail(for schedule: FocusSchedule) -> String {
+        let days = store.weekdaySummary(schedule)
+        let profile = profiles.profiles.first { ($0.name ?? "") == (schedule.profileName ?? "") }
+        guard let profile, profile.focusMinutes > 0 else {
+            return "\(days) · \(store.durationText(for: schedule))"
+        }
+        return "\(days) · \(profile.focusMinutes) min"
     }
 }
 
@@ -260,26 +364,62 @@ private struct ScheduleRow: View {
     @Environment(ScheduleStore.self) private var store
     @ObservedObject var schedule: FocusSchedule
     var tone: Color
+    /// "Weekdays · 25 min", composed by the list (it holds the profiles).
+    var detail: String
+    /// Just added — wears the tone wash and the NEW label from the comp.
+    var isNew: Bool = false
     var onEdit: () -> Void
     var onDelete: () -> Void
 
     var body: some View {
+        rowContent
+            .padding(.vertical, 16)
+            .padding(.horizontal, isNew ? 12 : 0)
+            .background(
+                RoundedRectangle(cornerRadius: QuietMetrics.tileRadius, style: .continuous)
+                    .fill(isNew ? tone.opacity(0.16) : .clear)
+            )
+            .padding(.horizontal, isNew ? -12 : 0)
+            .contextMenu {
+                Button { onEdit() } label: { Label("Edit", systemImage: "pencil") }
+                Button(role: .destructive) { onDelete() } label: { Label("Delete", systemImage: "trash") }
+            }
+    }
+
+    private var rowContent: some View {
         HStack(alignment: .center, spacing: 18) {
             // Tappable content → edit; the toggle stays independently tappable.
             Button(action: { Haptics.light(); onEdit() }) {
                 HStack(alignment: .center, spacing: 18) {
                     timeColumn
+                    // One line each: the comp's rows are a fixed two-line
+                    // rhythm, and a long "Profile · Title" that wrapped would
+                    // make one row taller than its neighbours.
                     VStack(alignment: .leading, spacing: 2) {
                         Text(title)
                             .font(ZTheme.Font.display(15, weight: .semibold))
                             .foregroundStyle(schedule.isEnabled
                                              ? ZTheme.Palette.textPrimary
                                              : ZTheme.Palette.text(0.55))
-                        Text("\(store.weekdaySummary(schedule)) · \(store.durationText(for: schedule))")
-                            .font(ZTheme.Font.body(12))
-                            .foregroundStyle(schedule.isEnabled
-                                             ? ZTheme.Palette.text(0.55)
-                                             : ZTheme.Palette.text(0.30))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                        HStack(spacing: 7) {
+                            // The comp puts "New" where our toggle lives, so it
+                            // rides with the detail instead — the title stays
+                            // readable at the moment you have just named it.
+                            if isNew {
+                                Text("NEW")
+                                    .font(ZTheme.Font.body(11))
+                                    .tracking(1.76)
+                                    .foregroundStyle(tone)
+                            }
+                            Text(detail)
+                                .font(ZTheme.Font.body(12))
+                                .foregroundStyle(schedule.isEnabled
+                                                 ? ZTheme.Palette.text(0.55)
+                                                 : ZTheme.Palette.text(0.30))
+                                .lineLimit(1)
+                        }
                     }
                     Spacer(minLength: 0)
                 }
@@ -297,18 +437,9 @@ private struct ScheduleRow: View {
             .accessibilityIdentifier("schedule-toggle")
             .accessibilityLabel("\(title) enabled")
         }
-        .padding(.vertical, 16)
-        .contextMenu {
-            Button { onEdit() } label: { Label("Edit", systemImage: "pencil") }
-            Button(role: .destructive) { onDelete() } label: { Label("Delete", systemImage: "trash") }
-        }
     }
 
-    private var title: String {
-        if let t = schedule.title, !t.isEmpty { return t }
-        if let p = schedule.profileName, !p.isEmpty { return p }
-        return "Focus block"
-    }
+    private var title: String { ScheduleStore.displayName(for: schedule) }
 
     /// "9:00" over "AM" — 12-hour start time, like the comp's time column.
     private var timeColumn: some View {

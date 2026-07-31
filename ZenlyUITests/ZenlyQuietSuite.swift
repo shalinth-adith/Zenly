@@ -145,6 +145,23 @@ final class ZenlyQuietSuite: XCTestCase {
         return false
     }
 
+    /// Scrolls an element into reach, then taps it. Scrolls both ways, because
+    /// a form section can sit above or below the current viewport depending on
+    /// how much content precedes it.
+    @discardableResult
+    private func scrollToAndTap(_ app: XCUIApplication, _ element: XCUIElement,
+                                attempts: Int = 5) -> Bool {
+        for _ in 0..<attempts {
+            if element.isHittable { element.tap(); return true }
+            app.swipeUp()
+        }
+        for _ in 0..<attempts {
+            if element.isHittable { element.tap(); return true }
+            app.swipeDown()
+        }
+        return false
+    }
+
     private func snap(_ app: XCUIApplication, _ name: String) {
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name
@@ -281,15 +298,41 @@ final class ZenlyQuietSuite: XCTestCase {
         nameField.tap()
         nameField.typeText("UITestWork")
 
+        // The Quiet editor requires an icon as well as a name (spec screen 10).
+        let icon = app.buttons.matching(
+            NSPredicate(format: "label CONTAINS 'briefcase'")).firstMatch
+        XCTAssertTrue(icon.waitForExistence(timeout: 4), "Icon grid missing")
+        icon.tap()
+
         let save = app.buttons["profile-save"]
         XCTAssertTrue(save.waitForExistence(timeout: 3), "Save button missing")
-        XCTAssertTrue(save.isEnabled, "Save is disabled after typing a name")
+        // The CTA is never disabled — an incomplete form is reported in place
+        // rather than by greying out the only way forward.
+        XCTAssertTrue(save.isEnabled, "Save should stay tappable")
         save.tap()
 
+        // Simulator has no Screen Time access, so a profile that blocks
+        // everything hits the permission gate (spec screen 12) on the way out.
+        let saveWithout = app.buttons.matching(
+            NSPredicate(format: "label CONTAINS[c] 'without blocking'")).firstMatch
+        if saveWithout.waitForExistence(timeout: 4) { robustTap(app, saveWithout) }
+
+        // Saving swaps the editor for the confirmation (spec screen 13) rather
+        // than dropping straight back to the list.
         XCTAssertTrue(nameField.waitForNonExistence(timeout: 5),
-                      "Editor sheet did not dismiss after Save")
+                      "Editor did not leave after Save")
+        XCTAssertTrue(app.staticTexts["UITestWork is ready"].waitForExistence(timeout: 5),
+                      "Saved confirmation did not appear after Save")
+        snap(app, "TC-4.2-profile-saved-confirmation")
+
+        // Leave via the secondary action, which closes the sheet here.
+        let putOnSchedule = app.buttons.matching(
+            NSPredicate(format: "label CONTAINS[c] 'Put it on the schedule'")).firstMatch
+        XCTAssertTrue(putOnSchedule.waitForExistence(timeout: 3), "No way out of the confirmation")
+        putOnSchedule.tap()
+
         XCTAssertTrue(app.staticTexts["UITestWork"].waitForExistence(timeout: 5),
-                      "New profile did not appear after Save")
+                      "New profile did not appear in the list after Save")
         snap(app, "TC-4.2-profile-created")
 
         // Clean up. Without this the profile list grows by one every run until
@@ -398,21 +441,43 @@ final class ZenlyQuietSuite: XCTestCase {
 
         let save = app.buttons["schedule-save"]
         XCTAssertTrue(save.waitForExistence(timeout: 3), "Save button missing")
-        XCTAssertTrue(save.isEnabled, "Schedule Save is disabled before input (title is optional)")
+        XCTAssertTrue(save.isEnabled, "Schedule Save should stay tappable")
 
         titleField.tap()
-        titleField.typeText("UITestFocus")
+        // The trailing return closes the keyboard, which otherwise covers the
+        // profile row further down the form.
+        titleField.typeText("UITestFocus\n")
+
+        // Days and a profile are what a schedule actually needs (spec 16/17);
+        // the title stays optional. How far down the form they sit depends on
+        // how many profiles exist, so scroll to them rather than assuming.
+        let monday = app.buttons["Monday"]
+        let workChip = app.buttons["Work"]
+        XCTAssertTrue(monday.waitForExistence(timeout: 4), "Day row missing")
+        XCTAssertTrue(workChip.waitForExistence(timeout: 4), "Profile row missing")
+
+        XCTAssertTrue(scrollToAndTap(app, workChip), "Could not reach the profile row")
+        XCTAssertTrue(scrollToAndTap(app, monday), "Could not reach the day row")
+
+        // A schedule left behind by an earlier test can occupy the same hour,
+        // which the editor now blocks on (spec screen 18). Take the offered
+        // repair rather than depending on the simulator being empty.
+        let moveIt = app.buttons.matching(
+            NSPredicate(format: "label BEGINSWITH 'Start at'")).firstMatch
+        if moveIt.waitForExistence(timeout: 2) { robustTap(app, moveIt) }
+
         save.tap()
 
         XCTAssertTrue(titleField.waitForNonExistence(timeout: 5),
                       "Schedule editor did not dismiss after Save")
-        XCTAssertTrue(app.staticTexts["UITestFocus"].waitForExistence(timeout: 5),
+        // Rows carry both halves — "Work · UITestFocus" (comp 07).
+        XCTAssertTrue(app.staticTexts["Work · UITestFocus"].waitForExistence(timeout: 5),
                       "New schedule did not appear after Save")
         snap(app, "TC-5.1-schedule-created")
 
         // Clean up: a saved schedule whose window covers "now" auto-starts a
         // focus session, which would hijack every later test in this suite.
-        deleteSchedule(app, titled: "UITestFocus")
+        deleteSchedule(app, titled: "Work · UITestFocus")
         endAnyRunningSession(app)
     }
 

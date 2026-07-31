@@ -48,6 +48,7 @@ struct ZenlyApp: App {
             case .active:
                 authorization.refresh()
                 session.restoreIfNeeded()
+                session.applyPendingControlRequest()
                 session.refresh()
                 applyFocusFilterProfile()
                 startPendingFocusIfNeeded()

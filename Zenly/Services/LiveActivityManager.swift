@@ -51,6 +51,70 @@ final class LiveActivityManager {
 
     var isShowingUpcoming: Bool { currentPhase == .upcoming }
 
+    /// Freeze the card at the time that's left (Quiet spec, "Paused by you").
+    /// A date range can't hold still, so the remaining seconds are pushed as a
+    /// value instead of counted.
+    func hold(profileName: String, accentHex: String, remaining: TimeInterval) {
+        let now = Date()
+        let state = FocusActivityAttributes.ContentState(
+            startDate: now,
+            endDate: now.addingTimeInterval(remaining),
+            phase: .paused,
+            frozenSeconds: remaining
+        )
+        currentPhase = .paused
+        currentEnd = nil          // nothing is counting down
+        push(state, profileName: profileName, accentHex: accentHex, staleDate: nil)
+    }
+
+    /// Keep the card up briefly after the session ends, showing what was kept
+    /// and offering "Again" (Quiet spec, "Finished"). Dismisses itself.
+    func finish(profileName: String, accentHex: String,
+                startedAt: Date, keptSeconds: TimeInterval) {
+        let state = FocusActivityAttributes.ContentState(
+            startDate: startedAt,
+            endDate: Date(),
+            phase: .finished,
+            frozenSeconds: keptSeconds
+        )
+        currentPhase = .finished
+        currentEnd = nil
+        push(state, profileName: profileName, accentHex: accentHex, staleDate: nil)
+
+        let linger = Date().addingTimeInterval(120)
+        let showing = activity
+        Task {
+            try? await Task.sleep(for: .seconds(120))
+            // Only clear if nothing newer has taken the screen since.
+            if let showing, showing.id == self.activity?.id {
+                await showing.end(nil, dismissalPolicy: .after(linger))
+                self.activity = nil
+                self.currentPhase = nil
+            }
+        }
+    }
+
+    /// Update the activity in place if one is showing, else request a new one.
+    private func push(_ state: FocusActivityAttributes.ContentState,
+                      profileName: String,
+                      accentHex: String,
+                      staleDate: Date?) {
+        if let activity {
+            Task { await activity.update(ActivityContent(state: state, staleDate: staleDate)) }
+            return
+        }
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        let attributes = FocusActivityAttributes(profileName: profileName, accentHex: accentHex)
+        do {
+            activity = try Activity.request(
+                attributes: attributes,
+                content: ActivityContent(state: state, staleDate: staleDate)
+            )
+        } catch {
+            print("[Zenly] Live Activity update failed: \(error)")
+        }
+    }
+
     /// Ends every focus Live Activity the system is showing — not just the one
     /// this instance happens to hold a reference to.
     ///
