@@ -139,6 +139,11 @@ targets:
     entitlements:
       path: ZenlyShield/ZenlyShield.entitlements
       properties:
+        # Required: this extension links ManagedSettings/ManagedSettingsUI.
+        # Apple's automated review rejects any target using a Screen Time API
+        # without it — the entitlement is needed on the app AND on every one of
+        # its Screen Time extensions, each with its own approved request.
+        com.apple.developer.family-controls: true
         com.apple.security.application-groups:
           - group.me.adithyan.shalinth.Zenly
 
@@ -165,6 +170,9 @@ targets:
     entitlements:
       path: ZenlyShieldAction/ZenlyShieldAction.entitlements
       properties:
+        # Required: this extension links ManagedSettings/ManagedSettingsUI.
+        # See the note on ZenlyShield above.
+        com.apple.developer.family-controls: true
         com.apple.security.application-groups:
           - group.me.adithyan.shalinth.Zenly
 
