@@ -28,22 +28,35 @@ struct ZenlyApp: App {
         // Install the notification delegate before anything schedules or
         // delivers — otherwise foreground notifications are silently dropped.
         NotificationService.shared.activate()
+        #if DEBUG
+        MainActor.assumeIsolated { DebugSeed.seedDemoHistoryIfRequested() }
+        DebugSeed.primeShieldPreviewSession()
+        #endif
     }
 
     var body: some Scene {
         WindowGroup {
-            AppEntryView()
-                .environment(authorization)
-                .environment(profiles)
-                .environment(schedules)
-                .environment(session)
-                .environment(suggestions)
-                .environment(analytics)
-                .environment(achievements)
-                .environment(challenges)
-                .environment(accountability)
+            #if DEBUG
+            if let subject = DebugSeed.shieldPreviewSubject {
+                // Screen 03 is drawn by iOS inside the shield extension and can
+                // never appear on Simulator. Standing it up as the root under a
+                // launch argument is the only way to look at it while building.
+                ShieldPreviewView(subject: subject,
+                                  tone: ZTheme.tone(forHex: profiles.activeProfile?.accentHex))
+            } else {
+                root
+            }
+            #else
+            root
+            #endif
         }
         .onChange(of: scenePhase) { _, phase in
+            #if DEBUG
+            // The shield preview is standing in for another process. Letting the
+            // app's own foreground work run behind it would auto-start scheduled
+            // sessions nobody asked for.
+            if DebugSeed.shieldPreviewSubject != nil { return }
+            #endif
             switch phase {
             case .active:
                 authorization.refresh()
@@ -61,6 +74,19 @@ struct ZenlyApp: App {
                 break
             }
         }
+    }
+
+    private var root: some View {
+        AppEntryView()
+            .environment(authorization)
+            .environment(profiles)
+            .environment(schedules)
+            .environment(session)
+            .environment(suggestions)
+            .environment(analytics)
+            .environment(achievements)
+            .environment(challenges)
+            .environment(accountability)
     }
 
     /// Start a session requested from outside the app (App Intent / Control

@@ -39,6 +39,18 @@ enum ActiveSessionInfo {
         return (name?.isEmpty ?? true) ? nil : name
     }
 
+    /// When the quiet ends, or nil when nothing is running.
+    ///
+    /// The block screen's eyebrow is a clock time ("Back at 7:43") rather than a
+    /// duration — a duration keeps counting in your head, a time on the clock
+    /// does not.
+    static var endsAt: Date? {
+        let raw = AppGroup.defaults.double(forKey: endsAtKey)
+        guard raw > 0 else { return nil }
+        let date = Date(timeIntervalSince1970: raw)
+        return date > Date() ? date : nil
+    }
+
     /// Whole minutes of quiet left, or nil when nothing is running. Rounds up so
     /// the last partial minute reads "1 minute" rather than "0".
     static var remainingMinutes: Int? {

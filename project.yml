@@ -125,6 +125,7 @@ targets:
       - path: Shared/DistractionLog.swift
       - path: Shared/ShieldMessage.swift
       - path: Shared/ActiveSessionInfo.swift
+      - path: Shared/ShieldRibbon.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: me.adithyan.shalinth.Zenly.ZenlyShield

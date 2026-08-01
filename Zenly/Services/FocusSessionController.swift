@@ -400,6 +400,13 @@ final class FocusSessionController {
                                  accentHex: accentHex,
                                  plannedMinutes: plannedFocusMinutes,
                                  completedMinutes: completedMinutes,
+                                 // A session that ran to the end is credited
+                                 // with its planned length; one cut short is
+                                 // credited with what actually elapsed, to the
+                                 // second, so 04b's ring can show a clock.
+                                 completedSeconds: completed
+                                     ? plannedFocusMinutes * 60
+                                     : max(0, Int(focusedSeconds)),
                                  wasCompleted: completed,
                                  endedEarly: !completed,
                                  streak: history.currentStreak())

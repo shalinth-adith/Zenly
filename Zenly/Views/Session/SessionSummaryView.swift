@@ -26,8 +26,14 @@ struct SessionSummaryView: View {
         ZStack {
             ZenlyBackground()
             if let summary = session.summary {
+                // No confetti. The comp's completion screen is the quietest in
+                // the set — a thin tone check on a soft halo, and the sentence
+                // "A calm, unbroken session." Seventy rainbow rectangles falling
+                // across it contradicts both the words underneath them and the
+                // one rule the whole design runs on ("neutral throughout, a
+                // single highlight"). The halo behind the check *is* the
+                // celebration.
                 if summary.wasCompleted {
-                    ConfettiView().ignoresSafeArea()
                     completed(summary)
                 } else {
                     endedEarly(summary)
@@ -55,9 +61,10 @@ struct SessionSummaryView: View {
                 Circle()
                     .fill(ZTheme.orbHalo(tone: tone(summary), diameter: 108))
                     .frame(width: 108, height: 108)
-                Image(systemName: "checkmark")
-                    .font(.system(size: 34, weight: .medium))
-                    .foregroundStyle(tone(summary))
+                CompCheck()
+                    .stroke(tone(summary),
+                            style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round))
+                    .frame(width: 40, height: 40)
             }
             .padding(.bottom, 30)
 
@@ -96,7 +103,11 @@ struct SessionSummaryView: View {
                 .foregroundStyle(ZTheme.Palette.text(0.30))
                 .padding(.top, 12)
 
-            ForEach(newBadges) { badge in
+            // At most two. The comp leaves this band empty, and a first-ever
+            // session can unlock four badges at once — four stacked lines turn
+            // the calmest screen in the app into a list. The rest are not lost;
+            // every badge lives permanently on the Badges screen.
+            ForEach(newBadges.prefix(2)) { badge in
                 badgeLine(badge, tone: tone(summary))
                     .padding(.top, 16)
             }
@@ -147,9 +158,11 @@ struct SessionSummaryView: View {
                     .stroke(tone(summary),
                             style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
                     .rotationEffect(.degrees(-90))
-                Text(summary.completedMinutes < 1 ? "<1" : "\(summary.completedMinutes)")
+                Text(summary.clock)
                     .font(ZTheme.Font.numeral(26))
                     .foregroundStyle(ZTheme.Palette.textPrimary)
+                    .accessibilityLabel(clockSpoken(summary))
+                    .accessibilityIdentifier("summary-elapsed-clock")
             }
             .frame(width: 130, height: 130)
             .padding(.bottom, 34)
@@ -197,17 +210,28 @@ struct SessionSummaryView: View {
 
     // MARK: - Pieces
 
+    /// The comp draws five 12pt dots 28pt apart. It does not draw the thing you
+    /// actually have to hit.
+    ///
+    /// A `Shape.fill()` hit-tests against the path, so the old version — a 12pt
+    /// circle with 6pt of padding — offered a 12pt target where Apple's minimum
+    /// is 44. Taps on it missed often enough that the row read as decoration.
+    /// The dot keeps the comp's size and spacing; only the invisible target
+    /// under it grows, to 40 × 44 (40 being the pitch the comp's own spacing
+    /// works out to, so the dots do not move).
     private func ratingDots(tone: Color) -> some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 0) {
             ForEach(1...5, id: \.self) { value in
                 Button { Haptics.light(); rating = value } label: {
                     Circle()
                         .fill(value <= rating ? tone : .clear)
                         .frame(width: 12, height: 12)
                         .overlay(Circle().strokeBorder(ZTheme.Palette.glassStroke, lineWidth: 1))
-                        .padding(6)
+                        .frame(width: 40, height: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("summary-rating-\(value)")
                 .accessibilityLabel(value == 1 ? "1 out of 5" : "\(value) out of 5")
                 .accessibilityAddTraits(value == rating ? [.isButton, .isSelected] : .isButton)
             }
@@ -230,7 +254,7 @@ struct SessionSummaryView: View {
 
     /// "That's your fourth this week — the streak holds."
     private func weekLine(_ summary: SessionSummary) -> String {
-        let count = analytics.weekSessionCount()
+        let count = analytics.calendarWeekSessionCount()
         let ordinal = Self.ordinals[min(count, Self.ordinals.count - 1)]
         let streak = summary.streak > 1 ? " — the streak holds." : "."
         return count > 0 ? "That\u{2019}s your \(ordinal) this week\(streak)"
@@ -255,7 +279,7 @@ struct SessionSummaryView: View {
 
     /// "Your streak is safe · kept 4 of 5 this week"
     private func streakLine(_ summary: SessionSummary) -> String {
-        let kept = analytics.weekSessionCount()
+        let kept = analytics.calendarWeekSessionCount()
         let safe = summary.streak > 0 ? "Your streak is safe" : "Nothing lost"
         return kept > 0 ? "\(safe) · kept \(kept) this week" : safe
     }
@@ -267,13 +291,49 @@ struct SessionSummaryView: View {
         return min(managed, max(5, summary.plannedMinutes - 5))
     }
 
+    /// The ring is drawn from seconds, not minutes: at the short end this screen
+    /// lives at, whole minutes quantise a 90-second session to the same arc as a
+    /// 60-second one.
     private func fractionKept(_ summary: SessionSummary) -> Double {
         guard summary.plannedMinutes > 0 else { return 0 }
-        return min(1, max(0.02, Double(summary.completedMinutes) / Double(summary.plannedMinutes)))
+        let planned = Double(summary.plannedMinutes * 60)
+        return min(1, max(0.02, Double(summary.completedSeconds) / planned))
+    }
+
+    /// VoiceOver reads "2:24" as a time of day. Say what it is.
+    private func clockSpoken(_ summary: SessionSummary) -> String {
+        let seconds = max(0, summary.completedSeconds)
+        let m = seconds / 60, s = seconds % 60
+        var parts: [String] = []
+        if m > 0 { parts.append("\(m) minute\(m == 1 ? "" : "s")") }
+        if s > 0 { parts.append("\(s) second\(s == 1 ? "" : "s")") }
+        return parts.isEmpty ? "Under a second focused"
+                             : parts.joined(separator: " ") + " focused"
     }
 
     private static let ordinals = ["none", "first", "second", "third", "fourth", "fifth",
                                    "sixth", "seventh", "eighth", "ninth", "tenth", "latest"]
     private static let spelled = ["zero", "one", "two", "three", "four", "five",
                                   "six", "seven", "eight", "nine", "ten"]
+}
+
+/// The comp's checkmark, traced from it: `M13 26l8 8 16-18` on a 50-unit
+/// viewBox, 3-wide round-capped stroke.
+///
+/// SF Symbols' `checkmark` is a different drawing — heavier, with a longer tail
+/// and a tighter elbow — and at this size, alone on an otherwise empty screen,
+/// the difference is the whole character of the mark. This is the one place in
+/// the app worth spending a `Shape` on.
+private struct CompCheck: Shape {
+    func path(in rect: CGRect) -> Path {
+        let s = min(rect.width, rect.height) / 50
+        func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
+            CGPoint(x: rect.minX + x * s, y: rect.minY + y * s)
+        }
+        var path = Path()
+        path.move(to: p(13, 26))
+        path.addLine(to: p(21, 34))   // l8 8
+        path.addLine(to: p(37, 16))   // l16 -18
+        return path
+    }
 }

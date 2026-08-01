@@ -50,14 +50,22 @@ enum ShieldTheme {
         }
     }
 
-    /// No icon.
+    /// The comp's ribbon, drawn into the one slot that takes a picture.
     ///
-    /// The comp has no central figure — its only mark is a small dot on the
-    /// timeline, at the scale of a bullet. `ShieldConfiguration` scales whatever
-    /// image it is handed into a large fixed slot near the top, so supplying
-    /// that dot produced a big flat disc that reads as a loading state. Nothing
-    /// is closer to the comp than nothing, and it gives the sentence the room.
-    private static let icon: UIImage? = nil
+    /// iOS puts the icon above the title, which is where the comp hangs its
+    /// tone-coloured ribbon with the paused app's name running down it — so the
+    /// two line up. iOS owns the size it renders at and will scale the bitmap to
+    /// fit its own slot; `ShieldRibbon` therefore keeps the comp's proportions
+    /// (44 × 302 with an 18pt notch) rather than a fixed pixel size, and drops
+    /// the name when it is too long to sit inside the drop.
+    ///
+    /// This replaces an earlier decision to send no icon at all. That was the
+    /// right call for the comp's *timeline dot* — a bullet blown up into a large
+    /// fixed slot reads as a loading spinner. A ribbon is not a dot: it has a
+    /// silhouette that survives being scaled, and it is the screen's signature.
+    private static func icon(subject: String?) -> UIImage? {
+        ShieldRibbon.image(subject: subject, tone: tone)
+    }
 
     /// The block screen, personalised with what is being paused (`subject` = app
     /// name or website domain, when iOS provides one).
@@ -81,7 +89,7 @@ enum ShieldTheme {
             return ShieldConfiguration(
                 backgroundBlurStyle: .systemUltraThinMaterialDark,
                 backgroundColor: background,
-                icon: icon,
+                icon: icon(subject: subject),
                 title: title,
                 subtitle: subtitle,
                 primaryButtonLabel: primary,
@@ -92,13 +100,13 @@ enum ShieldTheme {
         return ShieldConfiguration(
             backgroundBlurStyle: .systemUltraThinMaterialDark,
             backgroundColor: background,
-            icon: icon,
+            icon: icon(subject: subject),
             title: title,
             subtitle: subtitle,
             primaryButtonLabel: primary,
             primaryButtonBackgroundColor: tone,
             secondaryButtonLabel: ShieldConfiguration.Label(
-                text: "I need it for 5 minutes", color: tertiaryText
+                text: "I need it for 5 minutes", color: secondaryText
             )
         )
     }

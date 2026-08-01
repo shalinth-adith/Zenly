@@ -74,18 +74,19 @@ struct AnalyticsView: View {
     // MARK: - Data
 
     private func refresh() {
-        stats = analytics.weeklyStats()
+        stats = analytics.calendarWeekStats()
         recent = analytics.recentSessions(limit: 5)
-        previousWeekMinutes = analytics.previousWeekMinutes()
-        weekSessions = analytics.weekSessionCount()
+        previousWeekMinutes = analytics.previousCalendarWeekMinutes()
+        weekSessions = analytics.calendarWeekSessionCount()
         streak = analytics.streak()
         analytics.updateSnapshot()
     }
 
     private var weekMinutes: Int { stats.reduce(0) { $0 + $1.focusMinutes } }
     private var weekAttempts: Int { stats.reduce(0) { $0 + $1.attempts } }
-    /// `weeklyStats()` is oldest-first, so today is the last entry.
-    private var todayAttempts: Int { stats.last?.attempts ?? 0 }
+    private var todayAttempts: Int {
+        stats.first { Calendar.current.isDateInToday($0.date) }?.attempts ?? 0
+    }
     private var weekHours: Double { Double(weekMinutes) / 60 }
     private var weeklyGoalHours: Double { Double(dailyGoalMinutes * 7) / 60 }
     private var weeklySessionsGoal: Int { dailySessionsGoal * 7 }
@@ -177,13 +178,16 @@ struct AnalyticsView: View {
         .accessibilityHint("Opens the full history of past focus sessions")
     }
 
-    /// Flat 7-day bar chart — plain rounded bars on the raise fill, today's bar
-    /// in the tone (the design's single highlight).
+    /// The comp's flat week chart — plain rounded bars on the raise fill, with
+    /// today's bar and today's letter in the tone (the design's one highlight).
+    ///
+    /// Comp geometry: 120pt tall, bars capped at 100pt, 20pt wide, 6pt radius,
+    /// 10pt gap, letter 10pt below.
     private var barChart: some View {
         let maxMinutes = max(1, stats.map(\.focusMinutes).max() ?? 1)
         return HStack(alignment: .bottom, spacing: 10) {
-            ForEach(Array(stats.enumerated()), id: \.element.id) { index, stat in
-                let isToday = index == stats.count - 1
+            ForEach(stats) { stat in
+                let isToday = Calendar.current.isDateInToday(stat.date)
                 VStack(spacing: 10) {
                     Spacer(minLength: 0)
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
@@ -199,10 +203,12 @@ struct AnalyticsView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("\(stat.label): \(stat.focusMinutes) minutes")
+                .accessibilityLabel("\(stat.label): \(stat.focusMinutes) minutes"
+                                    + (isToday ? ", today" : ""))
             }
         }
         .frame(height: 134)
+        .animation(ZTheme.Motion.smooth, value: weekMinutes)
     }
 
     private var sessionRows: some View {
@@ -214,7 +220,7 @@ struct AnalyticsView: View {
                         Text("\(dayLabel(session.startedAt)) · \(session.profileName ?? "Focus")")
                             .font(ZTheme.Font.body(15))
                             .foregroundStyle(ZTheme.Palette.textPrimary)
-                        Text(session.wasCompleted ? "Completed" : "Ended early")
+                        Text(rowNote(session))
                             .font(ZTheme.Font.body(12))
                             .foregroundStyle(ZTheme.Palette.text(0.30))
                     }
@@ -226,6 +232,20 @@ struct AnalyticsView: View {
                 .padding(.vertical, 14)
             }
         }
+    }
+
+    /// The comp's second line on a history row ("Deep focus", "Reading",
+    /// "Workout") — what the session was, in the user's own words.
+    ///
+    /// That is the note taken on the summary screen. When there isn't one, the
+    /// row falls back to how the session ended, which is the next most useful
+    /// thing it can say. Never a stand-in sentence: an empty note means the user
+    /// didn't write one, and inventing "Deep focus" for them would be a lie the
+    /// row tells every time.
+    private func rowNote(_ session: FocusSession) -> String {
+        let note = (session.note ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !note.isEmpty { return note }
+        return session.wasCompleted ? "Completed" : "Ended early"
     }
 
     private func dayLabel(_ date: Date?) -> String {
@@ -309,10 +329,24 @@ struct AnalyticsView: View {
 
     // MARK: - Empty state (comp 05 · first run)
 
+    /// Wrapped in a scroll view even though the comp's layout fits: at the
+    /// largest accessibility text sizes the copy and the 50pt call no longer do,
+    /// and a first-run screen that clips its only button is a dead end. The
+    /// `minHeight` keeps it optically centred at normal sizes.
     private var emptyState: some View {
+        GeometryReader { geo in
+            ScrollView {
+                emptyStateContent
+                    .frame(minHeight: geo.size.height, alignment: .top)
+            }
+            .scrollIndicators(.hidden)
+        }
+    }
+
+    private var emptyStateContent: some View {
         VStack(alignment: .leading, spacing: 0) {
             title
-            Spacer()
+            Spacer(minLength: 0)
             VStack(spacing: 22) {
                 ZStack {
                     Circle()
@@ -345,9 +379,11 @@ struct AnalyticsView: View {
                         .background(tone, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("insights-begin-first-focus")
             }
             .frame(maxWidth: .infinity)
-            Spacer()
+            .padding(.vertical, 40)
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, 28)
         .padding(.top, 8)
