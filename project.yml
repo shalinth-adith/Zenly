@@ -19,7 +19,7 @@ settings:
     DEVELOPMENT_TEAM: 649T62WKAQ
     SWIFT_VERSION: "5.0"
     MARKETING_VERSION: "1.0"
-    CURRENT_PROJECT_VERSION: "1"
+    CURRENT_PROJECT_VERSION: "2"
     CODE_SIGN_STYLE: Automatic
     # iPhone only (1). iPad (2) is deliberately not claimed: the Quiet layout is a
     # single non-scrolling iPhone column, the hero orb is sized against iPhone
@@ -57,6 +57,11 @@ targets:
     info:
       path: Zenly/Info.plist
       properties:
+        # Version pair comes from the build settings above, so project.yml stays
+        # the single source of truth. Every extension must carry the SAME pair as
+        # the app or App Store Connect rejects the upload outright.
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         # User-facing app name on the Home Screen / Settings. Bundle id, App
         # Group, target and module names stay "Zenly" (identifiers).
         CFBundleDisplayName: "Zen-ly"
@@ -104,6 +109,11 @@ targets:
     info:
       path: ZenlyMonitor/Info.plist
       properties:
+        # Version pair comes from the build settings above, so project.yml stays
+        # the single source of truth. Every extension must carry the SAME pair as
+        # the app or App Store Connect rejects the upload outright.
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         CFBundleDisplayName: ZenlyMonitor
         NSExtension:
           NSExtensionPointIdentifier: com.apple.deviceactivity.monitor-extension
@@ -134,6 +144,11 @@ targets:
     info:
       path: ZenlyShield/Info.plist
       properties:
+        # Version pair comes from the build settings above, so project.yml stays
+        # the single source of truth. Every extension must carry the SAME pair as
+        # the app or App Store Connect rejects the upload outright.
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         CFBundleDisplayName: ZenlyShield
         NSExtension:
           NSExtensionPointIdentifier: com.apple.ManagedSettingsUI.shield-configuration-service
@@ -172,6 +187,11 @@ targets:
     info:
       path: ZenlyShieldAction/Info.plist
       properties:
+        # Version pair comes from the build settings above, so project.yml stays
+        # the single source of truth. Every extension must carry the SAME pair as
+        # the app or App Store Connect rejects the upload outright.
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         CFBundleDisplayName: ZenlyShieldAction
         NSExtension:
           NSExtensionPointIdentifier: com.apple.ManagedSettings.shield-action-service
@@ -200,6 +220,11 @@ targets:
     info:
       path: ZenlyReport/Info.plist
       properties:
+        # Version pair comes from the build settings above, so project.yml stays
+        # the single source of truth. Every extension must carry the SAME pair as
+        # the app or App Store Connect rejects the upload outright.
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         CFBundleDisplayName: ZenlyReport
         # DeviceActivityReport is an ExtensionKit extension (must live in
         # Extensions/, not PlugIns/, with EXAppExtensionAttributes).
@@ -234,6 +259,11 @@ targets:
     info:
       path: ZenlyWidget/Info.plist
       properties:
+        # Version pair comes from the build settings above, so project.yml stays
+        # the single source of truth. Every extension must carry the SAME pair as
+        # the app or App Store Connect rejects the upload outright.
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         CFBundleDisplayName: "Zen-ly"
         NSExtension:
           NSExtensionPointIdentifier: com.apple.widgetkit-extension
