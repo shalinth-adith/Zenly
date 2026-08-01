@@ -52,29 +52,45 @@ enum ShieldRibbon {
     /// Comp `color:#0A0B0E` — the dark ink that sits on a bright tone.
     private static let onTone = UIColor(red: 0.039, green: 0.043, blue: 0.055, alpha: 1)
 
+    /// Design `--bg` #0A0B0E — the surface the ribbon hangs on.
+    private static let canvasColor = UIColor(red: 0.039, green: 0.043, blue: 0.055, alpha: 1)
+
+    /// A safe default when the extension cannot read a screen size. iPhone 15 /
+    /// 16 / 17 logical points; being wrong here only moves the ribbon off
+    /// centre by a few points, because the pattern is anchored top-left.
+    private static let fallbackScreen = CGSize(width: 393, height: 852)
+
     // MARK: - Render
 
-    /// The ribbon, in `tone`, with `subject` (the app name or domain) running
-    /// down it.
+    /// The whole shield surface: `--bg`, with the ribbon hanging from the top
+    /// edge at the comp's own 44 × 302, `subject` running down it.
     ///
-    /// `subject` is dropped when it is too long to fit the comp's 302pt drop —
-    /// a clipped or shrunken-to-fit name would read as a rendering fault, and
-    /// the subtitle names the app anyway. The ribbon alone still carries the
-    /// screen. Returns nil only if the renderer itself fails.
-    static func image(subject: String?, tone: UIColor) -> UIImage? {
-        let pad = Metric.shadowPadding
-        let canvas = CGSize(width: Metric.width + pad * 2,
-                            height: Metric.height + pad)
+    /// This goes in `ShieldConfiguration.backgroundColor` via
+    /// `UIColor(patternImage:)`, not in the icon slot.
+    ///
+    /// The icon slot looked like the obvious home for it and is not. iOS
+    /// aspect-fits whatever it is handed into a box of about 100 × 100 points,
+    /// so a 302pt ribbon came back 94pt tall and 34 wide, with the app's name
+    /// scaled down to illegible texture. The background has no such box: it is
+    /// the full surface, so the ribbon can be exactly the size the comp draws
+    /// it, in the position the comp draws it.
+    ///
+    /// Sized to the whole screen so the pattern never visibly repeats.
+    static func backdrop(subject: String?, tone: UIColor, screen: CGSize? = nil) -> UIImage? {
+        let size = screen ?? currentScreenSize()
+        guard size.width > 0, size.height > 0 else { return nil }
 
         let format = UIGraphicsImageRendererFormat.preferred()
-        format.opaque = false
-        format.scale = 3
+        format.opaque = true
 
-        return UIGraphicsImageRenderer(size: canvas, format: format).image { context in
+        return UIGraphicsImageRenderer(size: size, format: format).image { context in
             let cg = context.cgContext
-            let origin = CGPoint(x: pad, y: 0)
 
-            let path = ribbonPath(at: origin)
+            cg.setFillColor(canvasColor.cgColor)
+            cg.fill(CGRect(origin: .zero, size: size))
+
+            // Comp: `left:50%; top:0; transform:translateX(-50%)`.
+            let origin = CGPoint(x: (size.width - Metric.width) / 2, y: 0)
 
             // The comp's `filter: drop-shadow(0 16px 38px var(--tone-glow))`.
             // --tone-glow is the tone at 0.28.
@@ -82,7 +98,7 @@ enum ShieldRibbon {
             cg.setShadow(offset: CGSize(width: 0, height: Metric.shadowOffsetY),
                          blur: Metric.shadowBlur,
                          color: tone.withAlphaComponent(0.28).cgColor)
-            cg.addPath(path)
+            cg.addPath(ribbonPath(at: origin))
             cg.setFillColor(tone.cgColor)
             cg.fillPath()
             cg.restoreGState()
@@ -90,6 +106,31 @@ enum ShieldRibbon {
             guard let name = fittingName(subject) else { return }
             draw(name: name, in: cg, ribbonOrigin: origin)
         }
+    }
+
+    /// A transparent image of the size iOS gives the icon slot.
+    ///
+    /// iOS lays the shield out as a stack — icon, then title, then subtitle —
+    /// so passing no icon pulls the title up the screen and into the ribbon.
+    /// This holds the title where the comp has it while drawing nothing. There
+    /// is no spacing control in `ShieldConfiguration`; occupying the slot is
+    /// the only lever there is.
+    static func titleSpacer() -> UIImage? {
+        let format = UIGraphicsImageRendererFormat.preferred()
+        format.opaque = false
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: CGSize(width: 100, height: 100),
+                                       format: format).image { _ in }
+    }
+
+    /// Logical screen size, read without a window scene.
+    ///
+    /// A `ShieldConfigurationDataSource` is not a view controller and has no
+    /// scene to ask, so `UIScreen.main` is the only thing available — soft
+    /// deprecated, still the sole answer inside this kind of extension.
+    private static func currentScreenSize() -> CGSize {
+        let bounds = UIScreen.main.bounds.size
+        return bounds.width > 0 ? bounds : fallbackScreen
     }
 
     /// `polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 18px), 0 100%)` — a flag

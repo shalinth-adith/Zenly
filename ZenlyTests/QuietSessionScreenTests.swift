@@ -13,7 +13,9 @@
 
 import Testing
 import CoreData
+import CoreGraphics
 import Foundation
+import UIKit
 @testable import Zenly
 
 // MARK: - 04b · the ring's clock
@@ -214,26 +216,70 @@ struct ShieldMessageTests {
 
 // MARK: - 03 · the ribbon
 
+/// The ribbon is a full-screen backdrop, not an icon: iOS aspect-fits the icon
+/// slot into roughly 100 × 100 points, which shrank the comp's 302pt ribbon to
+/// 94pt on device with its name reduced to texture. `backgroundColor` accepts a
+/// pattern image and has no such box.
 struct ShieldRibbonTests {
 
-    /// The comp's proportions: 44 × 302 inside the padding the baked drop
-    /// shadow needs, i.e. taller than it is wide by roughly 2.75×.
-    @Test func drawsTheCompsProportions() throws {
-        let image = try #require(ShieldRibbon.image(subject: "Instagram", tone: .systemBlue))
-        #expect(image.size.height > image.size.width)
-        #expect(image.size.width == 124)   // 44 + 40 of shadow padding each side
-        #expect(image.size.height == 342)  // 302 + 40
+    private let screen = CGSize(width: 393, height: 852)
+
+    /// The backdrop is the size of the screen it is painting, so the pattern
+    /// never repeats inside the shield.
+    @Test func fillsTheScreenItIsGiven() throws {
+        let image = try #require(
+            ShieldRibbon.backdrop(subject: "Instagram", tone: .systemBlue, screen: screen))
+        #expect(image.size == screen)
     }
 
-    /// A name too long to sit inside the drop is dropped rather than shrunk or
-    /// clipped; the ribbon itself still renders.
+    /// Every device size it is asked for, so a wider or taller phone still gets
+    /// a backdrop rather than a fallback.
+    @Test(arguments: [CGSize(width: 320, height: 568),   // SE
+                      CGSize(width: 393, height: 852),   // 15 / 16 / 17
+                      CGSize(width: 440, height: 956)])  // Pro Max
+    func drawsAtAnyScreenSize(_ size: CGSize) throws {
+        let image = try #require(
+            ShieldRibbon.backdrop(subject: "Instagram", tone: .systemBlue, screen: size))
+        #expect(image.size == size)
+    }
+
+    /// A degenerate size returns nil rather than a zero-pixel image, so the
+    /// shield falls back to its flat background instead of coming up blank.
+    @Test func refusesAnEmptyScreen() {
+        #expect(ShieldRibbon.backdrop(subject: "Instagram",
+                                      tone: .systemBlue,
+                                      screen: .zero) == nil)
+    }
+
+    /// A name too long to sit inside the 302pt drop is dropped rather than
+    /// shrunk or clipped; the ribbon itself still renders.
     @Test func stillDrawsWhenTheNameCannotFit() {
         let long = String(repeating: "verylongappname", count: 6)
-        #expect(ShieldRibbon.image(subject: long, tone: .systemBlue) != nil)
+        #expect(ShieldRibbon.backdrop(subject: long, tone: .systemBlue, screen: screen) != nil)
     }
 
     @Test func drawsWithNoSubjectAtAll() {
-        #expect(ShieldRibbon.image(subject: nil, tone: .systemBlue) != nil)
-        #expect(ShieldRibbon.image(subject: "   ", tone: .systemBlue) != nil)
+        #expect(ShieldRibbon.backdrop(subject: nil, tone: .systemBlue, screen: screen) != nil)
+        #expect(ShieldRibbon.backdrop(subject: "   ", tone: .systemBlue, screen: screen) != nil)
+    }
+
+    /// The spacer exists only to hold the title down the screen, so it must be
+    /// the size of the slot and completely invisible.
+    @Test func theTitleSpacerIsTransparent() throws {
+        let spacer = try #require(ShieldRibbon.titleSpacer())
+        #expect(spacer.size == CGSize(width: 100, height: 100))
+
+        let cgImage = try #require(spacer.cgImage)
+        // Start from opaque white and draw with `.copy`, so the source's alpha
+        // replaces the buffer instead of compositing over it — the default
+        // blend would leave the white behind and pass no matter what.
+        var pixel: [UInt8] = [255, 255, 255, 255]
+        let context = try #require(CGContext(
+            data: &pixel, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        context.setBlendMode(.copy)
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: 1, height: 1))
+        #expect(pixel[3] == 0, "The title spacer must not paint anything")
     }
 }

@@ -33,9 +33,7 @@ struct ShieldPreviewView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            Color(hex: "0A0B0E").ignoresSafeArea()
-
-            ribbon
+            backdrop
 
             VStack(spacing: 0) {
                 Spacer(minLength: 0)
@@ -79,18 +77,19 @@ struct ShieldPreviewView: View {
         .accessibilityIdentifier("shield-preview")
     }
 
-    /// The extension's own bitmap, at the size the comp draws it, hung from the
-    /// top edge.
+    /// The extension's own backdrop bitmap — the same one it hands to
+    /// `ShieldConfiguration.backgroundColor` as a pattern — drawn 1:1 so the
+    /// preview shows the ribbon at exactly the size the shield will.
     @ViewBuilder
-    private var ribbon: some View {
-        if let image = ShieldRibbon.image(subject: subject, tone: UIColor(tone)) {
+    private var backdrop: some View {
+        if let image = ShieldRibbon.backdrop(subject: subject, tone: UIColor(tone)) {
             Image(uiImage: image)
                 .resizable()
-                .scaledToFit()
-                .frame(width: 124)
-                // The comp hangs it off the very top edge, under the island.
-                .ignoresSafeArea(edges: .top)
+                .scaledToFill()
+                .ignoresSafeArea()
                 .accessibilityIdentifier("shield-preview-ribbon")
+        } else {
+            Color(hex: "0A0B0E").ignoresSafeArea()
         }
     }
 }
