@@ -34,14 +34,19 @@ import UIKit
 enum ShieldDoor {
 
     private enum Metric {
-        /// Square, to match the box. A taller canvas is aspect-fit *down*, so
+        /// Square, to match the box: a taller canvas is aspect-fit *down*, so
         /// it buys height at the cost of everything else — the lesson the
-        /// ribbon taught.
-        static let canvas: CGFloat = 100
+        /// ribbon taught. Large, so the alignment-rect route has something to
+        /// draw at if iOS honours it (see `icon(tone:)`).
+        static let canvas: CGFloat = 240
 
-        /// Lands at ~2pt on device once the box scales the canvas to ~82 —
-        /// the comp's own line width.
-        static let lineWidth: CGFloat = 2.5
+        /// The layout footprint claimed via `alignmentRectInsets` — the size of
+        /// the box iOS was measured to give the icon.
+        static let slot: CGFloat = 82
+
+        /// Scaled so the seam lands at ~2pt on device — the comp's own line
+        /// width — whichever of the two paths iOS takes.
+        static let lineWidth: CGFloat = 2.5 * (canvas / 100)
 
         /// Nearly the whole canvas.
         ///
@@ -51,7 +56,7 @@ enum ShieldDoor {
         /// and read as small. The bloom is clipped slightly at top and bottom
         /// as a result, which costs nothing — the seam has already faded to
         /// transparent by then.
-        static let lineHeight: CGFloat = 96
+        static let lineHeight: CGFloat = 96 * (canvas / 100)
 
         /// The comp fades transparent → tone at 18% and back out at 82%, which
         /// spends a third of the line on fade. On a 190pt line that reads as
@@ -62,33 +67,60 @@ enum ShieldDoor {
         static let fadeEnd: CGFloat = 0.88
 
         /// The near bloom (comp `0 0 18px 2px`), scaled to the canvas.
-        static let lineGlowBlur: CGFloat = 13
+        static let lineGlowBlur: CGFloat = 13 * (canvas / 100)
         /// The wide bloom (comp `0 0 60px 14px`) is what the halo below is for.
-        static let haloRadius: CGFloat = 50
+        static let haloRadius: CGFloat = 50 * (canvas / 100)
         /// Comp halo is 220 x 280 — half again as tall as it is wide.
         static let haloAspect: CGFloat = 280.0 / 220.0
     }
 
     /// The door, in `tone`, sized for `ShieldConfiguration.icon`.
     ///
-    /// 100pt square at 3x is 300 x 300 px, about 360 KB. Kept small on purpose:
-    /// a shield extension runs on one of the tightest memory budgets on the
-    /// platform, and when it is killed for allocating too much iOS does not
-    /// report it — it silently swaps in its own default screen.
+    /// 240pt square at 2x is 480 x 480 px, under a megabyte. Size is watched
+    /// here on purpose: a shield extension runs on one of the tightest memory
+    /// budgets on the platform, and when it is killed for allocating too much
+    /// iOS does not report it — it silently swaps in its own default screen.
+    ///
+    /// ## Why the canvas is 240 and not 100
+    ///
+    /// The slot aspect-fits into a box measured on device at ~82pt, and the
+    /// comp's door is a ~190pt seam. No canvas *shape* escapes that: fitting
+    /// W x H into an 82 box gives a rendered height of exactly 82 for any
+    /// canvas at least as tall as it is wide, so a taller canvas only comes
+    /// back narrower. That is how the old ribbon ended up 12pt across.
+    ///
+    /// `alignmentRectInsets` is the one mechanism left. It lets an image
+    /// declare a *layout* rectangle smaller than its own bounds; a view laying
+    /// out by alignment rect — which is what Auto Layout does — would give this
+    /// image an 82pt slot while drawing it at 240.
+    ///
+    /// Whether SpringBoard's shield does that is not documented and cannot be
+    /// checked from here. The important property is that being wrong costs
+    /// nothing: the door is drawn filling the canvas at the comp's proportions,
+    /// so if the alignment rect is ignored and the image is fit by its size, it
+    /// renders at 82pt looking exactly as it did before.
     static func icon(tone: UIColor) -> UIImage? {
         let side = Metric.canvas
         let format = UIGraphicsImageRendererFormat.preferred()
         format.opaque = false
-        format.scale = 3
+        // 2x rather than 3x: the canvas is now 240pt, and 3x would be 720 x 720
+        // px — over 2 MB, which is not a bet worth taking in this extension for
+        // a soft-edged glow nobody will see the pixels of.
+        format.scale = 2
 
-        return UIGraphicsImageRenderer(size: CGSize(width: side, height: side),
-                                       format: format).image { context in
+        let image = UIGraphicsImageRenderer(size: CGSize(width: side, height: side),
+                                            format: format).image { context in
             let cg = context.cgContext
             let centre = CGPoint(x: side / 2, y: side / 2)
 
             drawHalo(in: cg, centre: centre, tone: tone)
             drawSeam(in: cg, centre: centre, tone: tone)
         }
+
+        // Claim only the middle `slot` points as this image's layout footprint.
+        let inset = (side - Metric.slot) / 2
+        return image.withAlignmentRectInsets(
+            UIEdgeInsets(top: inset, left: inset, bottom: inset, right: inset))
     }
 
     // MARK: - The bloom behind
