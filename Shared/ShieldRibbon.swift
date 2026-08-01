@@ -13,7 +13,8 @@
 //  The design has since moved it here, to the confirmation the app shows when
 //  you come back from the block screen — a surface the app owns, where nothing
 //  is clamped and nothing composites over it. The block screen now carries the
-//  door instead (`ShieldDoor`), which is a centred glyph and fits the slot.
+//  nothing at all — the block screen is words on black, and its icon slot is
+//  left empty rather than filled with a quarter-scale ornament.
 //
 //  So this draws the comp verbatim, at the comp's own size.
 //

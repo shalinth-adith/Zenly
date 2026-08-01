@@ -13,10 +13,13 @@
 //                        0 0 60px 14px var(--tone-glow);
 //      animation: qglow 9s ease-in-out infinite;
 //
-//  `ShieldDoor` draws the same door for the block screen and has to fit it in
-//  an icon slot iOS fixes at ~82 points, so it loses three-fifths of its height
-//  and compensates with a heavier line. Nothing is clamped here. Every number
-//  above is the comp's own, and the drawing is vectors rather than a bitmap, so
+//  This is the only place the door is drawn. The block screen used to carry a
+//  version of it squeezed into an icon slot iOS fixes at ~82 points — a bit over
+//  two-fifths of the comp's height — and it read as an ornament rather than a
+//  door, so that screen is now words on black and its slot is left empty.
+//
+//  Nothing is clamped here. Every number above is the comp's own, and the
+//  drawing is vectors rather than a bitmap, so
 //  it is sharp at any size and the halo can breathe the way the comp does — the
 //  one thing a `ShieldConfiguration` icon could never do, being a still image.
 //

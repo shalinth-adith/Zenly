@@ -37,11 +37,11 @@ struct ZenlyApp: App {
     var body: some Scene {
         WindowGroup {
             #if DEBUG
-            if let subject = DebugSeed.doorPreviewSubject {
+            if let subject = DebugSeed.blockScreenPreviewSubject {
                 // Screen 03 — the block screen. iOS draws the real one and
                 // Simulator cannot raise a shield, so this puts the extension's
-                // own door bitmap and strings on screen.
-                ShieldDoorPreview(
+                // own strings on screen.
+                BlockScreenPreview(
                     subject: subject,
                     tone: ZTheme.tone(forHex: profiles.activeProfile?.accentHex))
             } else if let subject = DebugSeed.shieldPreviewSubject {
@@ -65,7 +65,7 @@ struct ZenlyApp: App {
             // The shield preview is standing in for another process. Letting the
             // app's own foreground work run behind it would auto-start scheduled
             // sessions nobody asked for.
-            if DebugSeed.shieldPreviewSubject != nil || DebugSeed.doorPreviewSubject != nil { return }
+            if DebugSeed.shieldPreviewSubject != nil || DebugSeed.blockScreenPreviewSubject != nil { return }
             #endif
             switch phase {
             case .active:

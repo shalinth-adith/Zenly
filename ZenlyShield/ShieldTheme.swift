@@ -94,11 +94,18 @@ enum ShieldTheme {
         )
         let primary = ShieldConfiguration.Label(text: "Back to focus", color: onTone)
 
-        // The door goes in the icon slot, which is the whole reason this
-        // screen is now buildable. `ShieldConfiguration.icon` is aspect-fit
-        // into a box measured at roughly 80 points on device; the comp's old
-        // ribbon hung off the top edge at 302pt tall and never fitted, while a
-        // door is centred and compact — the shape the slot actually is.
+        // No icon. The words carry the screen on their own.
+        //
+        // The comp draws a door here — a 190pt seam of light. It cannot be
+        // drawn: `ShieldConfiguration.icon` is aspect-fit into a box fixed at
+        // ~82 points, measured twice on device (the old 44 x 302 ribbon came
+        // back 12 x 82, which pins the box height by itself). At 82 the seam is
+        // an ornament rather than a door, and three rounds of thickening and
+        // brightening it did not change that — the gap was always height.
+        //
+        // A quarter-scale version of a design's centrepiece reads as a mistake.
+        // Nothing reads as restraint, which is what the screen is about. The
+        // full-size door lives in `QuietDoor`, on a surface the app owns.
         //
         // No blur: it changes nothing here and fewer moving parts is worth more
         // than a style name. The measured composite (see `background`) shows
@@ -109,7 +116,7 @@ enum ShieldTheme {
             return ShieldConfiguration(
                 backgroundBlurStyle: nil,
                 backgroundColor: background,
-                icon: ShieldDoor.icon(tone: tone),
+                icon: nil,
                 title: title,
                 subtitle: subtitle,
                 primaryButtonLabel: primary,
@@ -120,7 +127,7 @@ enum ShieldTheme {
         return ShieldConfiguration(
             backgroundBlurStyle: nil,
             backgroundColor: background,
-            icon: ShieldDoor.icon(tone: tone),
+            icon: nil,
             title: title,
             subtitle: subtitle,
             primaryButtonLabel: primary,

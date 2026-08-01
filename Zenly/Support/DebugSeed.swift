@@ -42,12 +42,11 @@ enum DebugSeed {
         argument(after: "ZenlyPreviewShield")
     }
 
-    /// `ZenlyPreviewDoor Instagram` — stand screen 03 (the block screen) up as
-    /// the app's root. iOS draws the real one and Simulator cannot raise a
-    /// shield at all, so this is the only way to look at the door while
-    /// building it.
-    static var doorPreviewSubject: String? {
-        argument(after: "ZenlyPreviewDoor")
+    /// `ZenlyPreviewBlockScreen Instagram` — stand screen 03 (the block screen)
+    /// up as the app's root. iOS draws the real one and Simulator cannot raise
+    /// a shield at all, so this is the only way to look at it while building.
+    static var blockScreenPreviewSubject: String? {
+        argument(after: "ZenlyPreviewBlockScreen")
     }
 
     /// The value following `flag`, defaulting to "Instagram".
@@ -74,7 +73,7 @@ enum DebugSeed {
     ///
     /// Sixteen minutes because that is what the comp shows.
     static func primeShieldPreviewSession() {
-        guard shieldPreviewSubject != nil || doorPreviewSubject != nil else { return }
+        guard shieldPreviewSubject != nil || blockScreenPreviewSubject != nil else { return }
         ActiveSessionInfo.set(profileName: "Work",
                               endsAt: Date().addingTimeInterval(16 * 60))
     }

@@ -1,20 +1,19 @@
 //
-//  ShieldDoorPreview.swift
+//  BlockScreenPreview.swift
 //  Zenly
 //
 //  A DEBUG-only look at the block screen (Quiet spec, screen 03).
 //
 //  iOS draws the real one, inside the ZenlyShield extension, and only when a
-//  Screen Time shield is up — which Simulator will never allow. So this puts
-//  the extension's *own* inputs on screen: the same `ShieldDoor` bitmap at the
-//  ~80pt the icon slot was measured to give it, and the same `ShieldMessage`
-//  strings.
+//  Screen Time shield is up — which Simulator will never allow. So this puts the
+//  extension's own inputs on screen: the same `ShieldMessage` strings and the
+//  same button labels, with no icon, because the shield now sends none.
 //
-//  Laid out the way iOS stacks the slots — icon, title, subtitle, buttons —
-//  rather than the way the comp does, because this gets screenshot as evidence
-//  and a preview of something that cannot ship is worse than no preview. The
-//  spacing is still approximate; iOS's real metrics are private. What it proves
-//  is the artwork and every word.
+//  Laid out the way iOS stacks the slots — title, subtitle, buttons — rather
+//  than the way the comp does, because this gets screenshot as evidence and a
+//  preview of something that cannot ship is worse than no preview. The spacing
+//  is still approximate; iOS's real metrics are private. What it proves is
+//  every word.
 //
 //  Two gates: compiled out of Release, and only reachable with the launch
 //  argument.
@@ -24,7 +23,7 @@
 
 import SwiftUI
 
-struct ShieldDoorPreview: View {
+struct BlockScreenPreview: View {
     var subject: String
     var tone: Color
 
@@ -37,9 +36,6 @@ struct ShieldDoorPreview: View {
 
             VStack(spacing: 0) {
                 Spacer(minLength: 0)
-
-                door
-                    .padding(.bottom, 26)
 
                 Text(ShieldMessage.title(subject: subject))
                     .font(ZTheme.Font.display(25, weight: .semibold))
@@ -75,20 +71,7 @@ struct ShieldDoorPreview: View {
             .padding(.horizontal, 40)
         }
         .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("shield-door-preview")
-    }
-
-    /// The extension's own bitmap, at the size the icon slot was measured to
-    /// give it. Drawing it larger here would flatter the build.
-    @ViewBuilder
-    private var door: some View {
-        if let image = ShieldDoor.icon(tone: UIColor(tone)) {
-            Image(uiImage: image)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 80, height: 80)
-                .accessibilityIdentifier("shield-door")
-        }
+        .accessibilityIdentifier("block-screen-preview")
     }
 }
 

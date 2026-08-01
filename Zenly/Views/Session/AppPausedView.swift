@@ -18,12 +18,13 @@
 //  No buttons. It is a receipt, not a decision — it says its piece and hands
 //  you back to the timer on its own.
 //
-//  **This is the only surface in the flow that can hold the door at full size.**
-//  The block screen cannot, and that is a hard limit rather than a shortfall:
+//  **This is the only surface in the flow that holds the door at all.** The
+//  block screen cannot, and that is a hard limit rather than a shortfall:
 //  `ShieldConfiguration.icon` is aspect-fit into a box iOS fixes at ~82 points,
-//  measured twice on device (see `ShieldDoor.icon`), so the comp's 190pt seam
-//  arrives there at well under half its height no matter what is drawn. Here
-//  nothing is clamped and nothing composites over the background, so the comp's
+//  measured twice on device, so the comp's 190pt seam arrives there at well
+//  under half its height no matter what is drawn. That screen is words on black
+//  now, with its icon slot left empty. Here nothing is clamped and nothing
+//  composites over the background, so the comp's
 //  190pt line, its 220 x 280 halo, its 9s breath, its tracked eyebrow and its
 //  flat #0A0B0E all land exactly as drawn.
 //

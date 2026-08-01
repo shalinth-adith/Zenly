@@ -164,17 +164,16 @@ final class QuietSessionScreens: XCTestCase {
     /// here — iOS assembles it in another process from a `ShieldConfiguration`,
     /// and nothing about that is observable from a test.
     func testAppPausedScreen() {
-        let app = launch(["ZenlyPreviewDoor", "Instagram"])
-        let screen = app.descendants(matching: .any)["shield-door-preview"].firstMatch
+        let app = launch(["ZenlyPreviewBlockScreen", "Instagram"])
+        let screen = app.descendants(matching: .any)["block-screen-preview"].firstMatch
         XCTAssertTrue(screen.waitForExistence(timeout: 10), "Block screen never appeared")
 
         XCTAssertTrue(app.staticTexts["Instagram is behind this door."].exists,
                       "The comp's headline is missing")
-        XCTAssertTrue(app.descendants(matching: .any)["shield-door"].firstMatch.exists,
-                      "The door is missing")
 
         // "It opens on its own in N minutes." — the phrasing is the screen's
-        // argument, not decoration: the door is on a timer, not a lock.
+        // argument, not decoration: the door is on a timer, not a lock. With no
+        // artwork left, these two sentences are the entire screen.
         let opens = app.staticTexts.containing(
             NSPredicate(format: "label CONTAINS[c] 'opens on its own'")).firstMatch
         XCTAssertTrue(opens.exists, "The screen never says the door opens by itself")
