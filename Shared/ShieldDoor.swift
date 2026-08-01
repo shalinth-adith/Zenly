@@ -36,16 +36,17 @@ enum ShieldDoor {
     private enum Metric {
         /// Square, to match the box: a taller canvas is aspect-fit *down*, so
         /// it buys height at the cost of everything else — the lesson the
-        /// ribbon taught. Large, so the alignment-rect route has something to
-        /// draw at if iOS honours it (see `icon(tone:)`).
-        static let canvas: CGFloat = 240
+        /// ribbon taught.
+        ///
+        /// Sized to roughly what the box renders. Briefly 240, to give
+        /// `alignmentRectInsets` something large to draw at — see the note on
+        /// `icon(tone:)`. That did nothing, so the canvas comes back down: at
+        /// 240 the bitmap was 480 x 480 px for a picture that lands at 82pt,
+        /// and this extension is killed silently for allocating too much.
+        static let canvas: CGFloat = 100
 
-        /// The layout footprint claimed via `alignmentRectInsets` — the size of
-        /// the box iOS was measured to give the icon.
-        static let slot: CGFloat = 82
-
-        /// Scaled so the seam lands at ~2pt on device — the comp's own line
-        /// width — whichever of the two paths iOS takes.
+        /// Lands at ~2pt on device once the box scales the canvas to ~82 —
+        /// the comp's own line width.
         static let lineWidth: CGFloat = 2.5 * (canvas / 100)
 
         /// Nearly the whole canvas.
@@ -76,51 +77,47 @@ enum ShieldDoor {
 
     /// The door, in `tone`, sized for `ShieldConfiguration.icon`.
     ///
-    /// 240pt square at 2x is 480 x 480 px, under a megabyte. Size is watched
-    /// here on purpose: a shield extension runs on one of the tightest memory
+    /// 100pt square at 3x is 300 x 300 px, about 360 KB. Size is watched here
+    /// on purpose: a shield extension runs on one of the tightest memory
     /// budgets on the platform, and when it is killed for allocating too much
     /// iOS does not report it — it silently swaps in its own default screen.
     ///
-    /// ## Why the canvas is 240 and not 100
+    /// ## The door renders at ~82pt and cannot be made taller
     ///
-    /// The slot aspect-fits into a box measured on device at ~82pt, and the
-    /// comp's door is a ~190pt seam. No canvas *shape* escapes that: fitting
-    /// W x H into an 82 box gives a rendered height of exactly 82 for any
-    /// canvas at least as tall as it is wide, so a taller canvas only comes
-    /// back narrower. That is how the old ribbon ended up 12pt across.
+    /// Settled on device, not assumed. Three things were tried and all three
+    /// are dead ends:
     ///
-    /// `alignmentRectInsets` is the one mechanism left. It lets an image
-    /// declare a *layout* rectangle smaller than its own bounds; a view laying
-    /// out by alignment rect — which is what Auto Layout does — would give this
-    /// image an 82pt slot while drawing it at 240.
+    /// 1. **A taller canvas.** Aspect-fitting W x H into an 82pt box gives a
+    ///    rendered height of exactly 82 for *any* canvas at least as tall as it
+    ///    is wide — the canvas height cancels out. Extra height only comes back
+    ///    as lost width, which is how the old ribbon ended up 12pt across.
+    /// 2. **A pattern-image background** to escape the slot entirely.
+    ///    `UIColor` encodes as colour-space components, so the pattern arrives
+    ///    at iOS's rendering process as nothing at all.
+    /// 3. **`alignmentRectInsets`**, declaring a layout rect smaller than the
+    ///    image so a host laying out by alignment rect would draw it larger.
+    ///    Shipped at a 240pt canvas claiming an 82pt footprint; the device
+    ///    rendered it at exactly the same size as before. SpringBoard's shield
+    ///    does not lay out that way.
     ///
-    /// Whether SpringBoard's shield does that is not documented and cannot be
-    /// checked from here. The important property is that being wrong costs
-    /// nothing: the door is drawn filling the canvas at the comp's proportions,
-    /// so if the alignment rect is ignored and the image is fit by its size, it
-    /// renders at 82pt looking exactly as it did before.
+    /// The comp's seam is ~190pt. This one is ~79. The gap is not a shortfall
+    /// in the drawing — it is the size of the slot, and the slot is not a
+    /// parameter. It would take Apple accepting a view here, the way WidgetKit
+    /// and Live Activities do.
     static func icon(tone: UIColor) -> UIImage? {
         let side = Metric.canvas
         let format = UIGraphicsImageRendererFormat.preferred()
         format.opaque = false
-        // 2x rather than 3x: the canvas is now 240pt, and 3x would be 720 x 720
-        // px — over 2 MB, which is not a bet worth taking in this extension for
-        // a soft-edged glow nobody will see the pixels of.
-        format.scale = 2
+        format.scale = 3
 
-        let image = UIGraphicsImageRenderer(size: CGSize(width: side, height: side),
-                                            format: format).image { context in
+        return UIGraphicsImageRenderer(size: CGSize(width: side, height: side),
+                                       format: format).image { context in
             let cg = context.cgContext
             let centre = CGPoint(x: side / 2, y: side / 2)
 
             drawHalo(in: cg, centre: centre, tone: tone)
             drawSeam(in: cg, centre: centre, tone: tone)
         }
-
-        // Claim only the middle `slot` points as this image's layout footprint.
-        let inset = (side - Metric.slot) / 2
-        return image.withAlignmentRectInsets(
-            UIEdgeInsets(top: inset, left: inset, bottom: inset, right: inset))
     }
 
     // MARK: - The bloom behind

@@ -233,16 +233,6 @@ struct ShieldDoorTests {
         #expect(image.size.width == image.size.height, "The canvas must stay square")
     }
 
-    /// The image claims a layout footprint smaller than its own bounds, so a
-    /// host laying out by alignment rect gives it the slot's size and draws it
-    /// larger. Costs nothing if iOS ignores it — see `ShieldDoor.icon`.
-    @Test func claimsOnlyTheSlotAsItsFootprint() throws {
-        let image = try #require(ShieldDoor.icon(tone: .systemBlue))
-        let insets = image.alignmentRectInsets
-        #expect(insets.top > 0 && insets.left > 0)
-        #expect(image.size.width - insets.left - insets.right == 82)
-        #expect(image.size.height - insets.top - insets.bottom == 82)
-    }
 
     /// Small enough for the extension's budget. A shield extension killed for
     /// allocating too much is not reported — iOS silently substitutes its own
