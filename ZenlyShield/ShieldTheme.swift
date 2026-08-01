@@ -43,15 +43,15 @@ enum ShieldTheme {
     /// #242424, which is exactly what a device photo of the shield measured
     /// before the diagnostic was ever run.
     ///
-    /// So the floor is #222222, reached only by pure black, and this colour
-    /// already sits two values above it — invisibly. There is nothing further
-    /// to win here, and the app's own black is the right thing to keep: one
-    /// black across the product, and the value that actually renders on every
-    /// surface we control.
+    /// So the floor is #222222, and pure black is the only colour that reaches
+    /// it. The design's own #0A0B0E lands at #242424 — two values higher out of
+    /// 255, which nobody can see, but there is no reason to give them away on
+    /// the one surface in the product that cannot render its colour properly.
+    /// Black is what goes here, and #0A0B0E stays everywhere else.
     ///
     /// The comp's flat #0A0B0E version of this screen exists in `AppPausedView`,
-    /// where nothing composites over it.
-    static let background = UIColor(red: 0.039, green: 0.043, blue: 0.055, alpha: 1.0)
+    /// where nothing composites over it and the colour renders as drawn.
+    static let background = UIColor.black
 
     /// Design `--ink` #E7E8EC.
     static let primaryText = UIColor(red: 0.906, green: 0.910, blue: 0.925, alpha: 1.0)
