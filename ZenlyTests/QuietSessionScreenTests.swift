@@ -163,108 +163,122 @@ struct ShieldMessageTests {
 
     private func reset() { ActiveSessionInfo.clear() }
 
-    @Test func namesWhatIsPaused() {
-        reset(); defer { reset() }
-        let text = ShieldMessage.subtitle(subject: "Instagram", custom: "")
-        #expect(text.contains("Instagram"))
+    @Test func namesWhatIsBehindTheDoor() {
+        #expect(ShieldMessage.title(subject: "Instagram") == "Instagram is behind this door.")
     }
 
-    /// With a session running, the screen says when the app comes back — the
-    /// comp's "Back at 7:43".
-    @Test func saysWhenTheAppComesBack() {
+    /// "It opens on its own in 16 minutes." The phrasing is the point: the door
+    /// is on a timer, not a lock, and nothing is being asked of the user.
+    @Test func saysTheDoorOpensByItself() {
         reset(); defer { reset() }
         ActiveSessionInfo.set(profileName: "Work", endsAt: Date().addingTimeInterval(16 * 60))
 
-        let text = ShieldMessage.subtitle(subject: "Instagram", custom: "")
-        #expect(text.contains("Back at"))
-        #expect(text.contains("16 minutes"))
+        let text = ShieldMessage.subtitle(custom: "")
+        #expect(text.contains("opens on its own in 16 minutes"))
+        #expect(text.contains("Nothing inside will have moved."))
+        #expect(text.contains("Opens at"))
     }
 
-    /// With nothing running, it says nothing about time rather than quoting a
-    /// countdown that has already expired.
-    @Test func staysSilentAboutTimeWithNoSession() {
+    /// One minute, not "1 minutes".
+    @Test func speaksTheLastMinuteProperly() {
         reset(); defer { reset() }
-        let text = ShieldMessage.subtitle(subject: "Instagram", custom: "")
-        #expect(!text.contains("Back at"))
-        #expect(!text.contains("minutes"))
+        ActiveSessionInfo.set(profileName: "Work", endsAt: Date().addingTimeInterval(40))
+        #expect(ShieldMessage.subtitle(custom: "").contains("in 1 minute."))
     }
 
-    /// An expired session is the same as no session.
+    /// With nothing running there is no honest number, so the screen keeps the
+    /// half that is still true and drops the clock rather than inventing one.
+    @Test func quotesNoTimeWithoutASession() {
+        reset(); defer { reset() }
+        let text = ShieldMessage.subtitle(custom: "")
+        #expect(text.contains("Nothing inside will have moved."))
+        #expect(!text.contains("opens on its own"))
+        #expect(!text.contains("Opens at"))
+    }
+
+    /// An expired session is the same as no session — a door that has already
+    /// opened must not still be announcing a time.
     @Test func ignoresASessionThatHasAlreadyEnded() {
         reset(); defer { reset() }
         ActiveSessionInfo.set(profileName: "Work", endsAt: Date().addingTimeInterval(-60))
         #expect(ActiveSessionInfo.endsAt == nil)
-        #expect(!ShieldMessage.subtitle(subject: "Instagram", custom: "").contains("Back at"))
+        #expect(!ShieldMessage.subtitle(custom: "").contains("Opens at"))
     }
 
     /// The user's own message is added to the screen, never in place of the
-    /// line that names the app or the line that gives the time back.
+    /// lines that say when the door opens.
     @Test func addsACustomMessageWithoutDisplacingAnything() {
         reset(); defer { reset() }
         ActiveSessionInfo.set(profileName: "Work", endsAt: Date().addingTimeInterval(10 * 60))
 
-        let text = ShieldMessage.subtitle(subject: "Reddit", custom: "  You said 8pm.  ")
-        #expect(text.contains("Reddit"))
+        let text = ShieldMessage.subtitle(custom: "  You said 8pm.  ")
         #expect(text.contains("You said 8pm."))
-        #expect(text.contains("Back at"))
-    }
-
-    @Test func headlineIsTheCompsSentence() {
-        #expect(ShieldMessage.title() == "Your place is kept.")
+        #expect(text.contains("opens on its own"))
+        #expect(text.contains("Opens at"))
     }
 }
 
-// MARK: - 03 · the ribbon
+// MARK: - 03 · the door
 
-/// The ribbon is sized for the icon slot, which device testing measured at
-/// roughly 100 × 100 points. Both of these are load-bearing and both were
-/// learned the hard way:
-///
-/// - the canvas must be **square**, or the aspect-fit spends most of the box on
-///   empty margin and the ribbon comes back a sliver;
-/// - it must be **small**, because a shield extension is killed for a
-///   screen-sized bitmap and iOS then substitutes its own default screen with
-///   no error of any kind.
-struct ShieldRibbonTests {
+/// The door is what made this screen buildable. `ShieldConfiguration.icon` is
+/// aspect-fit into a box measured on device at roughly 80 points; the ribbon it
+/// replaced hung off the top edge at 302pt tall and never fitted, while a door
+/// is centred and compact — the shape the slot actually is.
+struct ShieldDoorTests {
 
-    /// A square canvas at the size of iOS's box. Not decoration: a tall canvas
-    /// is what produced a 12pt-wide ribbon on device.
+    /// Square, to match the box. A taller canvas is aspect-fit *down*, which is
+    /// exactly how the ribbon ended up 12pt wide on device.
     @Test func fillsTheIconBox() throws {
-        let image = try #require(ShieldRibbon.icon(subject: "Instagram", tone: .systemBlue))
+        let image = try #require(ShieldDoor.icon(tone: .systemBlue))
         #expect(image.size == CGSize(width: 100, height: 100))
     }
 
-    /// Small enough for the extension's budget. A 100pt square at 3x is
-    /// 300 × 300 px; the screen-sized version that got the extension killed was
-    /// 1179 × 2556.
+    /// Small enough for the extension's budget. A shield extension killed for
+    /// allocating too much is not reported — iOS silently substitutes its own
+    /// default screen.
     @Test func staysWithinTheExtensionsBudget() throws {
-        let image = try #require(ShieldRibbon.icon(subject: "Instagram", tone: .systemBlue))
+        let image = try #require(ShieldDoor.icon(tone: .systemBlue))
         let cgImage = try #require(image.cgImage)
-        let bytes = cgImage.width * cgImage.height * 4
-        #expect(bytes < 1_000_000, "\(bytes) bytes is too much for a shield extension")
+        #expect(cgImage.width * cgImage.height * 4 < 1_000_000)
     }
 
-    /// A name too long to sit inside the drop is dropped rather than shrunk or
-    /// clipped; the ribbon itself still renders.
-    @Test func stillDrawsWhenTheNameCannotFit() {
-        let long = String(repeating: "verylongappname", count: 6)
-        #expect(ShieldRibbon.icon(subject: long, tone: .systemBlue) != nil)
+    /// The seam has to actually paint the tone. An empty canvas passes every
+    /// other automated check identically to a working one.
+    @Test func paintsTheSeamInTheTone() throws {
+        let image = try #require(ShieldDoor.icon(tone: .systemBlue))
+        #expect(try alpha(of: image, atFractionAcross: 0.5, down: 0.5) > 200,
+                "The seam is not solid at the centre of the door")
     }
 
-    @Test func drawsWithNoSubjectAtAll() {
-        #expect(ShieldRibbon.icon(subject: nil, tone: .systemBlue) != nil)
-        #expect(ShieldRibbon.icon(subject: "   ", tone: .systemBlue) != nil)
+    /// It is a *seam*: bright down the middle, dark to either side. Without
+    /// this, a canvas flooded with tone would pass.
+    @Test func isALineRatherThanAWash() throws {
+        let image = try #require(ShieldDoor.icon(tone: .systemBlue))
+        let centre = try alpha(of: image, atFractionAcross: 0.5, down: 0.5)
+        let offToTheSide = try alpha(of: image, atFractionAcross: 0.28, down: 0.5)
+        #expect(centre > offToTheSide * 2,
+                "Centre \(centre) vs side \(offToTheSide) — that is a wash, not a seam")
     }
 
-    /// The ribbon has to actually paint the tone — a canvas that renders empty
-    /// looks identical to a working one in every automated check but this.
-    @Test func paintsTheTone() throws {
-        let image = try #require(ShieldRibbon.icon(subject: "Instagram", tone: .systemBlue))
+    /// `linear-gradient(to bottom, transparent, tone 18%, tone 82%, transparent)`
+    /// — the light fades out at both ends rather than stopping.
+    @Test func fadesOutAtBothEnds() throws {
+        let image = try #require(ShieldDoor.icon(tone: .systemBlue))
+        let middle = try alpha(of: image, atFractionAcross: 0.5, down: 0.5)
+        let top = try alpha(of: image, atFractionAcross: 0.5, down: 0.06)
+        let bottom = try alpha(of: image, atFractionAcross: 0.5, down: 0.94)
+        #expect(top < middle, "The seam does not fade at the top")
+        #expect(bottom < middle, "The seam does not fade at the bottom")
+    }
+
+    /// Alpha of one pixel, addressed as a fraction of the image.
+    private func alpha(of image: UIImage,
+                       atFractionAcross across: Double,
+                       down: Double) throws -> Int {
         let cgImage = try #require(image.cgImage)
+        let x = Int(Double(cgImage.width) * across)
+        let y = Int(Double(cgImage.height) * down)
 
-        // Sample the middle of the ribbon: centre across, a third of the way
-        // down, which is inside the drop and clear of the notch.
-        let x = cgImage.width / 2, y = cgImage.height / 3
         var pixel: [UInt8] = [0, 0, 0, 0]
         let context = try #require(CGContext(
             data: &pixel, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
@@ -273,7 +287,31 @@ struct ShieldRibbonTests {
         context.setBlendMode(.copy)
         context.draw(cgImage, in: CGRect(x: -x, y: -(cgImage.height - y - 1),
                                          width: cgImage.width, height: cgImage.height))
-        #expect(pixel[3] > 200, "The ribbon is not opaque where it should be solid tone")
-        #expect(pixel[2] > pixel[0], "Expected the blue tone, got \(pixel)")
+        return Int(pixel[3])
+    }
+}
+
+// MARK: - 03b · the ribbon, where it fits
+
+/// The ribbon now belongs to the in-app confirmation, which owns its surface —
+/// so it is drawn at the comp's own 44 x 302 with nothing clamping it.
+struct ShieldRibbonTests {
+
+    @Test func drawsTheCompsGeometry() throws {
+        let image = try #require(ShieldRibbon.comp(subject: "Instagram", tone: .systemBlue))
+        #expect(image.size.width == ShieldRibbon.compCanvasWidth)   // 44 + 40 each side
+        #expect(image.size.height == 342)                           // 302 + 40 for the glow
+    }
+
+    /// A name too long for the drop is dropped rather than shrunk or clipped;
+    /// the ribbon itself still renders.
+    @Test func stillDrawsWhenTheNameCannotFit() {
+        let long = String(repeating: "verylongappname", count: 6)
+        #expect(ShieldRibbon.comp(subject: long, tone: .systemBlue) != nil)
+    }
+
+    @Test func drawsWithNoSubjectAtAll() {
+        #expect(ShieldRibbon.comp(subject: nil, tone: .systemBlue) != nil)
+        #expect(ShieldRibbon.comp(subject: "   ", tone: .systemBlue) != nil)
     }
 }

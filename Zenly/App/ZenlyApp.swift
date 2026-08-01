@@ -37,18 +37,22 @@ struct ZenlyApp: App {
     var body: some Scene {
         WindowGroup {
             #if DEBUG
-            if let subject = DebugSeed.shieldPreviewSubject {
+            if let subject = DebugSeed.doorPreviewSubject {
+                // Screen 03 — the block screen. iOS draws the real one and
+                // Simulator cannot raise a shield, so this puts the extension's
+                // own door bitmap and strings on screen.
+                ShieldDoorPreview(
+                    subject: subject,
+                    tone: ZTheme.tone(forHex: profiles.activeProfile?.accentHex))
+            } else if let subject = DebugSeed.shieldPreviewSubject {
                 // Screen 03 normally needs a Screen Time shield to have fired,
                 // which Simulator will never allow. Standing it up as the root
                 // under a launch argument is the only way to look at it while
                 // building. This is the real view, not a mock of one.
-                AppPausedView(
-                    subject: subject,
-                    tone: ZTheme.tone(forHex: profiles.activeProfile?.accentHex),
-                    endsAt: Date().addingTimeInterval(16 * 60),
-                    onDismiss: {},
-                    onSnooze: {}
-                )
+                AppPausedView(subject: subject,
+                              tone: ZTheme.tone(forHex: profiles.activeProfile?.accentHex),
+                              remaining: "16:12",
+                              onDismiss: {})
             } else {
                 root
             }
@@ -61,7 +65,7 @@ struct ZenlyApp: App {
             // The shield preview is standing in for another process. Letting the
             // app's own foreground work run behind it would auto-start scheduled
             // sessions nobody asked for.
-            if DebugSeed.shieldPreviewSubject != nil { return }
+            if DebugSeed.shieldPreviewSubject != nil || DebugSeed.doorPreviewSubject != nil { return }
             #endif
             switch phase {
             case .active:

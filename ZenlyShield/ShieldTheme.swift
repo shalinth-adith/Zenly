@@ -75,15 +75,6 @@ enum ShieldTheme {
         }
     }
 
-    /// The ribbon goes in the icon slot, and the background stays a flat colour.
-    ///
-    /// Both of those are conclusions from device testing, not first choices.
-    /// See `ShieldRibbon` for the two routes to the comp's full-height ribbon
-    /// and why each is closed. The short version: the icon is clamped to about
-    /// 100 points square, and `UIColor(patternImage:)` does not survive being
-    /// encoded across to the process that draws the shield — it arrives as
-    /// nothing, leaving the screen with no background at all.
-
     /// The block screen, personalised with what is being paused (`subject` = app
     /// name or website domain, when iOS provides one).
     ///
@@ -95,24 +86,30 @@ enum ShieldTheme {
         let name = subject ?? "It"
         let custom = AppGroup.defaults.string(forKey: ShieldMessage.storageKey) ?? ""
 
-        let title = ShieldConfiguration.Label(text: ShieldMessage.title(), color: primaryText)
+        let title = ShieldConfiguration.Label(text: ShieldMessage.title(subject: name),
+                                              color: primaryText)
         let subtitle = ShieldConfiguration.Label(
-            text: ShieldMessage.subtitle(subject: name, custom: custom),
+            text: ShieldMessage.subtitle(custom: custom),
             color: secondaryText
         )
         let primary = ShieldConfiguration.Label(text: "Back to focus", color: onTone)
 
-        // No blur, because it changes nothing here and fewer moving parts is
-        // worth more than a style name. The measured composite (see
-        // `background`) shows iOS painting our colour at ~17% over a surface of
-        // its own; blur styles from `.systemUltraThinMaterialDark` to `.dark`
-        // all landed on the same #242424. This is the configuration the
-        // diagnostic was run in, so it is the one with real data behind it.
+        // The door goes in the icon slot, which is the whole reason this
+        // screen is now buildable. `ShieldConfiguration.icon` is aspect-fit
+        // into a box measured at roughly 80 points on device; the comp's old
+        // ribbon hung off the top edge at 302pt tall and never fitted, while a
+        // door is centred and compact — the shape the slot actually is.
+        //
+        // No blur: it changes nothing here and fewer moving parts is worth more
+        // than a style name. The measured composite (see `background`) shows
+        // iOS painting our colour at ~17% over a surface of its own, and every
+        // style from `.systemUltraThinMaterialDark` to `.dark` landed on the
+        // same grey.
         guard offersSnooze else {
             return ShieldConfiguration(
                 backgroundBlurStyle: nil,
                 backgroundColor: background,
-                icon: ShieldRibbon.icon(subject: subject, tone: tone),
+                icon: ShieldDoor.icon(tone: tone),
                 title: title,
                 subtitle: subtitle,
                 primaryButtonLabel: primary,
@@ -123,7 +120,7 @@ enum ShieldTheme {
         return ShieldConfiguration(
             backgroundBlurStyle: nil,
             backgroundColor: background,
-            icon: ShieldRibbon.icon(subject: subject, tone: tone),
+            icon: ShieldDoor.icon(tone: tone),
             title: title,
             subtitle: subtitle,
             primaryButtonLabel: primary,

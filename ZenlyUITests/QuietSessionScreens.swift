@@ -164,26 +164,50 @@ final class QuietSessionScreens: XCTestCase {
     /// here — iOS assembles it in another process from a `ShieldConfiguration`,
     /// and nothing about that is observable from a test.
     func testAppPausedScreen() {
-        let app = launch(["ZenlyPreviewShield", "Instagram"])
-        let screen = app.descendants(matching: .any)["app-paused"].firstMatch
-        XCTAssertTrue(screen.waitForExistence(timeout: 10), "App-paused screen never appeared")
+        let app = launch(["ZenlyPreviewDoor", "Instagram"])
+        let screen = app.descendants(matching: .any)["shield-door-preview"].firstMatch
+        XCTAssertTrue(screen.waitForExistence(timeout: 10), "Block screen never appeared")
 
-        XCTAssertTrue(app.staticTexts["Your place is kept."].exists,
+        XCTAssertTrue(app.staticTexts["Instagram is behind this door."].exists,
                       "The comp's headline is missing")
-        // Queried as any descendant rather than `.buttons`: a custom
-        // ButtonStyle can publish its element as something other than a button.
-        XCTAssertTrue(app.descendants(matching: .any)["paused-back-to-focus"].firstMatch.exists,
-                      "The primary action is missing")
-        XCTAssertTrue(app.descendants(matching: .any)["paused-five-minutes"].firstMatch.exists,
-                      "The five-minute door is missing")
+        XCTAssertTrue(app.descendants(matching: .any)["shield-door"].firstMatch.exists,
+                      "The door is missing")
 
-        // The comp's eyebrow, in its own place above the headline — the one
-        // thing the system shield had to give up for want of a slot.
-        let eyebrow = app.staticTexts.containing(
-            NSPredicate(format: "label BEGINSWITH 'BACK AT'")).firstMatch
-        XCTAssertTrue(eyebrow.exists, "The tracked 'BACK AT' eyebrow is missing")
+        // "It opens on its own in N minutes." — the phrasing is the screen's
+        // argument, not decoration: the door is on a timer, not a lock.
+        let opens = app.staticTexts.containing(
+            NSPredicate(format: "label CONTAINS[c] 'opens on its own'")).firstMatch
+        XCTAssertTrue(opens.exists, "The screen never says the door opens by itself")
 
         capture(app, "03-app-paused")
+    }
+
+    // MARK: - 03b · Back to focus
+
+    /// The in-app confirmation, where the ribbon lives now. This is the real
+    /// `AppPausedView`: in the app it comes up on the session screen when you
+    /// return after tapping "Back to focus", and hands you back to the timer on
+    /// its own. The launch argument only stands it up without a shield having
+    /// fired, which Simulator cannot produce.
+    func testBackToFocusScreen() {
+        let app = launch(["ZenlyPreviewShield", "Instagram"])
+        let screen = app.descendants(matching: .any)["app-paused"].firstMatch
+        XCTAssertTrue(screen.waitForExistence(timeout: 10), "Back-to-focus screen never appeared")
+
+        XCTAssertTrue(app.staticTexts["Instagram is bookmarked."].exists,
+                      "The comp's headline is missing")
+
+        // The comp's eyebrow, in its own place above the headline — the thing
+        // the system shield has to give up for want of a slot.
+        let eyebrow = app.staticTexts.containing(
+            NSPredicate(format: "label BEGINSWITH 'IN SESSION'")).firstMatch
+        XCTAssertTrue(eyebrow.exists, "The tracked 'IN SESSION' eyebrow is missing")
+
+        let returning = app.staticTexts.containing(
+            NSPredicate(format: "label CONTAINS[c] 'Returning to your session'")).firstMatch
+        XCTAssertTrue(returning.exists, "The screen never promises to hand you back")
+
+        capture(app, "03b-back-to-focus")
     }
 
     // MARK: - 04b · Ended early

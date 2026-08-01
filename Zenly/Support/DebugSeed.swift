@@ -39,8 +39,21 @@ enum DebugSeed {
     /// No leading dash: NSUserDefaults parses `-key value` pairs out of the
     /// argument list, so a lone `-flag` corrupts the defaults around it.
     static var shieldPreviewSubject: String? {
+        argument(after: "ZenlyPreviewShield")
+    }
+
+    /// `ZenlyPreviewDoor Instagram` — stand screen 03 (the block screen) up as
+    /// the app's root. iOS draws the real one and Simulator cannot raise a
+    /// shield at all, so this is the only way to look at the door while
+    /// building it.
+    static var doorPreviewSubject: String? {
+        argument(after: "ZenlyPreviewDoor")
+    }
+
+    /// The value following `flag`, defaulting to "Instagram".
+    private static func argument(after flag: String) -> String? {
         let arguments = ProcessInfo.processInfo.arguments
-        guard let index = arguments.firstIndex(of: "ZenlyPreviewShield") else { return nil }
+        guard let index = arguments.firstIndex(of: flag) else { return nil }
         let next = arguments.index(after: index)
         guard next < arguments.count else { return "Instagram" }
         let value = arguments[next]
@@ -61,7 +74,7 @@ enum DebugSeed {
     ///
     /// Sixteen minutes because that is what the comp shows.
     static func primeShieldPreviewSession() {
-        guard shieldPreviewSubject != nil else { return }
+        guard shieldPreviewSubject != nil || doorPreviewSubject != nil else { return }
         ActiveSessionInfo.set(profileName: "Work",
                               endsAt: Date().addingTimeInterval(16 * 60))
     }

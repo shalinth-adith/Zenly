@@ -118,20 +118,15 @@ struct SessionView: View {
                 onCancel: { showStopConfirmation = false }
             )
         }
-        // Quiet spec screen 03, at the size it was drawn. The real shield is
-        // iOS's to lay out and cannot hold the comp; coming back to Zen-ly
-        // after being stopped is the moment the screen is about, and this is a
-        // surface the app owns. See `AppPausedView`.
+        // Quiet spec screen 03b — what the app says when you come back from the
+        // block screen having tapped "Back to focus". See `AppPausedView`.
         .overlay {
             if let paused {
-                AppPausedView(
-                    subject: paused.name,
-                    tone: tint,
-                    endsAt: ActiveSessionInfo.endsAt,
-                    onDismiss: dismissPaused,
-                    onSnooze: PausedApp.token == nil ? nil : snoozePaused
-                )
-                .transition(.opacity)
+                AppPausedView(subject: paused.name,
+                              tone: tint,
+                              remaining: session.timeString,
+                              onDismiss: dismissPaused)
+                    .transition(.opacity)
             }
         }
         .animation(ZTheme.Motion.smooth, value: paused?.at)
@@ -140,7 +135,7 @@ struct SessionView: View {
             for: UIApplication.didBecomeActiveNotification)) { _ in refreshPaused() }
     }
 
-    // MARK: - 03 · App paused
+    // MARK: - 03b · Back to focus
 
     private func refreshPaused() {
         // Only while something is actually being blocked. A held session has no
@@ -155,16 +150,6 @@ struct SessionView: View {
     private func dismissPaused() {
         PausedApp.markSeen()
         paused = nil
-    }
-
-    /// The same five-minute door the shield's own second button opens, through
-    /// the same store — not a lookalike.
-    private func snoozePaused() {
-        if let token = PausedApp.token {
-            SnoozeStore.snooze(token, minutes: 5)
-            session.reapplyEnforcement()
-        }
-        dismissPaused()
     }
 
     private var sessionMessage: String {

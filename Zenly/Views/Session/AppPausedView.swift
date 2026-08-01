@@ -2,45 +2,46 @@
 //  AppPausedView.swift
 //  Zenly
 //
-//  Quiet spec, screen 03 ("App paused") — the comp, at the size it was drawn.
+//  Quiet spec, screen 03b ("Back to focus") — the in-app confirmation.
 //
-//  This is not the block screen. The block screen is drawn by iOS from a
-//  `ShieldConfiguration`, and the comp cannot be built there: nine primitive
-//  fields, laid out in another process, with the icon clamped to an ~80pt box
-//  against the comp's 302pt ribbon. `ShieldRibbon` documents the routes tried
-//  and why each is closed.
+//  Screen 03 is the block screen itself, and iOS draws that one: you tap "Back
+//  to focus" there and the app you reached for closes. 03b is what Zen-ly shows
+//  when you come back to it — the ribbon at the size the comp draws it, and a
+//  sentence saying the thing you reached for has been kept, not taken.
 //
-//  So the comp lives here instead, on the one surface the app owns — shown when
-//  you come back to Zen-ly during a session and a shield stood in front of
-//  something in the last few minutes. Everything the shield had to give up is
-//  here: the ribbon at a full 44 x 302 hanging off the top edge, the tracked
-//  eyebrow above the headline rather than folded into the subtitle, the comp's
-//  exact type scale, and a flat `--bg` surface with nothing composited over it.
+//      [ribbon, INSTAGRAM running down it]
+//      IN SESSION · 16:12 LEFT
+//      Instagram is bookmarked.
+//      You'll come back to exactly this spot when the session ends.
+//      Returning to your session…
 //
-//  Both actions are real. "Back to focus" dismisses; "I need it for 5 minutes"
-//  opens the same five-minute door the shield's own button does, through the
-//  same `SnoozeStore`, using the token the shield recorded.
+//  No buttons. It is a receipt, not a decision — it says its piece and hands
+//  you back to the timer on its own.
+//
+//  This is the surface that can hold the ribbon. The shield cannot: its icon is
+//  aspect-fit into a box of about 80 points, and the ribbon is 302 tall. Here
+//  nothing is clamped and nothing composites over the background, so the comp's
+//  44 x 302, its .34em name, its tracked eyebrow and its flat #0A0B0E all land
+//  as drawn.
 //
 
 import SwiftUI
-import ManagedSettings
 
 struct AppPausedView: View {
     /// The app or domain that was paused.
     let subject: String
-    /// When the shield went up — the comp's "Back at 7:43" counts from the
-    /// session's end, not from this.
     let tone: Color
-    /// When the quiet ends, or nil if nothing is running.
-    let endsAt: Date?
+    /// Time left in the session, for the comp's "16:12 left".
+    let remaining: String?
 
     var onDismiss: () -> Void
-    var onSnooze: (() -> Void)?
+
+    /// The comp's "Returning to your session…" is a promise, so it has to be
+    /// kept without the user doing anything.
+    private let dwell: TimeInterval = 2.6
 
     var body: some View {
         ZStack(alignment: .top) {
-            // Comp `--bg`, flat. No material, no blur — the thing the real
-            // shield could not have.
             Color(hex: "0A0B0E").ignoresSafeArea()
 
             ribbon
@@ -48,19 +49,15 @@ struct AppPausedView: View {
             VStack(spacing: 0) {
                 Spacer(minLength: 0)
 
-                // The comp's eyebrow, in its own place above the headline. On
-                // the shield this had to be folded into the subtitle, because
-                // `ShieldConfiguration.Label` is a String and a colour and
-                // there is no third slot to put it in.
-                if let returnLine {
-                    Text(returnLine)
+                if let eyebrow {
+                    Text(eyebrow)
                         .font(ZTheme.Font.body(11))
                         .tracking(2.42)                     // .22em at 11pt
                         .foregroundStyle(ZTheme.Palette.text(0.30))
                         .monospacedDigit()
                 }
 
-                Text("Your place is kept.")
+                Text("\(subject) is bookmarked.")
                     .font(ZTheme.Font.display(25, weight: .semibold))
                     .foregroundStyle(ZTheme.Palette.textPrimary)
                     .multilineTextAlignment(.center)
@@ -68,7 +65,7 @@ struct AppPausedView: View {
                     .frame(maxWidth: 290)
                     .padding(.top, 10)
 
-                Text("\(subject) waits exactly as you left it — same place, same scroll.\(minutesTail)")
+                Text("You\u{2019}ll come back to exactly this spot when the session ends.")
                     .font(ZTheme.Font.body(14))
                     .foregroundStyle(ZTheme.Palette.text(0.55))
                     .multilineTextAlignment(.center)
@@ -78,36 +75,31 @@ struct AppPausedView: View {
 
                 Spacer(minLength: 0)
 
-                VStack(spacing: 4) {
-                    Button("Back to focus") { Haptics.light(); onDismiss() }
-                        .buttonStyle(QuietCTAStyle(tone: tone, isReady: true))
-                        .accessibilityIdentifier("paused-back-to-focus")
-
-                    if let onSnooze {
-                        Button("I need it for 5 minutes") { Haptics.light(); onSnooze() }
-                            .font(ZTheme.Font.body(14))
-                            .foregroundStyle(ZTheme.Palette.text(0.55))
-                            .frame(maxWidth: .infinity, minHeight: 44)
-                            .buttonStyle(.plain)
-                            .accessibilityIdentifier("paused-five-minutes")
-                    }
-                }
-                .padding(.bottom, 40)
+                Text("Returning to your session\u{2026}")
+                    .font(ZTheme.Font.body(13))
+                    .foregroundStyle(ZTheme.Palette.text(0.30))
+                    .padding(.bottom, 56)
             }
             .padding(.horizontal, 40)
-            // Comp: the text block begins below the ribbon's 302pt drop.
+            // The comp's text block begins below the ribbon's 302pt drop.
             .padding(.top, 220)
         }
+        .contentShape(Rectangle())
+        // Tapping should not be required, but waiting should not be either.
+        .onTapGesture { onDismiss() }
+        .task {
+            try? await Task.sleep(for: .seconds(dwell))
+            onDismiss()
+        }
         // `.contain` explicitly: an identifier on a container otherwise lets
-        // SwiftUI fold the subtree into one element, which hides the two
-        // buttons from anything querying by identifier — VoiceOver's rotor and
-        // the UI tests alike.
+        // SwiftUI fold the subtree into one element, which hides everything
+        // inside it from VoiceOver's rotor as much as from the tests.
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("app-paused")
     }
 
     /// The comp's ribbon at its own size — 44 x 302, hanging off the top edge,
-    /// the paused app's name running down it.
+    /// the bookmarked app's name running down it.
     @ViewBuilder
     private var ribbon: some View {
         if let image = ShieldRibbon.comp(subject: subject, tone: UIColor(tone)) {
@@ -120,18 +112,9 @@ struct AppPausedView: View {
         }
     }
 
-    /// "BACK AT 7:43".
-    private var returnLine: String? {
-        guard let endsAt, endsAt > Date() else { return nil }
-        let clock = DateFormatter()
-        clock.locale = .autoupdatingCurrent
-        clock.setLocalizedDateFormatFromTemplate("jm")
-        return "BACK AT \(clock.string(from: endsAt))"
-    }
-
-    /// The comp closes the paragraph with the time left ("16 minutes.").
-    private var minutesTail: String {
-        guard let minutes = ActiveSessionInfo.remainingMinutes else { return "" }
-        return minutes == 1 ? " 1 minute." : " \(minutes) minutes."
+    /// "IN SESSION · 16:12 LEFT".
+    private var eyebrow: String? {
+        guard let remaining else { return nil }
+        return "IN SESSION · \(remaining) LEFT"
     }
 }

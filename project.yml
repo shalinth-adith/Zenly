@@ -125,7 +125,7 @@ targets:
       - path: Shared/DistractionLog.swift
       - path: Shared/ShieldMessage.swift
       - path: Shared/ActiveSessionInfo.swift
-      - path: Shared/ShieldRibbon.swift
+      - path: Shared/ShieldDoor.swift
       - path: Shared/PausedApp.swift
     settings:
       base:
