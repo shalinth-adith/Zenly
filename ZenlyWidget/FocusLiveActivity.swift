@@ -207,8 +207,12 @@ private struct Countdown: View {
 
 // MARK: - Action button
 
-/// Resume on a held session, Again on a finished one. Nothing otherwise — a
-/// running session has nothing worth interrupting it for.
+/// Resume on a held session. Nothing otherwise — a running session has nothing
+/// worth interrupting it for, and a finished one is over.
+///
+/// There used to be an "Again" here on the finished card. It is gone with the
+/// card itself: a session now clears the Lock Screen when it ends, and where to
+/// go next is the summary screen's job, not a notification's.
 private struct ActionButton: View {
     let context: ActivityViewContext<FocusActivityAttributes>
     let tone: Color
@@ -223,16 +227,6 @@ private struct ActionButton: View {
                     .padding(.horizontal, 20)
                     .frame(height: 40)
                     .background(Capsule().fill(tone))
-            }
-            .buttonStyle(.plain)
-        case .finished:
-            Button(intent: RepeatFocusIntent()) {
-                Text("Again")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color(white: 0.93))
-                    .padding(.horizontal, 20)
-                    .frame(height: 40)
-                    .background(Capsule().fill(.white.opacity(0.08)))
             }
             .buttonStyle(.plain)
         default:

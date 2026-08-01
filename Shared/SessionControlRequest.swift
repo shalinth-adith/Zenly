@@ -18,6 +18,10 @@ import Foundation
 
 enum SessionControlAction: String {
     case resume
+    /// No longer produced — the "Again" button it came from is gone with the
+    /// finished card. Kept because `consume()` reads a raw string out of the App
+    /// Group, and an upgrade can find one parked there by the previous build.
+    /// Dropping the case would turn that into a silent nil.
     case again
 }
 

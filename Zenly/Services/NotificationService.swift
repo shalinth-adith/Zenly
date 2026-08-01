@@ -137,8 +137,19 @@ final class NotificationService: NSObject, UNUserNotificationCenterDelegate {
         add(challengeDoneID, content, after: 1)
     }
 
+    /// Clear the session's own alerts — both the ones still waiting to fire and
+    /// any already sitting on the Lock Screen.
+    ///
+    /// Pending alone is not enough. A session ended early cancels a "session
+    /// complete" alert that has not fired yet, which `removePending` handles.
+    /// But a session that runs to the end delivers that alert *at* the end, and
+    /// a delivered notification is no longer pending — so clearing only pending
+    /// requests left the alert sitting there after the app had already shown
+    /// the summary. `removeDelivered` is what actually takes it off the screen.
     func cancelSession() {
-        center.removePendingNotificationRequests(withIdentifiers: [focusEndID, breakEndID])
+        let ids = [focusEndID, breakEndID]
+        center.removePendingNotificationRequests(withIdentifiers: ids)
+        center.removeDeliveredNotifications(withIdentifiers: ids)
     }
 
     // MARK: - Schedule start reminders

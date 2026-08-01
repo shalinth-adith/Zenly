@@ -20,7 +20,11 @@ struct FocusActivityAttributes: ActivityAttributes {
         case breakTime  // a running break
         case upcoming   // counting down to a scheduled focus window's start
         case paused     // held by the user; the countdown is frozen
-        case finished   // done, kept on screen briefly with a way to go again
+        /// No longer produced. A finished session now clears the Lock Screen
+        /// instead of leaving a card behind. Kept only so a card written by the
+        /// previous build still decodes — dropping the case would fail the
+        /// decode and strand exactly the timer this is meant to clear.
+        case finished
     }
 
     public struct ContentState: Codable, Hashable {

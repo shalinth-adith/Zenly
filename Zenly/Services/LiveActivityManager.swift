@@ -67,32 +67,12 @@ final class LiveActivityManager {
         push(state, profileName: profileName, accentHex: accentHex, staleDate: nil)
     }
 
-    /// Keep the card up briefly after the session ends, showing what was kept
-    /// and offering "Again" (Quiet spec, "Finished"). Dismisses itself.
-    func finish(profileName: String, accentHex: String,
-                startedAt: Date, keptSeconds: TimeInterval) {
-        let state = FocusActivityAttributes.ContentState(
-            startDate: startedAt,
-            endDate: Date(),
-            phase: .finished,
-            frozenSeconds: keptSeconds
-        )
-        currentPhase = .finished
-        currentEnd = nil
-        push(state, profileName: profileName, accentHex: accentHex, staleDate: nil)
-
-        let linger = Date().addingTimeInterval(120)
-        let showing = activity
-        Task {
-            try? await Task.sleep(for: .seconds(120))
-            // Only clear if nothing newer has taken the screen since.
-            if let showing, showing.id == self.activity?.id {
-                await showing.end(nil, dismissalPolicy: .after(linger))
-                self.activity = nil
-                self.currentPhase = nil
-            }
-        }
-    }
+    // There is deliberately no `finish()`. A "finished" card used to linger for
+    // two minutes offering "Again", clearing itself from a `Task` sleeping in
+    // this process — which only ran if the app was still alive two minutes
+    // later. A session ending with the phone in a pocket ends with the app
+    // suspended, so the card was stranded on the Lock Screen with nothing left
+    // to dismiss it. Sessions now end with `end()`, which is authoritative.
 
     /// Update the activity in place if one is showing, else request a new one.
     private func push(_ state: FocusActivityAttributes.ContentState,

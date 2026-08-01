@@ -2,12 +2,11 @@
 //  SessionControlIntents.swift
 //  Zenly (shared: app + ZenlyWidget)
 //
-//  The two buttons the Quiet spec puts on the Live Activity (screen 15):
-//  "Resume" on a held session and "Again" on a finished one.
+//  The button the Live Activity carries: "Resume" on a held session.
 //
-//  Both are `LiveActivityIntent`s, so iOS runs them in the app's own process
-//  without bringing the app to the foreground — tapping Resume on the Lock
-//  Screen puts the shields back and the card starts counting again in place.
+//  It is a `LiveActivityIntent`, so iOS runs it in the app's own process without
+//  bringing the app to the foreground — tapping Resume on the Lock Screen puts
+//  the shields back and the card starts counting again in place.
 //
 
 import AppIntents
@@ -25,14 +24,6 @@ struct ResumeFocusIntent: LiveActivityIntent {
     }
 }
 
-struct RepeatFocusIntent: LiveActivityIntent {
-    static var title: LocalizedStringResource = "Focus Again"
-    static var description = IntentDescription("Run the session that just finished, once more.")
-    static var openAppWhenRun: Bool = false
-
-    @MainActor
-    func perform() async throws -> some IntentResult {
-        SessionControlRequest.perform(.again)
-        return .result()
-    }
-}
+// `RepeatFocusIntent` ("Again") was removed with the finished card it lived on.
+// Repeating a session is still offered where it belongs — "Try a shorter one"
+// on the ended-early summary calls `repeatLastSession` directly.

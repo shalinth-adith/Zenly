@@ -218,6 +218,53 @@ struct ShieldMessageTests {
     }
 }
 
+// MARK: - Clearing up after a session that ended unattended
+
+/// A session can run out while the phone is locked, which leaves the app
+/// suspended with a Live Activity still on the Lock Screen and nothing running
+/// to take it down. `BackgroundRefresh` sweeps it on its next window, and it
+/// finds the lapsed session through `scheduledEnd`.
+struct LapsedSessionTests {
+
+    private func reset() { ActiveSessionInfo.clear() }
+
+    /// The distinction the sweep depends on. `endsAt` goes nil the moment the
+    /// session lapses — correct for the shield, useless for finding a card that
+    /// still needs clearing — while `scheduledEnd` keeps reporting it.
+    @Test func aLapsedSessionIsStillFindable() {
+        reset(); defer { reset() }
+        let ended = Date().addingTimeInterval(-90)
+        ActiveSessionInfo.set(profileName: "Work", endsAt: ended)
+
+        #expect(ActiveSessionInfo.endsAt == nil, "endsAt must not report a session that has run out")
+        let scheduled = ActiveSessionInfo.scheduledEnd
+        #expect(scheduled != nil, "The lapsed session is invisible, so its card can never be swept")
+        #expect(abs((scheduled ?? .distantPast).timeIntervalSince(ended)) < 1)
+    }
+
+    /// The guard the sweep is behind: a session still running must be left alone.
+    @Test func aRunningSessionIsNotTreatedAsLapsed() {
+        reset(); defer { reset() }
+        ActiveSessionInfo.set(profileName: "Work", endsAt: Date().addingTimeInterval(10 * 60))
+        #expect((ActiveSessionInfo.scheduledEnd ?? .distantPast) > Date())
+    }
+
+    /// Nothing running, nothing to sweep.
+    @Test func nothingIsReportedWhenNoSessionWasEverRecorded() {
+        reset(); defer { reset() }
+        #expect(ActiveSessionInfo.scheduledEnd == nil)
+    }
+
+    /// Pausing calls `clear()`, so a held session never looks lapsed — otherwise
+    /// the sweep would tear down the card the user is about to resume from.
+    @Test func aHeldSessionIsNotMistakenForALapsedOne() {
+        reset(); defer { reset() }
+        ActiveSessionInfo.set(profileName: "Work", endsAt: Date().addingTimeInterval(10 * 60))
+        ActiveSessionInfo.clear()   // what pausing does
+        #expect(ActiveSessionInfo.scheduledEnd == nil)
+    }
+}
+
 // MARK: - 03 · the door
 
 /// The door is what made this screen buildable. `ShieldConfiguration.icon` is

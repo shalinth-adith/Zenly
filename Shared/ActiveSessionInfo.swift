@@ -51,6 +51,19 @@ enum ActiveSessionInfo {
         return date > Date() ? date : nil
     }
 
+    /// The end that was recorded, even if it has already passed.
+    ///
+    /// `endsAt` goes nil the moment it lapses, which is right for the shield —
+    /// it must never quote a countdown that has run out. But it makes "no
+    /// session" and "a session that ended while nobody was watching"
+    /// indistinguishable, and the second one has a Lock Screen card left to
+    /// clear. Pausing calls `clear()`, so a held session never appears here.
+    static var scheduledEnd: Date? {
+        let raw = AppGroup.defaults.double(forKey: endsAtKey)
+        guard raw > 0 else { return nil }
+        return Date(timeIntervalSince1970: raw)
+    }
+
     /// Whole minutes of quiet left, or nil when nothing is running. Rounds up so
     /// the last partial minute reads "1 minute" rather than "0".
     static var remainingMinutes: Int? {
