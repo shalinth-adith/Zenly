@@ -27,12 +27,32 @@ enum ShieldTheme {
 
     /// Design `--bg` #0A0B0E — the same near-black the app sits on.
     ///
-    /// Briefly set to pure #000000 while chasing the grey surface. That was the
-    /// wrong lever: the gap between #0A0B0E and #000000 is ten values out of
-    /// 255, invisible under anything that lightens it and pointless if nothing
-    /// does. The material is what decides this surface, so the colour goes back
-    /// to being the app's own — one black across the whole product.
+    /// It will not render as #0A0B0E, and that is not something left undone.
+    ///
+    /// The shield surface refused to go black through several rounds, so it was
+    /// measured rather than guessed at: a build sending pure red (255, 0, 0)
+    /// came back as roughly (78, 34, 34) on device. Solving that composite —
+    ///
+    ///     result = ours × a + base × (1 − a)
+    ///     green:    0 × a + base × (1 − a) = 34
+    ///     red:    255 × a + 34             = 78   →   a ≈ 0.173
+    ///                                              →   base ≈ #292929
+    ///
+    /// — says iOS paints `backgroundColor` at about **17% opacity** over a
+    /// ~#292929 surface of its own. The model predicts this colour lands at
+    /// #242424, which is exactly what a device photo of the shield measured
+    /// before the diagnostic was ever run.
+    ///
+    /// So the floor is #222222, reached only by pure black, and this colour
+    /// already sits two values above it — invisibly. There is nothing further
+    /// to win here, and the app's own black is the right thing to keep: one
+    /// black across the product, and the value that actually renders on every
+    /// surface we control.
+    ///
+    /// The comp's flat #0A0B0E version of this screen exists in `AppPausedView`,
+    /// where nothing composites over it.
     static let background = UIColor(red: 0.039, green: 0.043, blue: 0.055, alpha: 1.0)
+
     /// Design `--ink` #E7E8EC.
     static let primaryText = UIColor(red: 0.906, green: 0.910, blue: 0.925, alpha: 1.0)
     /// Design `--ink-2` — ink at 55%.
@@ -82,24 +102,15 @@ enum ShieldTheme {
         )
         let primary = ShieldConfiguration.Label(text: "Back to focus", color: onTone)
 
-        // Black over the heaviest material, because it is not settled which of
-        // the two actually decides this surface.
-        //
-        // Both fields are Optional, and `nil` for the blur may well mean "not
-        // specified, use the default material" rather than "no material" — a
-        // near-black `backgroundColor` came out mid-grey on device both with a
-        // blur and without one, which is what that would look like. The two
-        // readings have opposite fixes: if the colour is honoured and composited
-        // over the material then opaque black already wins and the blur is
-        // irrelevant; if it is not, the blur style is the only lever there is.
-        //
-        // `.dark` is the legacy heavy blur — far darker than the
-        // `.systemUltraThinMaterialDark` this screen started on, which is the
-        // lightest dark material Apple ships. Asking for both covers either
-        // reading in one build.
+        // No blur, because it changes nothing here and fewer moving parts is
+        // worth more than a style name. The measured composite (see
+        // `background`) shows iOS painting our colour at ~17% over a surface of
+        // its own; blur styles from `.systemUltraThinMaterialDark` to `.dark`
+        // all landed on the same #242424. This is the configuration the
+        // diagnostic was run in, so it is the one with real data behind it.
         guard offersSnooze else {
             return ShieldConfiguration(
-                backgroundBlurStyle: .dark,
+                backgroundBlurStyle: nil,
                 backgroundColor: background,
                 icon: ShieldRibbon.icon(subject: subject, tone: tone),
                 title: title,
@@ -110,7 +121,7 @@ enum ShieldTheme {
         }
 
         return ShieldConfiguration(
-            backgroundBlurStyle: .dark,
+            backgroundBlurStyle: nil,
             backgroundColor: background,
             icon: ShieldRibbon.icon(subject: subject, tone: tone),
             title: title,
