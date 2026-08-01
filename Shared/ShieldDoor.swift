@@ -20,10 +20,13 @@
 //  top edge at 302pt tall and could never fit; a door is centred and compact,
 //  which is the shape the slot is.
 //
-//  One proportion survives intact. The comp's line is 2pt wide on a 402pt
-//  screen. The icon renders at ~80pt on a ~393pt screen, so drawing the line
-//  2.5pt wide inside a 100pt canvas puts it on the glass at very nearly 2pt —
-//  the comp's own width. Only the height is shortened, from 190 to about 62.
+//  The height is not ours to set — the slot is ~82pt and nothing in
+//  `ShieldConfiguration` changes that, which `icon(tone:)` records in full. So
+//  the drawing is scaled the way a smaller reproduction has to be, rather than
+//  reduced uniformly: the seam runs the whole canvas, and both the line and its
+//  bloom are opened up past the comp's literal values. A 2pt line reads as a
+//  door at 190 tall and as a hairline at 82. Holding the number would have been
+//  faithful to the spec and wrong on the glass.
 //
 //  The comp breathes the halo (`qglow`, 9s). A `ShieldConfiguration` icon is a
 //  still image, so this is drawn at the bright end of that cycle.
@@ -45,19 +48,24 @@ enum ShieldDoor {
         /// and this extension is killed silently for allocating too much.
         static let canvas: CGFloat = 100
 
-        /// Lands at ~2pt on device once the box scales the canvas to ~82 —
-        /// the comp's own line width.
-        static let lineWidth: CGFloat = 2.5 * (canvas / 100)
+        /// Lands at ~2.8pt on device once the box scales the canvas to ~82.
+        ///
+        /// The comp draws 2pt — but it draws it 190 tall. Held to 2pt at a
+        /// quarter of that height the seam reads as a hairline rather than a
+        /// door, because a line's presence is its area and this one has lost
+        /// three-fifths of its length. Widening it back is the only dimension
+        /// still ours to spend, so it is spent here.
+        static let lineWidth: CGFloat = 3.4 * (canvas / 100)
 
-        /// Nearly the whole canvas.
+        /// The whole canvas.
         ///
         /// Measured on device: the box renders a 100pt canvas at about 82, so
         /// every canvas unit given away is a point lost off a seam that only
         /// has ~82 to work with. An earlier 78 left a fifth of the box empty
-        /// and read as small. The bloom is clipped slightly at top and bottom
-        /// as a result, which costs nothing — the seam has already faded to
-        /// transparent by then.
-        static let lineHeight: CGFloat = 96 * (canvas / 100)
+        /// and read as small; 96 still left a margin worth ~3pt. The ends of
+        /// the seam have already faded to transparent, so running it edge to
+        /// edge costs nothing and shows no cut.
+        static let lineHeight: CGFloat = canvas
 
         /// The comp fades transparent → tone at 18% and back out at 82%, which
         /// spends a third of the line on fade. On a 190pt line that reads as
@@ -67,10 +75,16 @@ enum ShieldDoor {
         static let fadeStart: CGFloat = 0.12
         static let fadeEnd: CGFloat = 0.88
 
-        /// The near bloom (comp `0 0 18px 2px`), scaled to the canvas.
-        static let lineGlowBlur: CGFloat = 13 * (canvas / 100)
+        /// The near bloom (comp `0 0 18px 2px`), scaled to the canvas and then
+        /// opened up — same reasoning as `lineWidth`. Light spilling off the
+        /// seam is the other half of how big the door looks.
+        static let lineGlowBlur: CGFloat = 17 * (canvas / 100)
         /// The wide bloom (comp `0 0 60px 14px`) is what the halo below is for.
-        static let haloRadius: CGFloat = 50 * (canvas / 100)
+        ///
+        /// The comp's halo is 280 tall against a 190 line — half again the
+        /// seam's own length, so it was always going to overrun the canvas.
+        /// It is meant to; see `drawHalo` for how the cut is kept invisible.
+        static let haloRadius: CGFloat = 54 * (canvas / 100)
         /// Comp halo is 220 x 280 — half again as tall as it is wide.
         static let haloAspect: CGFloat = 280.0 / 220.0
     }
@@ -124,13 +138,21 @@ enum ShieldDoor {
 
     /// `radial-gradient(50% 50% at 50% 50%, var(--tone-glow), transparent 70%)`,
     /// on the comp's 220 x 280 ellipse.
+    ///
+    /// Four stops rather than three, and the reason is the clip. The ellipse is
+    /// taller than the canvas by design, so the renderer cuts it at the top and
+    /// bottom edges — and a radial gradient cut while it still has alpha left
+    /// shows a straight line, which turns a bloom into a rectangle. The extra
+    /// stop at 0.72 pulls the falloff in so the gradient is down to about 5%
+    /// by the time it reaches the edge, where the cut cannot be seen.
     private static func drawHalo(in cg: CGContext, centre: CGPoint, tone: UIColor) {
-        let colours = [tone.withAlphaComponent(0.28).cgColor,
-                       tone.withAlphaComponent(0.16).cgColor,
+        let colours = [tone.withAlphaComponent(0.44).cgColor,
+                       tone.withAlphaComponent(0.26).cgColor,
+                       tone.withAlphaComponent(0.06).cgColor,
                        tone.withAlphaComponent(0).cgColor] as CFArray
         guard let gradient = CGGradient(colorsSpace: CGColorSpaceDeviceRGB(),
                                         colors: colours,
-                                        locations: [0, 0.45, 1.0]) else { return }
+                                        locations: [0, 0.35, 0.72, 1.0]) else { return }
         cg.saveGState()
         // Scaling the context vertically turns the radial into the comp's
         // ellipse without needing a second gradient.
@@ -158,7 +180,7 @@ enum ShieldDoor {
         // by itself.
         cg.saveGState()
         cg.setShadow(offset: .zero, blur: Metric.lineGlowBlur,
-                     color: tone.withAlphaComponent(0.55).cgColor)
+                     color: tone.withAlphaComponent(0.72).cgColor)
         cg.setFillColor(tone.withAlphaComponent(0.9).cgColor)
         cg.addPath(CGPath(roundedRect: rect.insetBy(dx: 0, dy: rect.height * 0.12),
                           cornerWidth: Metric.lineWidth / 2,
