@@ -25,9 +25,15 @@ import ManagedSettingsUI
 enum ShieldTheme {
     // MARK: - Quiet palette (mirrors ZTheme.Palette, dark values)
 
-    /// Design `--bg` #0A0B0E — the same near-black the app sits on, warm, no
-    /// blue cast. The old shield used a navy that no longer exists anywhere.
-    static let background = UIColor(red: 0.039, green: 0.043, blue: 0.055, alpha: 1.0)
+    /// Pure black, not the app's `--bg` #0A0B0E.
+    ///
+    /// The design's near-black is what the app itself sits on and is the right
+    /// colour everywhere else. Here it came out mid-grey on device — with the
+    /// blur on *and* with it off — which says iOS composites the shield over its
+    /// own material and our colour only tints the result. Starting from #000000
+    /// lands as dark as that compositing allows, and on an OLED panel it is what
+    /// the comp's surface is trying to look like anyway.
+    static let background = UIColor.black
     /// Design `--ink` #E7E8EC.
     static let primaryText = UIColor(red: 0.906, green: 0.910, blue: 0.925, alpha: 1.0)
     /// Design `--ink-2` — ink at 55%.

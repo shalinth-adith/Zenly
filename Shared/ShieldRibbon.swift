@@ -43,9 +43,15 @@ enum ShieldRibbon {
     private enum Metric {
         static let canvas: CGFloat = 100
 
-        /// Comp ratio: 44 of 402 screen points. Against a ~100pt slot on a
-        /// ~393pt screen, 34 lands at about the same share of the width.
-        static let width: CGFloat = 34
+        /// Slimmer than a first pass at this size wants to be.
+        ///
+        /// Measured off device, the box renders a 100pt canvas at about 80, so
+        /// the ribbon lands near 21 x 74 on screen. The comp's is 44 x 302 —
+        /// one part in seven. Nothing gets the drop back, but the *proportion*
+        /// is free: a chunkier ribbon reads as a bookmark, a slimmer one reads
+        /// as the comp's ribbon seen short. 27 is as narrow as the 8pt name
+        /// will sit inside.
+        static let width: CGFloat = 27
         /// Everything but the room the glow needs underneath.
         static let height: CGFloat = 92
         /// The comp's V, scaled to the shorter tail.
