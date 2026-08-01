@@ -39,15 +39,27 @@ enum ShieldDoor {
         /// ribbon taught.
         static let canvas: CGFloat = 100
 
-        /// Lands at ~2pt on device once the box scales the canvas to ~80 —
+        /// Lands at ~2pt on device once the box scales the canvas to ~82 —
         /// the comp's own line width.
         static let lineWidth: CGFloat = 2.5
-        /// As tall as the canvas allows with room for the bloom to fall off.
-        static let lineHeight: CGFloat = 78
 
-        /// Comp: `var(--tone) 18%` … `82%`, transparent at both ends.
-        static let fadeStart: CGFloat = 0.18
-        static let fadeEnd: CGFloat = 0.82
+        /// Nearly the whole canvas.
+        ///
+        /// Measured on device: the box renders a 100pt canvas at about 82, so
+        /// every canvas unit given away is a point lost off a seam that only
+        /// has ~82 to work with. An earlier 78 left a fifth of the box empty
+        /// and read as small. The bloom is clipped slightly at top and bottom
+        /// as a result, which costs nothing — the seam has already faded to
+        /// transparent by then.
+        static let lineHeight: CGFloat = 96
+
+        /// The comp fades transparent → tone at 18% and back out at 82%, which
+        /// spends a third of the line on fade. On a 190pt line that reads as
+        /// atmosphere; on a 79pt one it eats the light. Tightened so more of
+        /// the seam is actually lit — the same adaptation the comp's tracking
+        /// needed at small sizes.
+        static let fadeStart: CGFloat = 0.12
+        static let fadeEnd: CGFloat = 0.88
 
         /// The near bloom (comp `0 0 18px 2px`), scaled to the canvas.
         static let lineGlowBlur: CGFloat = 13
