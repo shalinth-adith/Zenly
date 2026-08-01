@@ -324,4 +324,103 @@ final class QuietSessionScreens: XCTestCase {
         XCTAssertTrue(app.staticTexts["Current streak"].exists,
                       "The Goals section never reached Current streak")
     }
+
+    // MARK: - 20 · Profiles · delete
+
+    /// The delete sheet. Reached the way the user reaches it — Settings, Focus
+    /// profiles, swipe a row — because the sheet only tells the truth if the
+    /// profile it names is the one that was swiped.
+    func testProfileDeleteSheet() {
+        let app = launchToHome()
+        openProfiles(app)
+
+        // "Late night" is not a default profile; the swipe target is whichever
+        // row is not the active one, so the sheet is never opened on a running
+        // session (that is screen 21's job, tested below).
+        XCTAssertTrue(app.staticTexts["Study"].waitForExistence(timeout: 8),
+                      "The Profiles list never appeared")
+        capture(app, "20-profiles-list")
+
+        // Swipe the cell, not the label. The name renders about 42pt wide and a
+        // gesture that short never reaches the swipe-action threshold.
+        let row = app.cells.containing(.staticText, identifier: "Study").firstMatch
+        XCTAssertTrue(row.exists, "No list row carries the Study profile")
+        row.swipeLeft()
+        XCTAssertTrue(tapIfHittable(app, "Delete", timeout: 3), "The delete swipe action is missing")
+
+        let sheet = app.descendants(matching: .any)["delete-profile-sheet"].firstMatch
+        XCTAssertTrue(sheet.waitForExistence(timeout: 5), "The delete sheet never appeared")
+
+        XCTAssertTrue(app.staticTexts.containing(
+            NSPredicate(format: "label BEGINSWITH 'Delete'")).firstMatch.exists,
+                      "The sheet never asks its question")
+
+        // The reassurance is the whole reason this screen exists rather than a
+        // system alert: it says what is NOT lost before asking for the tap.
+        let kept = app.staticTexts.containing(
+            NSPredicate(format: "label CONTAINS[c] 'streak'")).firstMatch
+        XCTAssertTrue(kept.exists, "The sheet never promises the streak is untouched")
+
+        capture(app, "20-profiles-delete")
+
+        // "Keep it" must actually keep it.
+        XCTAssertTrue(tapIfHittable(app, "Keep it", timeout: 3), "The sheet has no way out")
+        XCTAssertTrue(app.staticTexts["Study"].waitForExistence(timeout: 5),
+                      "Keeping the profile removed it anyway")
+    }
+
+    // MARK: - 21 · Profiles · can't delete
+
+    /// A profile mid-session refuses deletion in the row rather than in an
+    /// alert. Runs a real session first, because the refusal is only reachable
+    /// while one is running.
+    func testProfileCannotBeDeletedWhileRunning() {
+        let app = launchToHome()
+        startShortestSession(app)
+
+        // Back to the tab bar; the session keeps running behind it. The timer is
+        // a full-screen cover, so Settings is only reachable by minimizing it —
+        // which is also the only route a real user has to screen 21.
+        let minimize = app.buttons["Minimize timer"].firstMatch
+        XCTAssertTrue(minimize.waitForExistence(timeout: 10), "The timer cannot be minimized")
+        minimize.tap()
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 8),
+                      "Minimizing never returned to the tab bar")
+        openProfiles(app)
+
+        XCTAssertTrue(app.staticTexts["ACTIVE"].waitForExistence(timeout: 8),
+                      "The running profile is not marked active")
+
+        // Swipe the row carrying the ACTIVE eyebrow — the cell, not the label,
+        // which is far too narrow to reach the swipe-action threshold.
+        let active = app.cells.containing(.staticText, identifier: "ACTIVE").firstMatch
+        XCTAssertTrue(active.exists, "No list row carries the ACTIVE eyebrow")
+        active.swipeLeft()
+        XCTAssertTrue(tapIfHittable(app, "Delete", timeout: 3), "The delete swipe action is missing")
+
+        let note = app.descendants(matching: .any)["profile-delete-blocked"].firstMatch
+        XCTAssertTrue(note.waitForExistence(timeout: 5),
+                      "Deleting a running profile did not explain itself in the row")
+
+        XCTAssertFalse(app.descendants(matching: .any)["delete-profile-sheet"].firstMatch.exists,
+                       "A running profile must never reach the delete sheet")
+
+        let running = app.staticTexts.containing(
+            NSPredicate(format: "label CONTAINS[c] 'while it'")).firstMatch
+        XCTAssertTrue(running.exists, "The row never says why it refused")
+
+        XCTAssertTrue(app.buttons["Go to session"].exists,
+                      "The refusal offers no way out of itself")
+
+        capture(app, "21-profiles-cant-delete")
+    }
+
+    /// Settings → Focus profiles.
+    private func openProfiles(_ app: XCUIApplication) {
+        app.tabBars.buttons["Settings"].tap()
+        let entry = app.buttons.containing(
+            NSPredicate(format: "label CONTAINS[c] 'Focus profiles'")).firstMatch
+        XCTAssertTrue(entry.waitForExistence(timeout: 8), "Settings has no Focus profiles row")
+        entry.tap()
+    }
 }

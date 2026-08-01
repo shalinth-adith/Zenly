@@ -53,6 +53,19 @@ final class SessionHistory {
         return (try? context.fetch(request)) ?? []
     }
 
+    /// How many focus sessions a profile has run — the number the delete sheet
+    /// quotes back ("its 12 sessions stay in your history").
+    ///
+    /// Counted in the store rather than by fetching and filtering: this is asked
+    /// on a confirmation sheet, where the alternative is loading every session a
+    /// long-standing user has ever run to answer with one integer.
+    func focusSessionCount(profileName: String) -> Int {
+        let request = FocusSession.fetchRequest()
+        request.predicate = NSPredicate(format: "kind == %@ AND profileName == %@",
+                                        "focus", profileName)
+        return (try? context.count(for: request)) ?? 0
+    }
+
     func completedFocusSessions() -> [FocusSession] {
         let request = FocusSession.fetchRequest()
         request.predicate = NSPredicate(format: "kind == %@ AND wasCompleted == YES", "focus")

@@ -167,6 +167,11 @@ final class AnalyticsService {
 
     /// Most recent focus sessions (completed + ended early) for the Insights
     /// history list.
+    /// Sessions run under one profile — what the delete sheet promises is kept.
+    func sessionCount(profileName: String) -> Int {
+        history.focusSessionCount(profileName: profileName)
+    }
+
     func recentSessions(limit: Int = 5) -> [FocusSession] {
         history.recentFocusSessions(limit: limit)
     }
