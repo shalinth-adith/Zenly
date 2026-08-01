@@ -77,11 +77,25 @@ enum ShieldRibbon {
     ///
     /// Sized to the whole screen so the pattern never visibly repeats.
     static func backdrop(subject: String?, tone: UIColor, screen: CGSize? = nil) -> UIImage? {
-        let size = screen ?? currentScreenSize()
-        guard size.width > 0, size.height > 0 else { return nil }
+        let size = screen ?? storedScreenSize
+        guard size.width > 0, size.height > 0,
+              size.width <= 1_000, size.height <= 2_000 else { return nil }
 
         let format = UIGraphicsImageRendererFormat.preferred()
         format.opaque = true
+        // 1x, deliberately.
+        //
+        // A shield extension runs on one of the tightest memory budgets on the
+        // platform. At the device's native 3x this image is 1179 x 2556 px —
+        // 12 MB for the bitmap and roughly double that at peak once CoreGraphics
+        // copies it out. The extension was killed for it, and a killed shield
+        // extension does not show an error: iOS quietly substitutes its own
+        // default screen, which is what a blown budget looks like from outside.
+        //
+        // At 1x the same image is 1.3 MB. The cost is softer edges on the
+        // notch's diagonals and on the name; the ribbon's own edges are
+        // axis-aligned and stay crisp.
+        format.scale = 1
 
         return UIGraphicsImageRenderer(size: size, format: format).image { context in
             let cg = context.cgContext
@@ -123,14 +137,33 @@ enum ShieldRibbon {
                                        format: format).image { _ in }
     }
 
-    /// Logical screen size, read without a window scene.
+    // MARK: - Screen size, measured by the app
+
+    private static let widthKey = "shieldScreenWidth"
+    private static let heightKey = "shieldScreenHeight"
+
+    /// Called by the app whenever it comes to the foreground.
     ///
-    /// A `ShieldConfigurationDataSource` is not a view controller and has no
-    /// scene to ask, so `UIScreen.main` is the only thing available — soft
-    /// deprecated, still the sole answer inside this kind of extension.
-    private static func currentScreenSize() -> CGSize {
-        let bounds = UIScreen.main.bounds.size
-        return bounds.width > 0 ? bounds : fallbackScreen
+    /// The extension needs the screen's point size to centre the ribbon, and it
+    /// is the wrong place to ask for it: a `ShieldConfigurationDataSource` is
+    /// not a view controller, has no window scene, and runs under a budget that
+    /// makes any avoidable work a liability. The app has a scene and no such
+    /// constraints, so it measures once and leaves the answer in the App Group.
+    static func rememberScreenSize(_ size: CGSize) {
+        guard size.width > 0, size.height > 0 else { return }
+        AppGroup.defaults.set(Double(size.width), forKey: widthKey)
+        AppGroup.defaults.set(Double(size.height), forKey: heightKey)
+    }
+
+    /// What the app last measured, or a sane default.
+    ///
+    /// Being wrong here only shifts the ribbon off centre by half the
+    /// difference, because the pattern is anchored top-left — it never fails.
+    private static var storedScreenSize: CGSize {
+        let width = AppGroup.defaults.double(forKey: widthKey)
+        let height = AppGroup.defaults.double(forKey: heightKey)
+        guard width > 0, height > 0 else { return fallbackScreen }
+        return CGSize(width: width, height: height)
     }
 
     /// `polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 18px), 0 100%)` — a flag

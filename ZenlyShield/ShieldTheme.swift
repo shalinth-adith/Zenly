@@ -67,10 +67,14 @@ enum ShieldTheme {
     /// Falls back to the flat background if the backdrop cannot be rendered: a
     /// shield that comes up plain is survivable, one that comes up blank is not.
     private static func backgroundColor(subject: String?) -> UIColor {
-        guard let backdrop = ShieldRibbon.backdrop(subject: subject, tone: tone) else {
-            return background
+        // Drop the intermediates as soon as the pattern owns the bitmap. Peak
+        // memory, not steady state, is what gets an extension killed.
+        autoreleasepool {
+            guard let backdrop = ShieldRibbon.backdrop(subject: subject, tone: tone) else {
+                return background
+            }
+            return UIColor(patternImage: backdrop)
         }
-        return UIColor(patternImage: backdrop)
     }
 
     /// The block screen, personalised with what is being paused (`subject` = app

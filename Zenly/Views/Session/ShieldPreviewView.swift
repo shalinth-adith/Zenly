@@ -80,17 +80,22 @@ struct ShieldPreviewView: View {
     /// The extension's own backdrop bitmap — the same one it hands to
     /// `ShieldConfiguration.backgroundColor` as a pattern — drawn 1:1 so the
     /// preview shows the ribbon at exactly the size the shield will.
-    @ViewBuilder
     private var backdrop: some View {
-        if let image = ShieldRibbon.backdrop(subject: subject, tone: UIColor(tone)) {
-            Image(uiImage: image)
-                .resizable()
-                .scaledToFill()
-                .ignoresSafeArea()
-                .accessibilityIdentifier("shield-preview-ribbon")
-        } else {
-            Color(hex: "0A0B0E").ignoresSafeArea()
+        // Measured here rather than taken from the App Group, so the preview
+        // draws at the size of the device it is actually running on.
+        GeometryReader { geo in
+            if let image = ShieldRibbon.backdrop(subject: subject,
+                                                 tone: UIColor(tone),
+                                                 screen: geo.size) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .accessibilityIdentifier("shield-preview-ribbon")
+            } else {
+                Color(hex: "0A0B0E")
+            }
         }
+        .ignoresSafeArea()
     }
 }
 
