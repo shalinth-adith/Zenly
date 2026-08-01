@@ -14,6 +14,8 @@ import SwiftUI
 struct SessionView: View {
     @Environment(FocusSessionController.self) private var session
     @State private var showStopConfirmation = false
+    /// The app a shield stood in front of in the last few minutes, if any.
+    @State private var paused: (name: String, at: Date)?
 
     /// Dismiss the full-screen timer without ending the session.
     var onMinimize: () -> Void = {}
@@ -116,6 +118,53 @@ struct SessionView: View {
                 onCancel: { showStopConfirmation = false }
             )
         }
+        // Quiet spec screen 03, at the size it was drawn. The real shield is
+        // iOS's to lay out and cannot hold the comp; coming back to Zen-ly
+        // after being stopped is the moment the screen is about, and this is a
+        // surface the app owns. See `AppPausedView`.
+        .overlay {
+            if let paused {
+                AppPausedView(
+                    subject: paused.name,
+                    tone: tint,
+                    endsAt: ActiveSessionInfo.endsAt,
+                    onDismiss: dismissPaused,
+                    onSnooze: PausedApp.token == nil ? nil : snoozePaused
+                )
+                .transition(.opacity)
+            }
+        }
+        .animation(ZTheme.Motion.smooth, value: paused?.at)
+        .onAppear(perform: refreshPaused)
+        .onReceive(NotificationCenter.default.publisher(
+            for: UIApplication.didBecomeActiveNotification)) { _ in refreshPaused() }
+    }
+
+    // MARK: - 03 · App paused
+
+    private func refreshPaused() {
+        // Only while something is actually being blocked. A held session has no
+        // shields up, so there is nothing to have been stopped by.
+        guard session.phase == .focus, !session.isPaused else {
+            paused = nil
+            return
+        }
+        paused = PausedApp.pending()
+    }
+
+    private func dismissPaused() {
+        PausedApp.markSeen()
+        paused = nil
+    }
+
+    /// The same five-minute door the shield's own second button opens, through
+    /// the same store — not a lookalike.
+    private func snoozePaused() {
+        if let token = PausedApp.token {
+            SnoozeStore.snooze(token, minutes: 5)
+            session.reapplyEnforcement()
+        }
+        dismissPaused()
     }
 
     private var sessionMessage: String {

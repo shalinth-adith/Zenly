@@ -154,23 +154,34 @@ final class QuietSessionScreens: XCTestCase {
     /// The block screen, rendered from the shield extension's own ribbon bitmap
     /// and `ShieldMessage` strings.
     ///
-    /// This is a preview of the *content*, not of iOS's layout of it: the real
-    /// screen is assembled by `ManagedSettingsUI` in another process, from a
-    /// `ShieldConfiguration`'s six slots, using metrics Apple does not publish.
-    /// What this proves is the artwork and every word — which is everything we
-    /// author.
+    /// This is the real `AppPausedView`, not a mock: in the app it comes up on
+    /// the session screen when you return after a shield stopped you, which is
+    /// the comp's screen 03 on the one surface that can hold it. The launch
+    /// argument only stands it up without a shield having fired, which Simulator
+    /// cannot produce.
+    ///
+    /// The *system* shield is a different screen and deliberately not covered
+    /// here — iOS assembles it in another process from a `ShieldConfiguration`,
+    /// and nothing about that is observable from a test.
     func testAppPausedScreen() {
         let app = launch(["ZenlyPreviewShield", "Instagram"])
-        let screen = app.descendants(matching: .any)["shield-preview"].firstMatch
-        XCTAssertTrue(screen.waitForExistence(timeout: 10), "Shield preview never appeared")
+        let screen = app.descendants(matching: .any)["app-paused"].firstMatch
+        XCTAssertTrue(screen.waitForExistence(timeout: 10), "App-paused screen never appeared")
 
         XCTAssertTrue(app.staticTexts["Your place is kept."].exists,
                       "The comp's headline is missing")
-        XCTAssertTrue(app.buttons["Back to focus"].exists || app.staticTexts["Back to focus"].exists,
+        // Queried as any descendant rather than `.buttons`: a custom
+        // ButtonStyle can publish its element as something other than a button.
+        XCTAssertTrue(app.descendants(matching: .any)["paused-back-to-focus"].firstMatch.exists,
                       "The primary action is missing")
-        let returnLine = app.staticTexts.containing(
-            NSPredicate(format: "label CONTAINS[c] 'Back at'")).firstMatch
-        XCTAssertTrue(returnLine.exists, "The block screen never says when the app comes back")
+        XCTAssertTrue(app.descendants(matching: .any)["paused-five-minutes"].firstMatch.exists,
+                      "The five-minute door is missing")
+
+        // The comp's eyebrow, in its own place above the headline — the one
+        // thing the system shield had to give up for want of a slot.
+        let eyebrow = app.staticTexts.containing(
+            NSPredicate(format: "label BEGINSWITH 'BACK AT'")).firstMatch
+        XCTAssertTrue(eyebrow.exists, "The tracked 'BACK AT' eyebrow is missing")
 
         capture(app, "03-app-paused")
     }

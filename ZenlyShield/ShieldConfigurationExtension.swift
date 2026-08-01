@@ -13,6 +13,7 @@ import ManagedSettingsUI
 final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
     override func configuration(shielding application: Application) -> ShieldConfiguration {
         DistractionLog.recordAttempt()
+        PausedApp.record(name: application.localizedDisplayName, token: application.token)
         return ShieldTheme.configuration(subject: application.localizedDisplayName,
                                          offersSnooze: true)
     }
@@ -20,18 +21,23 @@ final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
     override func configuration(shielding application: Application,
                                 in category: ActivityCategory) -> ShieldConfiguration {
         DistractionLog.recordAttempt()
+        PausedApp.record(name: application.localizedDisplayName, token: application.token)
         return ShieldTheme.configuration(subject: application.localizedDisplayName,
                                          offersSnooze: true)
     }
 
     override func configuration(shielding webDomain: WebDomain) -> ShieldConfiguration {
         DistractionLog.recordAttempt()
+        // No token: the five-minute door is per-app, and a website has nothing
+        // to hand the snooze store.
+        PausedApp.record(name: webDomain.domain)
         return ShieldTheme.configuration(subject: webDomain.domain)
     }
 
     override func configuration(shielding webDomain: WebDomain,
                                 in category: ActivityCategory) -> ShieldConfiguration {
         DistractionLog.recordAttempt()
+        PausedApp.record(name: webDomain.domain)
         return ShieldTheme.configuration(subject: webDomain.domain)
     }
 }

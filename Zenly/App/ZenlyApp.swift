@@ -38,11 +38,17 @@ struct ZenlyApp: App {
         WindowGroup {
             #if DEBUG
             if let subject = DebugSeed.shieldPreviewSubject {
-                // Screen 03 is drawn by iOS inside the shield extension and can
-                // never appear on Simulator. Standing it up as the root under a
-                // launch argument is the only way to look at it while building.
-                ShieldPreviewView(subject: subject,
-                                  tone: ZTheme.tone(forHex: profiles.activeProfile?.accentHex))
+                // Screen 03 normally needs a Screen Time shield to have fired,
+                // which Simulator will never allow. Standing it up as the root
+                // under a launch argument is the only way to look at it while
+                // building. This is the real view, not a mock of one.
+                AppPausedView(
+                    subject: subject,
+                    tone: ZTheme.tone(forHex: profiles.activeProfile?.accentHex),
+                    endsAt: Date().addingTimeInterval(16 * 60),
+                    onDismiss: {},
+                    onSnooze: {}
+                )
             } else {
                 root
             }

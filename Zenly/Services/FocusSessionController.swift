@@ -438,6 +438,15 @@ final class FocusSessionController {
         phase = .idle
     }
 
+    /// Recompute the shields from what is currently true.
+    ///
+    /// Everything that applies shields derives them rather than editing them,
+    /// so granting a five-minute pass is just data with an expiry — this is
+    /// what makes the pass take effect now instead of at the next foreground.
+    func reapplyEnforcement() {
+        blocking.reconcile()
+    }
+
     private func clearEnforcement() {
         // Remove THIS session's one-off entry first, then reconcile — so if a
         // recurring schedule window is still open, its shields stay applied
