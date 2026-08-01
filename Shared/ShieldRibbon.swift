@@ -2,115 +2,100 @@
 //  ShieldRibbon.swift
 //  Zenly (shared: app + ZenlyShield)
 //
-//  The one piece of the block screen's geometry that iOS will actually let us
-//  draw — Quiet spec, screen 03 ("App paused").
+//  The comp's ribbon, redrawn for the only space iOS will give it — Quiet spec,
+//  screen 03 ("App paused").
 //
-//  `ShieldConfiguration` is a fixed set of slots (background, blur, one image, a
-//  title, a subtitle, two buttons) laid out by iOS in its own process. We cannot
-//  place a view. But the comp's dominant mark is a tone-coloured ribbon hanging
-//  from the top edge with the paused app's name running down it, and a ribbon is
-//  a picture — so it goes in the one slot that takes a picture.
+//  The comp hangs a 44 x 302 tone ribbon off the top edge of the screen. That
+//  cannot be built. `ShieldConfiguration` is a fixed set of slots — background
+//  colour, blur style, one image, a title, a subtitle, two buttons — encoded and
+//  sent to another process, where iOS lays them out on metrics it does not
+//  publish. Both routes to the comp's geometry were tried on device and both are
+//  closed:
 //
-//  Geometry is transcribed from the comp verbatim:
+//  1. **The icon slot** aspect-fits into a box of roughly 100 x 100 points. A
+//     302pt ribbon came back 94pt tall and 34 wide, its name reduced to texture.
+//     No aspect ratio escapes the box; the comp's ribbon is three times taller
+//     than the whole slot.
 //
-//      width:44; height:302; background:var(--tone);
-//      clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 18px), 0 100%);
-//      span { writing-mode:vertical-rl; font-weight:600; font-size:10px;
-//             letter-spacing:.34em; text-transform:uppercase;
-//             color:#0A0B0E; padding-top:78px; }
+//  2. **A pattern-image background** (`UIColor(patternImage:)`) is not clamped by
+//     any slot, but does not survive the trip. `UIColor` encodes as colour-space
+//     components; a pattern image has no representation in that, so it arrives
+//     as nothing and the shield renders with no background at all.
 //
-//  The drop shadow the comp puts under it (`0 16px 38px var(--tone-glow)`) is
-//  baked into the bitmap rather than left to the host, since we do not control
-//  the layer it lands on.
+//  So the ribbon is drawn for a 100pt square instead — as large inside that box
+//  as it can be. What survives from the comp is what matters: the silhouette,
+//  the notch, the tone, the name running down it, and roughly the comp's
+//  proportion of the screen's width (the comp's ribbon is 44 of 402 points
+//  across, about 11%; this one lands near 9%). What is lost is the drop, and
+//  nothing can buy it back short of Apple opening the shield to custom views.
 //
 
 import UIKit
 
 enum ShieldRibbon {
 
-    // MARK: - Comp geometry
+    // MARK: - Geometry
 
+    /// iOS aspect-fits the icon into a box measured on device at roughly
+    /// 100 x 100 points. A square canvas means none of it is wasted — the
+    /// earlier tall canvas spent most of the box on empty margin, which is why
+    /// the ribbon came back so thin.
     private enum Metric {
-        /// Comp `width:44`.
-        static let width: CGFloat = 44
-        /// Comp `height:302`.
-        static let height: CGFloat = 302
-        /// Comp `calc(100% - 18px)` — how far the V bites up into the tail.
-        static let notch: CGFloat = 18
-        /// Comp `padding-top:78px` — where the name starts down the ribbon.
-        static let textInset: CGFloat = 78
-        /// Comp `font-size:10px`.
-        static let textSize: CGFloat = 10
-        /// Comp `letter-spacing:.34em`.
-        static let tracking: CGFloat = 0.34
-        /// Room the baked shadow needs around the shape (`0 16px 38px`).
-        static let shadowPadding: CGFloat = 40
-        static let shadowOffsetY: CGFloat = 16
-        static let shadowBlur: CGFloat = 38
+        static let canvas: CGFloat = 100
+
+        /// Comp ratio: 44 of 402 screen points. Against a ~100pt slot on a
+        /// ~393pt screen, 34 lands at about the same share of the width.
+        static let width: CGFloat = 34
+        /// Everything but the room the glow needs underneath.
+        static let height: CGFloat = 92
+        /// The comp's V, scaled to the shorter tail.
+        static let notch: CGFloat = 8
+        /// Where the name starts down the ribbon (comp: 78 of 302, ~26%).
+        static let textInset: CGFloat = 14
+        /// As large as fits the shortened drop. The comp's 10pt would push a
+        /// nine-letter name past the notch.
+        static let textSize: CGFloat = 8
+        /// Tightened from the comp's .34em for the same reason.
+        static let tracking: CGFloat = 0.18
+
+        static let glowOffsetY: CGFloat = 3
+        static let glowBlur: CGFloat = 6
     }
 
     /// Comp `color:#0A0B0E` — the dark ink that sits on a bright tone.
     private static let onTone = UIColor(red: 0.039, green: 0.043, blue: 0.055, alpha: 1)
 
-    /// Design `--bg` #0A0B0E — the surface the ribbon hangs on.
-    private static let canvasColor = UIColor(red: 0.039, green: 0.043, blue: 0.055, alpha: 1)
-
-    /// A safe default when the extension cannot read a screen size. iPhone 15 /
-    /// 16 / 17 logical points; being wrong here only moves the ribbon off
-    /// centre by a few points, because the pattern is anchored top-left.
-    private static let fallbackScreen = CGSize(width: 393, height: 852)
-
     // MARK: - Render
 
-    /// The whole shield surface: `--bg`, with the ribbon hanging from the top
-    /// edge at the comp's own 44 × 302, `subject` running down it.
+    /// The ribbon, in `tone`, with `subject` (the app name or domain) running
+    /// down it, sized for `ShieldConfiguration.icon`.
     ///
-    /// This goes in `ShieldConfiguration.backgroundColor` via
-    /// `UIColor(patternImage:)`, not in the icon slot.
+    /// `subject` is dropped when it will not fit the drop at a legible size —
+    /// a name squeezed or clipped reads as a rendering fault, and the subtitle
+    /// names the app anyway. The ribbon alone still carries the screen.
     ///
-    /// The icon slot looked like the obvious home for it and is not. iOS
-    /// aspect-fits whatever it is handed into a box of about 100 × 100 points,
-    /// so a 302pt ribbon came back 94pt tall and 34 wide, with the app's name
-    /// scaled down to illegible texture. The background has no such box: it is
-    /// the full surface, so the ribbon can be exactly the size the comp draws
-    /// it, in the position the comp draws it.
-    ///
-    /// Sized to the whole screen so the pattern never visibly repeats.
-    static func backdrop(subject: String?, tone: UIColor, screen: CGSize? = nil) -> UIImage? {
-        let size = screen ?? storedScreenSize
-        guard size.width > 0, size.height > 0,
-              size.width <= 1_000, size.height <= 2_000 else { return nil }
-
+    /// Rendered at 3x into a 100pt square: 300 x 300 px, about 360 KB. Worth
+    /// stating, because the previous version rendered a screen-sized bitmap at
+    /// device scale — 12 MB, and roughly double at peak — and a ManagedSettingsUI
+    /// extension runs on one of the tightest memory budgets on the platform. It
+    /// was killed for it, and a killed shield extension is not reported: iOS
+    /// silently substitutes its own default screen.
+    static func icon(subject: String?, tone: UIColor) -> UIImage? {
+        let side = Metric.canvas
         let format = UIGraphicsImageRendererFormat.preferred()
-        format.opaque = true
-        // 1x, deliberately.
-        //
-        // A shield extension runs on one of the tightest memory budgets on the
-        // platform. At the device's native 3x this image is 1179 x 2556 px —
-        // 12 MB for the bitmap and roughly double that at peak once CoreGraphics
-        // copies it out. The extension was killed for it, and a killed shield
-        // extension does not show an error: iOS quietly substitutes its own
-        // default screen, which is what a blown budget looks like from outside.
-        //
-        // At 1x the same image is 1.3 MB. The cost is softer edges on the
-        // notch's diagonals and on the name; the ribbon's own edges are
-        // axis-aligned and stay crisp.
-        format.scale = 1
+        format.opaque = false
+        format.scale = 3
 
-        return UIGraphicsImageRenderer(size: size, format: format).image { context in
+        return UIGraphicsImageRenderer(size: CGSize(width: side, height: side),
+                                       format: format).image { context in
             let cg = context.cgContext
+            let origin = CGPoint(x: (side - Metric.width) / 2, y: 0)
 
-            cg.setFillColor(canvasColor.cgColor)
-            cg.fill(CGRect(origin: .zero, size: size))
-
-            // Comp: `left:50%; top:0; transform:translateX(-50%)`.
-            let origin = CGPoint(x: (size.width - Metric.width) / 2, y: 0)
-
-            // The comp's `filter: drop-shadow(0 16px 38px var(--tone-glow))`.
-            // --tone-glow is the tone at 0.28.
+            // The comp's `filter: drop-shadow(0 16px 38px var(--tone-glow))`,
+            // scaled down with the ribbon. --tone-glow is the tone at 0.28.
             cg.saveGState()
-            cg.setShadow(offset: CGSize(width: 0, height: Metric.shadowOffsetY),
-                         blur: Metric.shadowBlur,
+            cg.setShadow(offset: CGSize(width: 0, height: Metric.glowOffsetY),
+                         blur: Metric.glowBlur,
                          color: tone.withAlphaComponent(0.28).cgColor)
             cg.addPath(ribbonPath(at: origin))
             cg.setFillColor(tone.cgColor)
@@ -122,51 +107,7 @@ enum ShieldRibbon {
         }
     }
 
-    /// A transparent image of the size iOS gives the icon slot.
-    ///
-    /// iOS lays the shield out as a stack — icon, then title, then subtitle —
-    /// so passing no icon pulls the title up the screen and into the ribbon.
-    /// This holds the title where the comp has it while drawing nothing. There
-    /// is no spacing control in `ShieldConfiguration`; occupying the slot is
-    /// the only lever there is.
-    static func titleSpacer() -> UIImage? {
-        let format = UIGraphicsImageRendererFormat.preferred()
-        format.opaque = false
-        format.scale = 1
-        return UIGraphicsImageRenderer(size: CGSize(width: 100, height: 100),
-                                       format: format).image { _ in }
-    }
-
-    // MARK: - Screen size, measured by the app
-
-    private static let widthKey = "shieldScreenWidth"
-    private static let heightKey = "shieldScreenHeight"
-
-    /// Called by the app whenever it comes to the foreground.
-    ///
-    /// The extension needs the screen's point size to centre the ribbon, and it
-    /// is the wrong place to ask for it: a `ShieldConfigurationDataSource` is
-    /// not a view controller, has no window scene, and runs under a budget that
-    /// makes any avoidable work a liability. The app has a scene and no such
-    /// constraints, so it measures once and leaves the answer in the App Group.
-    static func rememberScreenSize(_ size: CGSize) {
-        guard size.width > 0, size.height > 0 else { return }
-        AppGroup.defaults.set(Double(size.width), forKey: widthKey)
-        AppGroup.defaults.set(Double(size.height), forKey: heightKey)
-    }
-
-    /// What the app last measured, or a sane default.
-    ///
-    /// Being wrong here only shifts the ribbon off centre by half the
-    /// difference, because the pattern is anchored top-left — it never fails.
-    private static var storedScreenSize: CGSize {
-        let width = AppGroup.defaults.double(forKey: widthKey)
-        let height = AppGroup.defaults.double(forKey: heightKey)
-        guard width > 0, height > 0 else { return fallbackScreen }
-        return CGSize(width: width, height: height)
-    }
-
-    /// `polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 18px), 0 100%)` — a flag
+    /// `polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - notch), 0 100%)` — a flag
     /// with a V bitten out of the bottom edge.
     private static func ribbonPath(at origin: CGPoint) -> CGPath {
         let w = Metric.width, h = Metric.height
@@ -195,15 +136,15 @@ enum ShieldRibbon {
                 .kern: Metric.textSize * Metric.tracking,
                 .foregroundColor: onTone
             ])
-        // Tracking is applied *after* every glyph including the last, which
-        // would shift the run off centre. Drop it from the final character.
+        // Tracking is applied after every glyph including the last, which would
+        // shift the run off centre. Drop it from the final character.
         if attributed.length > 0 {
             attributed.removeAttribute(.kern,
                                        range: NSRange(location: attributed.length - 1, length: 1))
         }
 
         // The name runs from `textInset` to the top of the notch.
-        let available = Metric.height - Metric.textInset - Metric.notch - 8
+        let available = Metric.height - Metric.textInset - Metric.notch - 3
         guard attributed.size().width <= available else { return nil }
         return attributed
     }

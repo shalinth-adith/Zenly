@@ -12,10 +12,13 @@
 //
 //  So this reassembles it from the *same inputs the extension uses*: the same
 //  `ShieldRibbon` bitmap, the same `ShieldMessage` strings, the same
-//  `ShieldTheme`-mirrored palette. It is a preview of the content, laid out the
-//  way the comp lays it out. iOS's own layout of those slots will differ — its
-//  metrics are private — so this proves the words and the artwork, not the
-//  spacing.
+//  `ShieldTheme`-mirrored palette.
+//
+//  It is deliberately laid out the way **iOS** lays the slots out, not the way
+//  the comp does — icon, then title, then subtitle, stacked and centred, with
+//  the buttons pinned. A preview that drew the comp's geometry would be a
+//  picture of something that cannot ship, and this file exists to be screenshot
+//  as evidence. Spacing is still approximate; iOS's real metrics are private.
 //
 //  Two gates: the whole file is compiled out of Release, and it is only ever
 //  reachable when the launch argument is present.
@@ -32,11 +35,14 @@ struct ShieldPreviewView: View {
     var tone: Color
 
     var body: some View {
-        ZStack(alignment: .top) {
-            backdrop
+        ZStack {
+            Color(hex: "0A0B0E").ignoresSafeArea()
 
             VStack(spacing: 0) {
                 Spacer(minLength: 0)
+
+                ribbon
+                    .padding(.bottom, 22)
 
                 Text(ShieldMessage.title())
                     .font(ZTheme.Font.display(25, weight: .semibold))
@@ -44,58 +50,49 @@ struct ShieldPreviewView: View {
                     .multilineTextAlignment(.center)
                     .lineSpacing(4)
                     .frame(maxWidth: 290)
-                    .padding(.top, 10)
 
                 Text(ShieldMessage.subtitle(subject: subject, custom: ""))
                     .font(ZTheme.Font.body(14))
                     .foregroundStyle(Color(hex: "E7E8EC").opacity(0.55))
                     .multilineTextAlignment(.center)
                     .lineSpacing(4)
-                    .frame(maxWidth: 272)
-                    .padding(.top, 12)
+                    .frame(maxWidth: 290)
+                    .padding(.top, 10)
 
                 Spacer(minLength: 0)
 
-                VStack(spacing: 4) {
+                VStack(spacing: 8) {
                     Text("Back to focus")
                         .font(ZTheme.Font.display(16, weight: .semibold))
                         .foregroundStyle(Color(hex: "0A0B0E"))
                         .frame(maxWidth: .infinity, minHeight: 56)
-                        .background(tone, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .background(tone, in: Capsule())
                     Text("I need it for 5 minutes")
                         .font(ZTheme.Font.body(14))
                         .foregroundStyle(Color(hex: "E7E8EC").opacity(0.55))
-                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .frame(maxWidth: .infinity, minHeight: 52)
+                        .overlay(Capsule().strokeBorder(Color.white.opacity(0.10), lineWidth: 1))
                 }
-                .padding(.bottom, 40)
+                .padding(.bottom, 24)
             }
             .padding(.horizontal, 40)
-            // The comp reserves the top 220pt for the ribbon before the text
-            // block begins.
-            .padding(.top, 220)
         }
         .accessibilityIdentifier("shield-preview")
     }
 
-    /// The extension's own backdrop bitmap — the same one it hands to
-    /// `ShieldConfiguration.backgroundColor` as a pattern — drawn 1:1 so the
-    /// preview shows the ribbon at exactly the size the shield will.
-    private var backdrop: some View {
-        // Measured here rather than taken from the App Group, so the preview
-        // draws at the size of the device it is actually running on.
-        GeometryReader { geo in
-            if let image = ShieldRibbon.backdrop(subject: subject,
-                                                 tone: UIColor(tone),
-                                                 screen: geo.size) {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-                    .accessibilityIdentifier("shield-preview-ribbon")
-            } else {
-                Color(hex: "0A0B0E")
-            }
+    /// The extension's own bitmap, at the size iOS gives the icon slot.
+    ///
+    /// 100pt, because that is what the slot measured out to on device. Drawing
+    /// it any larger here would flatter the build.
+    @ViewBuilder
+    private var ribbon: some View {
+        if let image = ShieldRibbon.icon(subject: subject, tone: UIColor(tone)) {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 100, height: 100)
+                .accessibilityIdentifier("shield-preview-ribbon")
         }
-        .ignoresSafeArea()
     }
 }
 

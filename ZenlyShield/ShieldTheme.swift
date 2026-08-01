@@ -50,32 +50,14 @@ enum ShieldTheme {
         }
     }
 
-    /// The comp's ribbon, painted onto the whole surface rather than dropped
-    /// into the icon slot.
+    /// The ribbon goes in the icon slot, and the background stays a flat colour.
     ///
-    /// The icon slot was the obvious home for it and does not work. iOS
-    /// aspect-fits the icon into a box of roughly 100 × 100 points, so the
-    /// comp's 44 × 302 ribbon came back about 34 × 94 on device, with the app's
-    /// name scaled down to illegible texture. None of that is adjustable — the
-    /// box is iOS's, and the comp's ribbon is three times taller than the whole
-    /// slot.
-    ///
-    /// `backgroundColor` has no such box. A `UIColor(patternImage:)` sized to
-    /// the screen paints the entire shield, so the ribbon lands at exactly the
-    /// comp's size, hanging off the top edge exactly where the comp hangs it.
-    ///
-    /// Falls back to the flat background if the backdrop cannot be rendered: a
-    /// shield that comes up plain is survivable, one that comes up blank is not.
-    private static func backgroundColor(subject: String?) -> UIColor {
-        // Drop the intermediates as soon as the pattern owns the bitmap. Peak
-        // memory, not steady state, is what gets an extension killed.
-        autoreleasepool {
-            guard let backdrop = ShieldRibbon.backdrop(subject: subject, tone: tone) else {
-                return background
-            }
-            return UIColor(patternImage: backdrop)
-        }
-    }
+    /// Both of those are conclusions from device testing, not first choices.
+    /// See `ShieldRibbon` for the two routes to the comp's full-height ribbon
+    /// and why each is closed. The short version: the icon is clamped to about
+    /// 100 points square, and `UIColor(patternImage:)` does not survive being
+    /// encoded across to the process that draws the shield — it arrives as
+    /// nothing, leaving the screen with no background at all.
 
     /// The block screen, personalised with what is being paused (`subject` = app
     /// name or website domain, when iOS provides one).
@@ -95,19 +77,15 @@ enum ShieldTheme {
         )
         let primary = ShieldConfiguration.Label(text: "Back to focus", color: onTone)
 
-        // No blur: the backdrop is opaque and carries the ribbon, and a blur
-        // layer over it only gives the compositor a chance to wash the tone out.
-        //
-        // The icon is a transparent spacer. iOS stacks icon → title → subtitle,
-        // so sending none pulls the title up under the ribbon; the spacer holds
-        // it where the comp has it while drawing nothing. There is no spacing
-        // control in `ShieldConfiguration` — occupying the slot is the only
-        // lever it gives you.
+        // No blur. The comp's surface is a flat `#0A0B0E`, and a material over
+        // an opaque colour buys nothing but a chance for the compositor to
+        // lighten it. Without it the screen sits on the same near-black the app
+        // does, which is the point of the palette.
         guard offersSnooze else {
             return ShieldConfiguration(
                 backgroundBlurStyle: nil,
-                backgroundColor: backgroundColor(subject: subject),
-                icon: ShieldRibbon.titleSpacer(),
+                backgroundColor: background,
+                icon: ShieldRibbon.icon(subject: subject, tone: tone),
                 title: title,
                 subtitle: subtitle,
                 primaryButtonLabel: primary,
@@ -117,8 +95,8 @@ enum ShieldTheme {
 
         return ShieldConfiguration(
             backgroundBlurStyle: nil,
-            backgroundColor: backgroundColor(subject: subject),
-            icon: ShieldRibbon.titleSpacer(),
+            backgroundColor: background,
+            icon: ShieldRibbon.icon(subject: subject, tone: tone),
             title: title,
             subtitle: subtitle,
             primaryButtonLabel: primary,

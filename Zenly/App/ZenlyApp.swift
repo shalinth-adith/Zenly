@@ -59,9 +59,6 @@ struct ZenlyApp: App {
             #endif
             switch phase {
             case .active:
-                // The shield extension centres its ribbon on the screen and is
-                // in no position to measure one. Leave it the answer.
-                ShieldRibbon.rememberScreenSize(UIScreen.main.bounds.size)
                 authorization.refresh()
                 session.restoreIfNeeded()
                 session.applyPendingControlRequest()
