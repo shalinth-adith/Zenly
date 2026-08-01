@@ -6,10 +6,10 @@
 //
 //  Screen 03 is the block screen itself, and iOS draws that one: you tap "Back
 //  to focus" there and the app you reached for closes. 03b is what Zen-ly shows
-//  when you come back to it — the ribbon at the size the comp draws it, and a
+//  when you come back to it — the door at the size the comp draws it, and a
 //  sentence saying the thing you reached for has been kept, not taken.
 //
-//      [ribbon, INSTAGRAM running down it]
+//      [door — 190pt seam, breathing]
 //      IN SESSION · 16:12 LEFT
 //      Instagram is bookmarked.
 //      You'll come back to exactly this spot when the session ends.
@@ -18,11 +18,17 @@
 //  No buttons. It is a receipt, not a decision — it says its piece and hands
 //  you back to the timer on its own.
 //
-//  This is the surface that can hold the ribbon. The shield cannot: its icon is
-//  aspect-fit into a box of about 80 points, and the ribbon is 302 tall. Here
+//  **This is the only surface in the flow that can hold the door at full size.**
+//  The block screen cannot, and that is a hard limit rather than a shortfall:
+//  `ShieldConfiguration.icon` is aspect-fit into a box iOS fixes at ~82 points,
+//  measured twice on device (see `ShieldDoor.icon`), so the comp's 190pt seam
+//  arrives there at well under half its height no matter what is drawn. Here
 //  nothing is clamped and nothing composites over the background, so the comp's
-//  44 x 302, its .34em name, its tracked eyebrow and its flat #0A0B0E all land
-//  as drawn.
+//  190pt line, its 220 x 280 halo, its 9s breath, its tracked eyebrow and its
+//  flat #0A0B0E all land exactly as drawn.
+//
+//  This replaced the ribbon, which had been standing in at this spot. The
+//  ribbon still exists in `ShieldRibbon` and coming back to it is one line.
 //
 
 import SwiftUI
@@ -44,10 +50,11 @@ struct AppPausedView: View {
         ZStack(alignment: .top) {
             Color(hex: "0A0B0E").ignoresSafeArea()
 
-            ribbon
-
             VStack(spacing: 0) {
                 Spacer(minLength: 0)
+
+                QuietDoor(tone: tone)
+                    .padding(.bottom, 8)
 
                 if let eyebrow {
                     Text(eyebrow)
@@ -81,8 +88,6 @@ struct AppPausedView: View {
                     .padding(.bottom, 56)
             }
             .padding(.horizontal, 40)
-            // The comp's text block begins below the ribbon's 302pt drop.
-            .padding(.top, 220)
         }
         .contentShape(Rectangle())
         // Tapping should not be required, but waiting should not be either.
@@ -96,20 +101,6 @@ struct AppPausedView: View {
         // inside it from VoiceOver's rotor as much as from the tests.
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("app-paused")
-    }
-
-    /// The comp's ribbon at its own size — 44 x 302, hanging off the top edge,
-    /// the bookmarked app's name running down it.
-    @ViewBuilder
-    private var ribbon: some View {
-        if let image = ShieldRibbon.comp(subject: subject, tone: UIColor(tone)) {
-            Image(uiImage: image)
-                .resizable()
-                .scaledToFit()
-                .frame(width: ShieldRibbon.compCanvasWidth)
-                .ignoresSafeArea(edges: .top)
-                .accessibilityHidden(true)
-        }
     }
 
     /// "IN SESSION · 16:12 LEFT".
