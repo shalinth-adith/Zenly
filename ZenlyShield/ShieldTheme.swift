@@ -83,13 +83,24 @@ enum ShieldTheme {
         )
         let primary = ShieldConfiguration.Label(text: "Back to focus", color: onTone)
 
-        // No blur. The comp's surface is a flat `#0A0B0E`, and a material over
-        // an opaque colour buys nothing but a chance for the compositor to
-        // lighten it. Without it the screen sits on the same near-black the app
-        // does, which is the point of the palette.
+        // Black over the heaviest material, because it is not settled which of
+        // the two actually decides this surface.
+        //
+        // Both fields are Optional, and `nil` for the blur may well mean "not
+        // specified, use the default material" rather than "no material" — a
+        // near-black `backgroundColor` came out mid-grey on device both with a
+        // blur and without one, which is what that would look like. The two
+        // readings have opposite fixes: if the colour is honoured and composited
+        // over the material then opaque black already wins and the blur is
+        // irrelevant; if it is not, the blur style is the only lever there is.
+        //
+        // `.dark` is the legacy heavy blur — far darker than the
+        // `.systemUltraThinMaterialDark` this screen started on, which is the
+        // lightest dark material Apple ships. Asking for both covers either
+        // reading in one build.
         guard offersSnooze else {
             return ShieldConfiguration(
-                backgroundBlurStyle: nil,
+                backgroundBlurStyle: .dark,
                 backgroundColor: background,
                 icon: ShieldRibbon.icon(subject: subject, tone: tone),
                 title: title,
@@ -100,7 +111,7 @@ enum ShieldTheme {
         }
 
         return ShieldConfiguration(
-            backgroundBlurStyle: nil,
+            backgroundBlurStyle: .dark,
             backgroundColor: background,
             icon: ShieldRibbon.icon(subject: subject, tone: tone),
             title: title,
