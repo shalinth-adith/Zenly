@@ -48,14 +48,19 @@ enum ShieldDoor {
         /// and this extension is killed silently for allocating too much.
         static let canvas: CGFloat = 100
 
-        /// Lands at ~2.8pt on device once the box scales the canvas to ~82.
+        /// Lands at ~3.8pt on device once the box scales the canvas to ~82.
         ///
         /// The comp draws 2pt — but it draws it 190 tall. Held to 2pt at a
         /// quarter of that height the seam reads as a hairline rather than a
         /// door, because a line's presence is its area and this one has lost
         /// three-fifths of its length. Widening it back is the only dimension
         /// still ours to spend, so it is spent here.
-        static let lineWidth: CGFloat = 3.4 * (canvas / 100)
+        ///
+        /// Went 2.5 → 3.4 → 4.6. The middle step was invisible on the glass,
+        /// which is its own lesson: a fifth of a point of extra width is not
+        /// something an eye can find on a seam this short. Small increments
+        /// waste a build; at this size the drawing has to commit.
+        static let lineWidth: CGFloat = 4.6 * (canvas / 100)
 
         /// The whole canvas.
         ///
@@ -78,7 +83,7 @@ enum ShieldDoor {
         /// The near bloom (comp `0 0 18px 2px`), scaled to the canvas and then
         /// opened up — same reasoning as `lineWidth`. Light spilling off the
         /// seam is the other half of how big the door looks.
-        static let lineGlowBlur: CGFloat = 17 * (canvas / 100)
+        static let lineGlowBlur: CGFloat = 22 * (canvas / 100)
         /// The wide bloom (comp `0 0 60px 14px`) is what the halo below is for.
         ///
         /// The comp's halo is 280 tall against a 190 line — half again the
@@ -146,9 +151,9 @@ enum ShieldDoor {
     /// stop at 0.72 pulls the falloff in so the gradient is down to about 5%
     /// by the time it reaches the edge, where the cut cannot be seen.
     private static func drawHalo(in cg: CGContext, centre: CGPoint, tone: UIColor) {
-        let colours = [tone.withAlphaComponent(0.44).cgColor,
-                       tone.withAlphaComponent(0.26).cgColor,
-                       tone.withAlphaComponent(0.06).cgColor,
+        let colours = [tone.withAlphaComponent(0.58).cgColor,
+                       tone.withAlphaComponent(0.34).cgColor,
+                       tone.withAlphaComponent(0.07).cgColor,
                        tone.withAlphaComponent(0).cgColor] as CFArray
         guard let gradient = CGGradient(colorsSpace: CGColorSpaceDeviceRGB(),
                                         colors: colours,
@@ -180,7 +185,7 @@ enum ShieldDoor {
         // by itself.
         cg.saveGState()
         cg.setShadow(offset: .zero, blur: Metric.lineGlowBlur,
-                     color: tone.withAlphaComponent(0.72).cgColor)
+                     color: tone.withAlphaComponent(0.88).cgColor)
         cg.setFillColor(tone.withAlphaComponent(0.9).cgColor)
         cg.addPath(CGPath(roundedRect: rect.insetBy(dx: 0, dy: rect.height * 0.12),
                           cornerWidth: Metric.lineWidth / 2,
