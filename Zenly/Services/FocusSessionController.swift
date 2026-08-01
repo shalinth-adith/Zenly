@@ -389,22 +389,18 @@ final class FocusSessionController {
 
         Haptics.success()
 
-        // A finished session leaves nothing behind on the Lock Screen.
+        // Nothing is pushed to the Lock Screen here, and that is the point.
         //
-        // This used to hand the Live Activity a "finished" card that lingered
-        // for two minutes offering "Again". Two things were wrong with it. The
-        // small one is that nobody wanted it: the session is over, and the
-        // summary screen is where you decide what happens next. The large one
-        // is that its self-dismissal was a `Task` sleeping in the app's own
-        // process, so it only fired if the app happened to still be running
-        // two minutes later — and a session that ends while the phone is in a
-        // pocket ends with the app suspended. The card then had nothing left
-        // to clear it and stayed on the Lock Screen indefinitely.
-        //
-        // `end()` sweeps `Activity.activities` rather than a local reference,
-        // so it clears the card even across an app relaunch.
-        notifications.cancelSession()
-        liveActivity.end()
+        // `clearEnforcement()` above has already ended the Live Activity and
+        // cancelled the session's alerts. This used to follow it with a
+        // "finished" card that lingered two minutes offering "Again" — so the
+        // card was torn down and immediately rebuilt. Two things were wrong
+        // with it. The small one is that nobody wanted it: the session is over,
+        // and the summary screen is where you decide what happens next. The
+        // large one is that its self-dismissal was a `Task` sleeping in this
+        // process, which only fires if the app is still running two minutes
+        // later — and a session that ends with the phone in a pocket ends with
+        // the app suspended. The card then had nothing left to clear it.
 
         summary = SessionSummary(profileName: profileName,
                                  accentHex: accentHex,
