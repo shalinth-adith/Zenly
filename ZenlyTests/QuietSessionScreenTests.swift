@@ -265,6 +265,63 @@ struct LapsedSessionTests {
     }
 }
 
+// MARK: - 01 · the profile switcher's row
+
+/// Four short words packed at a fixed gap sat against the left edge with a
+/// third of the row empty beside them, which read as a layout that had failed.
+/// `QuietSpreadRow` opens the gaps out to fill the width instead — bounded at
+/// both ends, because "fill the width" alone is only right in the middle case.
+struct QuietSpreadRowTests {
+
+    private let minSpacing: CGFloat = 28
+    private let maxSpacing: CGFloat = 64
+
+    private func spacing(content: CGFloat, gaps: CGFloat, available: CGFloat) -> CGFloat {
+        QuietSpreadRow.spacing(contentWidth: content, gaps: gaps, available: available,
+                               minSpacing: minSpacing, maxSpacing: maxSpacing)
+    }
+
+    /// The case this exists for: four names on an iPhone. The gaps open out so
+    /// the row ends where the screen does.
+    @Test func fourNamesSpreadToFillTheRow() {
+        // Work / Study / Gym / Sleep ≈ 157pt of text in a 337pt gutter.
+        let gap = spacing(content: 157, gaps: 3, available: 337)
+        #expect(gap > minSpacing, "The row is still packed at its floor")
+        #expect(157 + gap * 3 == 337, "The row does not reach the trailing edge")
+    }
+
+    /// The floor. Once the names need more room than there is, spacing stops
+    /// shrinking — the row overflows instead, which is what lets it scroll.
+    @Test func aCrowdedRowStopsAtTheFloorRatherThanTightening() {
+        let gap = spacing(content: 420, gaps: 5, available: 337)
+        #expect(gap == minSpacing)
+        #expect(420 + gap * 5 > 337, "A row that fits its container will never scroll")
+    }
+
+    /// The ceiling. Two profiles pinned to opposite edges read as two unrelated
+    /// buttons rather than a pair of choices, so the group centres instead.
+    @Test func twoNamesStopSpreadingAndCentreInstead() {
+        let gap = spacing(content: 80, gaps: 1, available: 337)
+        #expect(gap == maxSpacing)
+        #expect(80 + gap < 337, "Nothing is left to centre with")
+    }
+
+    /// A single profile has no gaps to distribute, and dividing by zero gaps is
+    /// how this kind of layout usually fails.
+    @Test func oneProfileIsNotADivisionByZero() {
+        let gap = spacing(content: 40, gaps: 0, available: 337)
+        #expect(gap == minSpacing)
+    }
+
+    /// Exactly filling the row must not tip into the overflow branch.
+    @Test func aRowThatExactlyFitsSitsAtItsFloor() {
+        let content: CGFloat = 337 - 28 * 3
+        let gap = spacing(content: content, gaps: 3, available: 337)
+        #expect(gap == minSpacing)
+        #expect(content + gap * 3 == 337)
+    }
+}
+
 // MARK: - 03b · the ribbon, where it fits
 
 /// The ribbon now belongs to the in-app confirmation, which owns its surface —

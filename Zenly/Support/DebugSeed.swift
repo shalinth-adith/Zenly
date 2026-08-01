@@ -65,6 +65,18 @@ enum DebugSeed {
         ProcessInfo.processInfo.arguments.contains("ZenlySeedDemoHistory")
     }
 
+    /// `ZenlySeedManyProfiles` — add enough profiles that Home's switcher row
+    /// stops fitting and has to scroll.
+    ///
+    /// The row spreads to fill the width while the names fit and overflows once
+    /// they don't (`QuietSpreadRow`). The second half of that is unreachable on
+    /// a default install, which ships four short names — so without this the
+    /// only way to see the scrolling state is to sit and create profiles by
+    /// hand, which nobody does, which is how that state goes unlooked-at.
+    static var wantsManyProfiles: Bool {
+        ProcessInfo.processInfo.arguments.contains("ZenlySeedManyProfiles")
+    }
+
     /// The block screen quotes a running session ("Back at 7:43 · 16 minutes")
     /// and goes quiet when there isn't one. Previewing it against an empty App
     /// Group would therefore show the screen with its last line missing — the
@@ -79,6 +91,38 @@ enum DebugSeed {
     }
 
     // MARK: - Seeding
+
+    /// Four more profiles, so Home's switcher has eight names and must scroll.
+    ///
+    /// Idempotent, like the history seed: names carry the `demoMarker` so a
+    /// relaunch inside one test does not keep adding to the row.
+    @MainActor
+    static func seedManyProfilesIfRequested(
+        context: NSManagedObjectContext = PersistenceController.shared.container.viewContext
+    ) {
+        guard wantsManyProfiles else { return }
+
+        let request = FocusProfile.fetchRequest()
+        request.predicate = NSPredicate(format: "name BEGINSWITH %@", demoMarker)
+        request.fetchLimit = 1
+        guard ((try? context.count(for: request)) ?? 0) == 0 else { return }
+
+        let existing = (try? context.count(for: FocusProfile.fetchRequest())) ?? 0
+        let plan = [("Reading", "D6A85C", 45), ("Writing", "7C93E8", 90),
+                    ("Practice", "7FBE9A", 30), ("Wind down", "9B8AD6", 20)]
+
+        for (index, entry) in plan.enumerated() {
+            let profile = FocusProfile(context: context)
+            profile.id = UUID()
+            profile.name = "\(demoMarker) \(entry.0)"
+            profile.accentHex = entry.1
+            profile.focusMinutes = Int16(entry.2)
+            profile.breakMinutes = 5
+            profile.sortIndex = Int16(existing + index)
+        }
+
+        try? context.save()
+    }
 
     /// A week of completed sessions shaped like the comp's chart: a clear best
     /// day, a couple of thin ones, and today part-way up.

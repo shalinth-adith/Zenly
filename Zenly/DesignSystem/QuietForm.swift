@@ -431,6 +431,73 @@ struct QuietStepperRow: View {
 /// Lays chips out left to right and wraps to a new line when the width runs
 /// out — `LazyVGrid` can't do this because the chips are each a different
 /// width (a domain, a profile name).
+/// A single row that opens out to fill the width it is given, and overflows at
+/// its natural width once it can't.
+///
+/// The profile switcher on Home is four short words. Packed at a fixed gap they
+/// sat against the left edge with a third of the row empty beside them, which
+/// read as a layout that had failed rather than a list that was short. Spread,
+/// they use the full width and the row looks deliberate.
+///
+/// Two bounds, because "fill the width" alone is only right for the common case:
+///
+/// - `minSpacing` is the floor. Once the names no longer fit, spacing stops
+///   shrinking and the row simply grows past its container — which is what lets
+///   an enclosing `ScrollView` take over and swipe.
+/// - `maxSpacing` is the ceiling. Two profiles stretched to opposite edges of
+///   the screen do not read as a pair of related choices, they read as two
+///   unrelated buttons. Past the ceiling the group stops spreading and centres
+///   instead, which is what the comp does for a short row.
+struct QuietSpreadRow: Layout {
+    /// The comp's `gap: 30px`, as the tightest the row ever gets.
+    var minSpacing: CGFloat = 28
+    /// Beyond this the row centres rather than spreading further.
+    var maxSpacing: CGFloat = 64
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let sizes = subviews.map { $0.sizeThatFits(.unspecified) }
+        let natural = sizes.reduce(0) { $0 + $1.width }
+            + minSpacing * CGFloat(max(0, subviews.count - 1))
+        // Take the container's width when the row fits inside it, and the row's
+        // own width when it doesn't — the second case is what overflows a
+        // ScrollView and makes it scrollable.
+        return CGSize(width: max(natural, proposal.width ?? natural),
+                      height: sizes.map(\.height).max() ?? 0)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize,
+                       subviews: Subviews, cache: inout ()) {
+        guard !subviews.isEmpty else { return }
+        let sizes = subviews.map { $0.sizeThatFits(.unspecified) }
+        let content = sizes.reduce(0) { $0 + $1.width }
+        let gaps = CGFloat(max(1, subviews.count - 1))
+
+        let spacing = Self.spacing(contentWidth: content, gaps: gaps, available: bounds.width,
+                                   minSpacing: minSpacing, maxSpacing: maxSpacing)
+        // Whatever the ceiling left over goes to the margins, so a capped row
+        // sits centred rather than hanging off the leading edge.
+        let used = content + spacing * gaps
+        var x = bounds.minX + max(0, (bounds.width - used) / 2)
+
+        for (index, subview) in subviews.enumerated() {
+            subview.place(at: CGPoint(x: x, y: bounds.midY),
+                          anchor: .leading,
+                          proposal: ProposedViewSize(sizes[index]))
+            x += sizes[index].width + spacing
+        }
+    }
+
+    /// The gap between items: spread to fill, but never below the floor and
+    /// never above the ceiling. Pulled out of `placeSubviews` so the rule can be
+    /// checked directly — it is three branches and the wrong one is a layout
+    /// that only shows itself on a device with a particular profile count.
+    static func spacing(contentWidth: CGFloat, gaps: CGFloat, available: CGFloat,
+                        minSpacing: CGFloat, maxSpacing: CGFloat) -> CGFloat {
+        guard gaps > 0 else { return minSpacing }
+        return min(maxSpacing, max(minSpacing, (available - contentWidth) / gaps))
+    }
+}
+
 struct QuietFlowLayout: Layout {
     var spacing: CGFloat = 8
     var lineSpacing: CGFloat = 8

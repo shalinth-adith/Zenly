@@ -29,7 +29,15 @@ struct ZenlyApp: App {
         // delivers — otherwise foreground notifications are silently dropped.
         NotificationService.shared.activate()
         #if DEBUG
-        MainActor.assumeIsolated { DebugSeed.seedDemoHistoryIfRequested() }
+        MainActor.assumeIsolated {
+            DebugSeed.seedDemoHistoryIfRequested()
+            DebugSeed.seedManyProfilesIfRequested()
+            // Stored-property initializers run before this body, so `profiles`
+            // has already fetched by the time the seed inserts anything. The
+            // history seed doesn't care — Insights queries on demand — but the
+            // profile list is held in memory and would simply not show them.
+            profiles.fetch()
+        }
         DebugSeed.primeShieldPreviewSession()
         #endif
     }

@@ -23,6 +23,9 @@ struct HomeView: View {
 
     @State private var selectedMinutes = 25
     @State private var showSession = false
+    /// Width of the profile switcher's scroll viewport, so the row inside can be
+    /// told how much space it has to spread into. See `profilePicker`.
+    @State private var viewportWidth: CGFloat = 0
 
     var body: some View {
         NavigationStack {
@@ -180,7 +183,7 @@ struct HomeView: View {
     /// and the single coloured dot is the only bright mark. Drag still reorders.
     private var profilePicker: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 28) {
+            QuietSpreadRow(minSpacing: 28) {
                 ForEach(profiles.profiles, id: \.objectID) { profile in
                     let isActive = profile.id == profiles.activeProfileID
                     let tone = ZTheme.tone(forHex: profile.accentHex)
@@ -219,6 +222,12 @@ struct HomeView: View {
                 }
             }
             .padding(.vertical, 2)
+            // Never narrower than the row it sits in. This is what turns the
+            // spread on and off: given the full width, `QuietSpreadRow` opens
+            // the gaps out to fill it; once the names need more than that, the
+            // layout reports its own larger width, the frame gives way, and the
+            // ScrollView starts scrolling. One rule, both behaviours, no state.
+            .frame(minWidth: viewportWidth, alignment: .leading)
             // Each profile label is a snap target.
             .scrollTargetLayout()
         }
@@ -226,6 +235,16 @@ struct HomeView: View {
         // rests sliced mid-letter, and there's no fade dimming the active one.
         // The parent column's horizontal padding supplies the resting gutter.
         .scrollTargetBehavior(.viewAligned)
+        // Measured on the ScrollView, not inside it: a horizontal ScrollView
+        // proposes unbounded width to its content, so the content itself can
+        // never see how much room there actually is.
+        .background {
+            GeometryReader { proxy in
+                Color.clear
+                    .onAppear { viewportWidth = proxy.size.width }
+                    .onChange(of: proxy.size.width) { _, width in viewportWidth = width }
+            }
+        }
     }
 
     /// Shrink the hero orb on shorter screens so the non-scrolling layout fits
