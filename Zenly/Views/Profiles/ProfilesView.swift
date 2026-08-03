@@ -35,23 +35,22 @@ struct ProfilesView: View {
     @Environment(AnalyticsService.self) private var analytics
     @Environment(\.dismiss) private var dismiss
 
-    @State private var editing: EditTarget?
+    @State private var showNewProfile = false
     @State private var pendingDelete: FocusProfile?
     @State private var editMode: EditMode = .inactive
     /// The profile whose "can't delete while it's running" note is showing.
     /// Screen 21 is a state of the row, not a screen of its own.
     @State private var blockedDelete: NSManagedObjectID?
+    /// The profile pushed as screen 20b. Held as an object ID rather than the
+    /// managed object so the destination can re-resolve it every render and
+    /// fall away cleanly the moment it is deleted.
+    @State private var detail: ProfileRef?
 
-    enum EditTarget: Identifiable {
-        case new
-        case existing(FocusProfile)
-
-        var id: String {
-            switch self {
-            case .new: return "new"
-            case .existing(let profile): return profile.objectID.uriRepresentation().absoluteString
-            }
-        }
+    /// An `NSManagedObject` has an optional `id`, so it cannot be `Identifiable`
+    /// itself. Its object ID can.
+    struct ProfileRef: Identifiable, Hashable {
+        let objectID: NSManagedObjectID
+        var id: NSManagedObjectID { objectID }
     }
 
     var body: some View {
@@ -59,14 +58,17 @@ struct ProfilesView: View {
             ZStack {
                 ZTheme.Palette.night.ignoresSafeArea()
 
-                List {
-                    header
-                    rows
-                    newProfileButton
+                VStack(spacing: 0) {
+                    backBar
+                    List {
+                        header
+                        rows
+                        newProfileButton
+                    }
+                    .listStyle(.plain)
+                    .scrollContentBackground(.hidden)
+                    .environment(\.editMode, $editMode)
                 }
-                .listStyle(.plain)
-                .scrollContentBackground(.hidden)
-                .environment(\.editMode, $editMode)
 
                 // The comp dims the list to rgba(0,0,0,.45) behind the sheet.
                 // Drawn here rather than left to the system: at this detent the
@@ -83,13 +85,27 @@ struct ProfilesView: View {
             .animation(ZTheme.Motion.smooth, value: pendingDelete != nil)
             .navigationTitle("")
             .toolbar(.hidden, for: .navigationBar)
-            .sheet(item: $editing) { target in
-                switch target {
-                case .new:
-                    ProfileEditView(profile: nil, draft: ProfileDraft())
-                case .existing(let profile):
-                    ProfileEditView(profile: profile, draft: store.draft(from: profile))
+            // Screen 20b. The row's chevron finally leads somewhere: the detail
+            // is the only discoverable route to an existing profile's blocked
+            // apps, which is what App Review could not find in 1.0 (35).
+            .navigationDestination(item: $detail) { ref in
+                if let profile = store.profiles.first(where: { $0.objectID == ref.objectID }) {
+                    ProfileDetailView(
+                        profile: profile,
+                        onDeleteConfirmed: { deleteProfile(ref) },
+                        onGoToSession: {
+                            NotificationCenter.default.post(name: .zenlyOpenFocus, object: nil)
+                            dismiss()
+                        }
+                    )
+                } else {
+                    // Deleted while pushed — render nothing rather than fault on
+                    // a managed object that is on its way out.
+                    Color.clear
                 }
+            }
+            .sheet(isPresented: $showNewProfile) {
+                ProfileEditView(profile: nil, draft: ProfileDraft())
             }
             // `sheet(isPresented:)` rather than `sheet(item:)`: `FocusProfile`
             // is an `NSManagedObject` whose `id` is optional, so it is not
@@ -109,7 +125,47 @@ struct ProfilesView: View {
                     )
                 }
             }
+            // Something below decided the user belongs on the Focus tab — a
+            // session just started from the profile editor, or "Go to session"
+            // was tapped. Get out of the way: a running session lives on that
+            // tab, and this sheet sits over the top of it.
+            .onReceive(NotificationCenter.default.publisher(for: .zenlyOpenFocus)) { _ in
+                dismiss()
+            }
         }
+    }
+
+    // MARK: - Way out
+
+    /// A sheet is dismissed by dragging it down, and that is the only way out of
+    /// this one — nothing on screen said so. The same shape as screen 20b's
+    /// "‹ Profiles", pointing back where this was opened from.
+    ///
+    /// Outside the List rather than a row in it, so it stays put instead of
+    /// scrolling away with the profiles.
+    private var backBar: some View {
+        HStack {
+            Button {
+                Haptics.light()
+                dismiss()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 14, weight: .medium))
+                    Text("Settings")
+                        .font(ZTheme.Font.body(15))
+                }
+                .foregroundStyle(ZTheme.Palette.brandBright)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("profiles-back")
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, QuietMetrics.gutter)
+        .padding(.top, 8)
+        .padding(.bottom, 2)
     }
 
     // MARK: - List
@@ -160,10 +216,13 @@ struct ProfilesView: View {
                     }
                 )
                 .contentShape(Rectangle())
+                // The row draws a chevron, so the tap must navigate. Switching
+                // the running profile happens on the Focus screen's row; this
+                // list is for managing them, and its chevron promises 20b.
                 .onTapGesture {
                     guard !editMode.isEditing else { return }
                     Haptics.light()
-                    store.setActive(profile)
+                    detail = ProfileRef(objectID: profile.objectID)
                 }
 
                 // The comp rules between rows, not under the last one.
@@ -178,7 +237,7 @@ struct ProfilesView: View {
                 Button(role: .destructive) { requestDelete(profile) } label: {
                     Label("Delete", systemImage: "trash")
                 }
-                Button { editing = .existing(profile) } label: {
+                Button { detail = ProfileRef(objectID: profile.objectID) } label: {
                     Label("Edit", systemImage: "pencil")
                 }
                 .tint(ZTheme.Palette.tone)
@@ -188,7 +247,7 @@ struct ProfilesView: View {
     }
 
     private var newProfileButton: some View {
-        Button { editing = .new } label: {
+        Button { showNewProfile = true } label: {
             HStack(spacing: 12) {
                 Image(systemName: "plus")
                     .font(.system(size: 15, weight: .medium))
@@ -205,6 +264,20 @@ struct ProfilesView: View {
     }
 
     // MARK: - Deleting
+
+    /// Delete confirmed on screen 20b. The detail has already popped itself; the
+    /// object is removed only once that animation is over, because tearing a
+    /// managed object out from under a view that is still on screen is how you
+    /// get a fault on a deleted object.
+    private func deleteProfile(_ ref: ProfileRef) {
+        detail = nil
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(400))
+            guard let profile = store.profiles.first(where: { $0.objectID == ref.objectID })
+            else { return }
+            store.delete(profile)
+        }
+    }
 
     /// Screen 20 or screen 21, decided here.
     ///

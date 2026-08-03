@@ -107,6 +107,27 @@ final class ScheduleStore {
         reactivateAll()
     }
 
+    /// Carry every schedule pointing at `oldName` over to `newName`.
+    ///
+    /// A schedule references its profile by name, not by object, so renaming a
+    /// profile without this leaves its schedules aimed at a profile that no
+    /// longer exists — they stay in the list and simply stop starting anything.
+    /// Called from the profile editors, which are the only places a name changes.
+    func renameProfile(from oldName: String, to newName: String) {
+        guard oldName != newName, !oldName.isEmpty, !newName.isEmpty else { return }
+        let affected = schedules.filter { ($0.profileName ?? "") == oldName }
+        guard !affected.isEmpty else { return }
+
+        for schedule in affected {
+            schedule.profileName = newName
+            // A title that was just the old profile name follows it too, so the
+            // list doesn't keep announcing a profile nobody can find.
+            if (schedule.title ?? "") == oldName { schedule.title = newName }
+        }
+        save()
+        fetch()
+    }
+
     func weekdaySummary(_ schedule: FocusSchedule) -> String {
         Self.summary(for: Self.weekdays(from: schedule.weekdaysMask))
     }
