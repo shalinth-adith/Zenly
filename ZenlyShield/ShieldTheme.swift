@@ -78,11 +78,23 @@ enum ShieldTheme {
     /// The block screen, personalised with what is being paused (`subject` = app
     /// name or website domain, when iOS provides one).
     ///
-    /// `offersSnooze` adds the comp's second button. Only apps get it: the
-    /// five-minute door is per-app, and there is no sane way to open a whole
-    /// category or the web for five minutes without unblocking far more than
-    /// the one thing that was asked for.
-    static func configuration(subject: String?, offersSnooze: Bool = false) -> ShieldConfiguration {
+    /// One button. There was a second — "I need it for 5 minutes" — and it is
+    /// gone, because Screen Time cannot support it where it mattered.
+    ///
+    /// The pass has to name the app it lets through, and the only thing
+    /// `shield.applicationCategories = .all(except:)` accepts is an
+    /// `ApplicationToken`. Measured on device (iOS 26.6): when a shield comes
+    /// from a category — which is what "Block everything" builds, and what all
+    /// four default profiles use — this extension is handed the app's name and
+    /// bundle identifier but NOT its token. A bundle identifier cannot be
+    /// converted into one; tokens are minted by the system from a
+    /// `FamilyActivitySelection` and nowhere else.
+    ///
+    /// So the door could only ever have worked for the minority of profiles
+    /// that block a hand-picked list of apps, and was a dead control on every
+    /// other block screen. A button that closes the app and changes nothing is
+    /// worse than no button.
+    static func configuration(subject: String?) -> ShieldConfiguration {
         let name = subject ?? "It"
         let custom = AppGroup.defaults.string(forKey: ShieldMessage.storageKey) ?? ""
 
@@ -112,18 +124,6 @@ enum ShieldTheme {
         // iOS painting our colour at ~17% over a surface of its own, and every
         // style from `.systemUltraThinMaterialDark` to `.dark` landed on the
         // same grey.
-        guard offersSnooze else {
-            return ShieldConfiguration(
-                backgroundBlurStyle: nil,
-                backgroundColor: background,
-                icon: nil,
-                title: title,
-                subtitle: subtitle,
-                primaryButtonLabel: primary,
-                primaryButtonBackgroundColor: tone
-            )
-        }
-
         return ShieldConfiguration(
             backgroundBlurStyle: nil,
             backgroundColor: background,
@@ -131,10 +131,7 @@ enum ShieldTheme {
             title: title,
             subtitle: subtitle,
             primaryButtonLabel: primary,
-            primaryButtonBackgroundColor: tone,
-            secondaryButtonLabel: ShieldConfiguration.Label(
-                text: "I need it for 5 minutes", color: secondaryText
-            )
+            primaryButtonBackgroundColor: tone
         )
     }
 }

@@ -54,19 +54,14 @@ struct BlockScreenPreview: View {
 
                 Spacer(minLength: 0)
 
-                VStack(spacing: 8) {
-                    Text("Back to focus")
-                        .font(ZTheme.Font.display(16, weight: .semibold))
-                        .foregroundStyle(Color(hex: "0A0B0E"))
-                        .frame(maxWidth: .infinity, minHeight: 56)
-                        .background(tone, in: Capsule())
-                    Text("I need it for 5 minutes")
-                        .font(ZTheme.Font.body(14))
-                        .foregroundStyle(Color(hex: "E7E8EC").opacity(0.55))
-                        .frame(maxWidth: .infinity, minHeight: 52)
-                        .overlay(Capsule().strokeBorder(Color.white.opacity(0.10), lineWidth: 1))
-                }
-                .padding(.bottom, 24)
+                // One button, matching the real shield. The second — "I need it
+                // for 5 minutes" — is gone; see `ShieldTheme.configuration`.
+                Text("Back to focus")
+                    .font(ZTheme.Font.display(16, weight: .semibold))
+                    .foregroundStyle(Color(hex: "0A0B0E"))
+                    .frame(maxWidth: .infinity, minHeight: 56)
+                    .background(tone, in: Capsule())
+                    .padding(.bottom, 24)
             }
             .padding(.horizontal, 40)
         }

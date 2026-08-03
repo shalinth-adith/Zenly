@@ -6,6 +6,9 @@
 //  the relevant overload depending on whether the block came from an app, a
 //  website, or a category. We personalize with the subject's name when available.
 //
+//  Every overload draws the same one-button screen. See `ShieldTheme` for why
+//  the second button ("I need it for 5 minutes") no longer exists.
+//
 
 import ManagedSettings
 import ManagedSettingsUI
@@ -13,23 +16,21 @@ import ManagedSettingsUI
 final class ShieldConfigurationExtension: ShieldConfigurationDataSource {
     override func configuration(shielding application: Application) -> ShieldConfiguration {
         DistractionLog.recordAttempt()
-        PausedApp.record(name: application.localizedDisplayName, token: application.token)
-        return ShieldTheme.configuration(subject: application.localizedDisplayName,
-                                         offersSnooze: true)
+        PausedApp.record(name: application.localizedDisplayName)
+        return ShieldTheme.configuration(subject: application.localizedDisplayName)
     }
 
+    /// The overload that runs under "Block everything", which shields by
+    /// category — the default on all four shipped profiles.
     override func configuration(shielding application: Application,
                                 in category: ActivityCategory) -> ShieldConfiguration {
         DistractionLog.recordAttempt()
-        PausedApp.record(name: application.localizedDisplayName, token: application.token)
-        return ShieldTheme.configuration(subject: application.localizedDisplayName,
-                                         offersSnooze: true)
+        PausedApp.record(name: application.localizedDisplayName)
+        return ShieldTheme.configuration(subject: application.localizedDisplayName)
     }
 
     override func configuration(shielding webDomain: WebDomain) -> ShieldConfiguration {
         DistractionLog.recordAttempt()
-        // No token: the five-minute door is per-app, and a website has nothing
-        // to hand the snooze store.
         PausedApp.record(name: webDomain.domain)
         return ShieldTheme.configuration(subject: webDomain.domain)
     }

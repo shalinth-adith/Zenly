@@ -1,12 +1,12 @@
 //
 //  PausedApp.swift
-//  Zenly (shared: app + ZenlyShield + ZenlyShieldAction)
+//  Zenly (shared: app + ZenlyShield)
 //
 //  The last app a shield stood in front of.
 //
 //  `DistractionLog` counts attempts; this remembers the one that just happened
-//  — its name, when it happened, and its token — so the app can put up the
-//  Quiet spec's screen 03 at full size when you come back to it.
+//  — its name and when — so the app can put up the Quiet spec's screen 03 at
+//  full size when you come back to it.
 //
 //  That screen exists in two places for a reason. iOS draws the real shield
 //  from a `ShieldConfiguration`: nine primitive fields, laid out in another
@@ -14,17 +14,17 @@
 //  hanging off the top edge cannot be built there — see `ShieldRibbon`. It can
 //  be built here, on a surface the app owns, at exactly the size it was drawn.
 //
-//  The token is kept so the in-app screen can offer the same five-minute door
-//  the shield does, rather than showing a button that only looks like the comp.
+//  Name and time only. This used to keep the shielded app's `ApplicationToken`
+//  as well, for a five-minute door that no longer exists — and could not have
+//  worked anyway, since Screen Time withholds that token from a category
+//  shield. See `ShieldTheme.configuration`.
 //
 
 import Foundation
-import ManagedSettings
 
 enum PausedApp {
     private static let nameKey = "pausedAppName"
     private static let atKey = "pausedAppAt"
-    private static let tokenKey = "pausedAppToken"
     private static let seenKey = "pausedAppSeenAt"
 
     /// How recent a pause has to be for the app to still be talking about it.
@@ -35,18 +35,12 @@ enum PausedApp {
     static let window: TimeInterval = 10 * 60
 
     /// Called by the shield extension as it puts the screen up.
-    static func record(name: String?, token: ApplicationToken? = nil, at date: Date = Date()) {
+    static func record(name: String?, at date: Date = Date()) {
         let trimmed = (name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
 
         AppGroup.defaults.set(trimmed, forKey: nameKey)
         AppGroup.defaults.set(date.timeIntervalSince1970, forKey: atKey)
-
-        if let token, let data = try? JSONEncoder().encode(token) {
-            AppGroup.defaults.set(data, forKey: tokenKey)
-        } else {
-            AppGroup.defaults.removeObject(forKey: tokenKey)
-        }
     }
 
     /// The pause worth showing, or nil.
@@ -71,15 +65,8 @@ enum PausedApp {
         AppGroup.defaults.set(AppGroup.defaults.double(forKey: atKey), forKey: seenKey)
     }
 
-    /// The token of the app that was paused, when the shield recorded one.
-    /// Only apps have one; websites and whole categories do not.
-    static var token: ApplicationToken? {
-        guard let data = AppGroup.defaults.data(forKey: tokenKey) else { return nil }
-        return try? JSONDecoder().decode(ApplicationToken.self, from: data)
-    }
-
     static func clear() {
-        for key in [nameKey, atKey, tokenKey, seenKey] {
+        for key in [nameKey, atKey, seenKey] {
             AppGroup.defaults.removeObject(forKey: key)
         }
     }
