@@ -22,7 +22,6 @@ import FamilyControls
 struct ProfileEditView: View {
     @Environment(ProfileStore.self) private var store
     @Environment(AuthorizationService.self) private var authorization
-    @Environment(FocusSessionController.self) private var session
     @Environment(\.dismiss) private var dismiss
 
     /// nil = creating a new profile.
@@ -81,7 +80,7 @@ struct ProfileEditView: View {
                 if let savedProfile {
                     ProfileSavedView(profile: savedProfile,
                                      summary: savedSummary,
-                                     onStart: { start(savedProfile) },
+                                     onDone: { finish(savedProfile) },
                                      onSchedule: { schedule(savedProfile) })
                 } else {
                     editor
@@ -433,16 +432,16 @@ struct ProfileEditView: View {
             : "\(minutes), with nothing blocked yet."
     }
 
-    private func start(_ profile: FocusProfile) {
-        session.startFocus(profileName: profile.name ?? draft.name,
-                           accentHex: draft.accentHex,
-                           focusMinutes: draft.focusMinutes,
-                           breakMinutes: draft.breakMinutes,
-                           isStrict: draft.isStrict,
-                           blockAll: draft.blockAllApps,
-                           allowedWebDomains: domains.filter(Self.isValidDomain),
-                           block: draft.block,
-                           allow: draft.allow)
+    /// Make the new profile the active one and close.
+    ///
+    /// This screen used to offer "Start a … session" as its main action, and it
+    /// is gone on purpose. Starting a session from here meant starting it two
+    /// sheets deep on another tab, and then getting the user and the session
+    /// screen back to the same place — three separate SwiftUI presentation
+    /// problems for a button that saved one tap. The profile is selected on the
+    /// way out, so "Begin focus" on the Focus tab is the next thing under the
+    /// user's thumb, on a screen with no sheets in the way and one obvious CTA.
+    private func finish(_ profile: FocusProfile) {
         store.setActive(profile)
         dismiss()
     }
@@ -645,11 +644,16 @@ struct ProfileEditView: View {
 
 /// The confirmation the comp shows after a profile is created: an eyebrow, the
 /// new profile's icon inside its own halo, one plain sentence about what it
-/// will do, and the two things worth doing next.
+/// will do, and the things worth doing next.
+///
+/// The comp's first action was "Start a … session" and it is deliberately not
+/// here — see `ProfileEditView.finish`. The profile is made active on the way
+/// out instead, so the session begins where every other one does: the Focus
+/// screen's one bright button.
 private struct ProfileSavedView: View {
     let profile: FocusProfile
     let summary: String
-    let onStart: () -> Void
+    let onDone: () -> Void
     let onSchedule: () -> Void
 
     private var tone: Color { ZTheme.tone(forHex: profile.accentHex) }
@@ -690,20 +694,30 @@ private struct ProfileSavedView: View {
                         .multilineTextAlignment(.center)
                         .lineSpacing(3)
                         .frame(maxWidth: 250)
+                    // "Done" would otherwise leave the user holding a profile
+                    // with nothing said about how to use it.
+                    Text("It\u{2019}s selected on the Focus screen — begin whenever you like.")
+                        .font(ZTheme.Font.body(13))
+                        .foregroundStyle(ZTheme.Palette.text(0.30))
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(3)
+                        .frame(maxWidth: 250)
+                        .padding(.top, 6)
                 }
                 .padding(.top, 4)
 
                 Spacer(minLength: 0)
 
                 VStack(spacing: 4) {
-                    Button("Start a \(name) session") { onStart() }
+                    Button("Done") { Haptics.light(); onDone() }
                         .buttonStyle(QuietCTAStyle(tone: tone, isReady: true))
-                        .accessibilityIdentifier("profile-saved-start")
+                        .accessibilityIdentifier("profile-saved-done")
                     Button("Put it on the schedule") { Haptics.light(); onSchedule() }
                         .font(ZTheme.Font.body(14))
                         .foregroundStyle(ZTheme.Palette.text(0.55))
                         .frame(maxWidth: .infinity, minHeight: 44)
                         .buttonStyle(.plain)
+                        .accessibilityIdentifier("profile-saved-schedule")
                 }
             }
             .padding(.horizontal, 34)

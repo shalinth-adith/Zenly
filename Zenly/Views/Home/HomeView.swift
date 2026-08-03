@@ -22,7 +22,6 @@ struct HomeView: View {
     @AppStorage("userDisplayName", store: AppGroup.defaults) private var userName = ""
 
     @State private var selectedMinutes = 25
-    @State private var showSession = false
     /// Width of the profile switcher's scroll viewport, so the row inside can be
     /// told how much space it has to spread into. See `profilePicker`.
     @State private var viewportWidth: CGFloat = 0
@@ -39,7 +38,7 @@ struct HomeView: View {
                     VStack(spacing: ZTheme.Spacing.lg) {
                         header
 
-                        if session.isActive && !showSession {
+                        if session.isActive && session.isMinimized {
                             resumeBanner
                         }
                         if !authorization.isAuthorized {
@@ -67,24 +66,7 @@ struct HomeView: View {
             }
             .toolbar(.hidden, for: .navigationBar)
             .task { await prepare() }
-            .onChange(of: session.phase) { oldPhase, newPhase in
-                switch newPhase {
-                case .idle:
-                    showSession = false
-                case .summary:
-                    showSession = true // always surface the celebration
-                default:
-                    if oldPhase == .idle { showSession = true } // session just started
-                }
-            }
             .onChange(of: profiles.activeProfileID) { _, _ in syncDuration() }
-            .fullScreenCover(isPresented: $showSession) {
-                switch session.phase {
-                case .focus, .breakTime: SessionView(onMinimize: { showSession = false })
-                case .summary: SessionSummaryView()
-                case .idle: Color.clear
-                }
-            }
         }
     }
 
@@ -110,7 +92,7 @@ struct HomeView: View {
     }
 
     private var resumeBanner: some View {
-        Button { showSession = true } label: {
+        Button { session.surface() } label: {
             HStack(spacing: 10) {
                 Image(systemName: session.phase == .breakTime ? "cup.and.saucer.fill" : "timer")
                 Text(session.phase == .breakTime ? "Break" : session.profileName)

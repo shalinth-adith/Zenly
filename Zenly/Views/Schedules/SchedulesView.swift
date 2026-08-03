@@ -102,6 +102,12 @@ struct SchedulesView: View {
                                     onScheduleRequested: scheduleNewProfile)
                 }
             }
+            // The profile editor's "Start a … session" lives in a sheet this
+            // view presents. Close it so the session can come up over the app —
+            // UIKit will not present over a sheet that is still on screen.
+            .onReceive(NotificationCenter.default.publisher(for: .zenlyOpenFocus)) { _ in
+                editing = nil
+            }
             .confirmationDialog(
                 "Delete \u{201C}\(displayTitle(pendingDelete))\u{201D}?",
                 isPresented: Binding(get: { pendingDelete != nil },

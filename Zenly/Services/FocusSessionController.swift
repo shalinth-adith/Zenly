@@ -31,6 +31,18 @@ final class FocusSessionController {
     /// but nothing has been recorded and the remaining time is kept.
     private(set) var isPaused = false
 
+    /// Whether the user has tucked the session screen away to use the rest of
+    /// the app. Session state, not view state — it lives here because two views
+    /// need it (the cover that presents the session, and the Focus tab's resume
+    /// banner) and they sit at different levels of the hierarchy.
+    private(set) var isMinimized = false
+
+    /// True when there is a session screen to show at all.
+    var hasScreenToShow: Bool { isActive || phase == .summary }
+
+    func minimize() { isMinimized = true }
+    func surface() { isMinimized = false }
+
     private var phaseStart = Date()
     private var focusStartedAt = Date()
     private var isStrict = false
@@ -124,6 +136,8 @@ final class FocusSessionController {
         self.currentAllowedWebDomains = allowedWebDomains
         self.pausedSeconds = 0
         self.isPaused = false
+        // A session the user just asked for is never already tucked away.
+        self.isMinimized = false
 
         beginPhase(.focus, minutes: focusMinutes)
 
@@ -416,6 +430,7 @@ final class FocusSessionController {
                                  wasCompleted: completed,
                                  endedEarly: !completed,
                                  streak: history.currentStreak())
+        isMinimized = false          // the celebration is never tucked away
         phase = .summary
     }
 
