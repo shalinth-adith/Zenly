@@ -20,16 +20,24 @@ enum ActivityShieldStore {
     private static let webKey = "activityWebDomainsMap"
     private static let startKey = "activityStartMinutesMap"
     private static let endKey = "activityEndMinutesMap"
+    private static let windowStartKey = "activityWindowStartMap"
+    private static let windowEndKey = "activityWindowEndMap"
 
     /// - Parameters:
     ///   - weekdaysMask: bitmask of Calendar weekdays (1=Sun…7=Sat) the activity
     ///     applies to. 0 means "every day" (used for one-off sessions).
     ///   - blockAll: when true, shield everything except the allowlist.
     ///   - allowedWebDomains: research-mode allowed sites (empty = no web filter).
-    ///   - startMinutes / endMinutes: the activity's daily window as minutes-since
-    ///     -midnight, so `activeActivitiesNow` can tell which activities are live
-    ///     right now (needed to reconcile the shared shield store). Pass -1 for
-    ///     "no window" (always active on matching weekdays).
+    ///   - startMinutes / endMinutes: the activity's *daily* window as minutes-
+    ///     since-midnight, so `activeActivitiesNow` can tell which activities are
+    ///     live right now (needed to reconcile the shared shield store). Pass -1
+    ///     for "no window" (always active on matching weekdays).
+    ///   - absoluteWindow: for a one-off session, the exact dates it runs
+    ///     between. A one-off is not a daily window and must not be judged like
+    ///     one: minutes-since-midnight is a minute coarse at each edge, and an
+    ///     entry left behind by a killed app would come back to life at the same
+    ///     clock time the next day. When this is set it decides `isActive` on its
+    ///     own. Recurring schedules pass nil and keep the weekday + daily rules.
     static func set(block: FamilyActivitySelection,
                     allow: FamilyActivitySelection,
                     blockAll: Bool,
@@ -37,6 +45,7 @@ enum ActivityShieldStore {
                     weekdaysMask: Int = 0,
                     startMinutes: Int = -1,
                     endMinutes: Int = -1,
+                    absoluteWindow: (start: Date, end: Date)? = nil,
                     for activity: String) {
         var blockMap = map(blockKey)
         var allowMap = map(allowKey)
@@ -64,6 +73,28 @@ enum ActivityShieldStore {
         var endMap = intMap(endKey)
         endMap[activity] = endMinutes
         AppGroup.defaults.set(endMap, forKey: endKey)
+
+        var windowStartMap = doubleMap(windowStartKey)
+        var windowEndMap = doubleMap(windowEndKey)
+        // Reference-date, not 1970. `Date` holds `timeIntervalSinceReferenceDate`,
+        // so that number round-trips through a Double exactly. Going via 1970
+        // adds ~9.78e8 seconds on the way out and subtracts it on the way back,
+        // which is not reversible in binary floating point — the rebuilt date
+        // lands a hundred nanoseconds either side, and `now >= start` was coming
+        // back false at the very instant a session began.
+        windowStartMap[activity] = absoluteWindow?.start.timeIntervalSinceReferenceDate
+        windowEndMap[activity] = absoluteWindow?.end.timeIntervalSinceReferenceDate
+        AppGroup.defaults.set(windowStartMap, forKey: windowStartKey)
+        AppGroup.defaults.set(windowEndMap, forKey: windowEndKey)
+    }
+
+    /// The exact dates a one-off runs between, or nil for a recurring schedule
+    /// (and for entries written by a build that predates this).
+    static func absoluteWindow(for activity: String) -> (start: Date, end: Date)? {
+        guard let start = doubleMap(windowStartKey)[activity],
+              let end = doubleMap(windowEndKey)[activity] else { return nil }
+        return (Date(timeIntervalSinceReferenceDate: start),
+                Date(timeIntervalSinceReferenceDate: end))
     }
 
     static func blockAll(for activity: String) -> Bool {
@@ -103,6 +134,14 @@ enum ActivityShieldStore {
     /// window, including windows that wrap past midnight (whose post-midnight tail
     /// belongs to the *previous* day's weekday selection).
     static func isActive(_ activity: String, now: Date = Date()) -> Bool {
+        // A one-off session carries the exact dates it runs between, and that
+        // answers the question completely: no weekday mask, no wrap-past-midnight
+        // arithmetic, and no chance of an abandoned entry reporting itself active
+        // again tomorrow at the same time of day.
+        if let window = absoluteWindow(for: activity) {
+            return now >= window.start && now < window.end
+        }
+
         let cal = Calendar.current
         let mask = weekdaysMask(for: activity)               // 0 = every day
         let today = cal.component(.weekday, from: now)
@@ -141,10 +180,18 @@ enum ActivityShieldStore {
         AppGroup.defaults.set(startMap, forKey: startKey)
         var endMap = intMap(endKey); endMap[activity] = nil
         AppGroup.defaults.set(endMap, forKey: endKey)
+        var windowStartMap = doubleMap(windowStartKey); windowStartMap[activity] = nil
+        AppGroup.defaults.set(windowStartMap, forKey: windowStartKey)
+        var windowEndMap = doubleMap(windowEndKey); windowEndMap[activity] = nil
+        AppGroup.defaults.set(windowEndMap, forKey: windowEndKey)
     }
 
     private static func intMap(_ key: String) -> [String: Int] {
         AppGroup.defaults.dictionary(forKey: key) as? [String: Int] ?? [:]
+    }
+
+    private static func doubleMap(_ key: String) -> [String: Double] {
+        AppGroup.defaults.dictionary(forKey: key) as? [String: Double] ?? [:]
     }
 
     private static func strListMap(_ key: String) -> [String: [String]] {

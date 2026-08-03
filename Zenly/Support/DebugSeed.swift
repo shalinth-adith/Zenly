@@ -90,6 +90,20 @@ enum DebugSeed {
                               endsAt: Date().addingTimeInterval(16 * 60))
     }
 
+    /// Drop any persisted session so the app launches idle.
+    ///
+    /// A running session now covers the whole app (see `RootView`), so one left
+    /// behind by an earlier UI test is restored on the next launch and sits over
+    /// the tab bar, failing everything that follows. Ending a session through
+    /// the UI is a deliberate hold — slow and easy to miss — so tests that start
+    /// one ask for a clean slate instead.
+    static func clearSessionIfRequested() {
+        guard ProcessInfo.processInfo.arguments.contains("ZenlyUITestResetSession")
+        else { return }
+        FocusSessionStore.clear()
+        ActiveSessionInfo.clear()
+    }
+
     // MARK: - Seeding
 
     /// Four more profiles, so Home's switcher has eight names and must scroll.

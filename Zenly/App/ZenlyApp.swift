@@ -29,6 +29,10 @@ struct ZenlyApp: App {
         // delivers — otherwise foreground notifications are silently dropped.
         NotificationService.shared.activate()
         #if DEBUG
+        // Before anything reads it — `FocusSessionController.restoreIfNeeded`
+        // runs on the first `.active` and would bring a test's leftover session
+        // straight back.
+        DebugSeed.clearSessionIfRequested()
         MainActor.assumeIsolated {
             DebugSeed.seedDemoHistoryIfRequested()
             DebugSeed.seedManyProfilesIfRequested()
@@ -81,6 +85,18 @@ struct ZenlyApp: App {
                 session.restoreIfNeeded()
                 session.applyPendingControlRequest()
                 session.refresh()
+                // Recompute the shields from what is true right now.
+                //
+                // The shared ManagedSettingsStore outlives every process that
+                // writes to it, so it can drift: a session under fifteen minutes
+                // is never handed to DeviceActivity (Apple's floor), which means
+                // no extension wakes to tear it down if iOS kills the app
+                // mid-session. Reconciling on foreground is what settles that.
+                //
+                // Safe in every state: it derives the answer from the activities
+                // registered right now, so it re-asserts a live session or an
+                // open schedule window and clears when neither applies.
+                session.reapplyEnforcement()
                 applyFocusFilterProfile()
                 startPendingFocusIfNeeded()
                 ScheduleAutoStart.run(schedules: schedules, session: session, profiles: profiles)
