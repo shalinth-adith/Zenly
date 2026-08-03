@@ -220,6 +220,20 @@ final class FocusSessionController {
             finishFocus(completed: true) // completed while away → record it
         } else {
             remainingSeconds = totalSeconds - elapsed
+            // Put the shields back rather than assuming they survived.
+            //
+            // This restored the countdown, the card and the block screen's
+            // strings, and nothing else — it trusted that whatever `startFocus`
+            // wrote to the shared ManagedSettingsStore was still in place. Most
+            // of the time it is; when it is not, the session came back as
+            // RUNNING with nothing enforced and no code path that would ever
+            // re-apply for the rest of it. A timer counting down over an
+            // unblocked phone is the worst shape this app can take, and it is
+            // exactly what App Review reported.
+            //
+            // Applying shields that are already applied is a no-op, so this
+            // costs nothing when the usual case holds.
+            reassertEnforcement(forRemaining: remainingSeconds)
             liveActivity.start(profileName: profileName, accentHex: accentHex,
                                startsAt: phaseStart,
                                endsAt: phaseStart.addingTimeInterval(TimeInterval(totalSeconds)),
@@ -228,6 +242,23 @@ final class FocusSessionController {
                                   endsAt: phaseStart.addingTimeInterval(TimeInterval(totalSeconds)))
             startTicker()
         }
+    }
+
+    /// Register this session and apply its shields for the time it has left.
+    ///
+    /// Idempotent, and the order matters: the store entry goes in first because
+    /// `ShieldReconciler` clears anything it cannot account for, so a session
+    /// missing from the store would have its own shields taken down by the very
+    /// check meant to keep them up.
+    private func reassertEnforcement(forRemaining seconds: Int) {
+        schedule.startOneOff(activity: .focusSession,
+                             block: currentBlock, allow: currentAllow,
+                             blockAll: currentBlockAll,
+                             allowedWebDomains: currentAllowedWebDomains,
+                             durationMinutes: max(1, Int(ceil(Double(seconds) / 60))))
+        blocking.startBlocking(currentBlock, allowing: currentAllow,
+                               blockAll: currentBlockAll,
+                               allowedWebDomains: currentAllowedWebDomains)
     }
 
     // MARK: - Pause / resume
@@ -465,6 +496,18 @@ final class FocusSessionController {
     /// so granting a five-minute pass is just data with an expiry — this is
     /// what makes the pass take effect now instead of at the next foreground.
     func reapplyEnforcement() {
+        // A live session is re-registered BEFORE reconciling, and that ordering
+        // is the whole safety of this method.
+        //
+        // `reconcile` rebuilds the shield state from the registered activities
+        // and clears whatever it cannot account for. Called against a running
+        // session that is missing from the store — which is how this app's worst
+        // bug worked — it does not restore enforcement, it removes it. Putting
+        // the session back first means this check can only ever add shields to a
+        // running session, never take them away.
+        if phase == .focus && !isPaused {
+            reassertEnforcement(forRemaining: remainingSeconds)
+        }
         blocking.reconcile()
     }
 

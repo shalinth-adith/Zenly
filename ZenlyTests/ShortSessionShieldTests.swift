@@ -119,6 +119,42 @@ struct ShortSessionShieldTests {
         #expect(ActivityShieldStore.isActive(activity, now: start.addingTimeInterval(4 * 60 + 31)))
     }
 
+    // MARK: - Re-asserting a session already under way
+
+    /// `restoreIfNeeded` (app killed mid-session) and `reapplyEnforcement`
+    /// (foreground) both re-register the live session for the time it has LEFT,
+    /// not its original length. The new window must replace the old one cleanly
+    /// and still read as enforcing — if it did not, the reconcile that follows
+    /// would clear the very shields it is meant to protect.
+    @Test func reRegisteringForTheRemainingTimeStillReadsAsEnforcing() {
+        clear(); defer { clear() }
+        let start = Date()
+        register(start: start, minutes: 25)
+
+        // Ten minutes in, the app comes back and re-asserts the last fifteen.
+        let resumedAt = start.addingTimeInterval(10 * 60)
+        register(start: resumedAt, minutes: 15)
+
+        #expect(ActivityShieldStore.isActive(activity, now: resumedAt))
+        #expect(ActivityShieldStore.activeActivitiesNow(resumedAt).contains(activity))
+        // Still enforcing right up to where the original session ended...
+        #expect(ActivityShieldStore.isActive(activity, now: start.addingTimeInterval(24 * 60)))
+        // ...and no longer, so the re-registration did not extend the session.
+        #expect(!ActivityShieldStore.isActive(activity, now: start.addingTimeInterval(25 * 60 + 1)))
+    }
+
+    /// The case that produced "a timer counting down over an unblocked phone":
+    /// a session is under way but has no entry, so a reconcile would find
+    /// nothing enforcing and clear everything. Re-asserting first is what turns
+    /// that from a wipe into a repair.
+    @Test func aSessionWithNoEntryReadsAsNothingEnforcing() {
+        clear(); defer { clear() }
+        #expect(!ActivityShieldStore.activeActivitiesNow().contains(activity))
+
+        register(start: Date(), minutes: 5)
+        #expect(ActivityShieldStore.activeActivitiesNow().contains(activity))
+    }
+
     // MARK: - Recurring schedules keep the weekday rules
 
     /// A recurring schedule passes no absolute window, so it must still be judged
